@@ -48,7 +48,7 @@ To update a project:
 > lltool update "C:\path\to\project.ppjs"
 ```
 
-> *** ❗The choice to backup or not the original file is yours: do in your script❗ ***
+> ***❗The choice to backup or not the original file is yours: do in your script❗***
 
 To update a project without overwriting the original file:
 
@@ -56,7 +56,7 @@ To update a project without overwriting the original file:
 > lltool update "C:\path\to\project.ppjs" --out "C:\path\to\project-updated.ppjs"
 ```
 
-> *** ❗The output file will be overwritten without any confirmation❗ ***
+> ***❗The output file will be overwritten without any confirmation❗***
 
 To convert all `.h` files in the current directory into a given output directory:
 
@@ -146,7 +146,7 @@ _________________________________________________________________________
 ### `.h` files
 Sipro header files supported syntax is:
 
-```cpp
+```c
 // line comment
 /*  -------------
     block comment
@@ -159,14 +159,14 @@ Inlined comments have meaning and define the resource description.
 
 Sipro registers will be recognized and exported:
 
-```cpp
+```c
 #define vqPos vq100 // Position
 ```
 
 It's possible to export also numeric constants
 declaring their *IEC 61131-3* type as in:
 
-```cpp
+```c
 #define PI 3.14159 // [LREAL] Circumference/diameter ratio
 ```
 
