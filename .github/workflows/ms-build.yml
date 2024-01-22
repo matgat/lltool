@@ -1,0 +1,68 @@
+name: ms-build
+
+on:
+  workflow_dispatch
+  #push:
+  #  branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    env:
+      PROJECT_FILE_PATH: build/lltool.vcxproj
+      BUILD_CONFIGURATION: Release
+      BUILD_PLATFORM: x64
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Add MSBuild to PATH
+      uses: microsoft/setup-msbuild@v1.3.1
+
+    - name: Install dependencies
+      run: |
+        git clone https://github.com/microsoft/vcpkg.git
+        .\\vcpkg\\bootstrap-vcpkg.bat
+        .\\vcpkg\vcpkg integrate install
+        .\\vcpkg\vcpkg install fmt:x64-windows
+
+    #- name: Restore NuGet packages
+    #  working-directory: ${{env.GITHUB_WORKSPACE}}
+    #  run: nuget restore ${{env.PROJECT_FILE_PATH}}
+
+    - name: Build
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: msbuild ${{env.PROJECT_FILE_PATH}} -t:rebuild -p:Configuration=${{env.BUILD_CONFIGURATION}} -p:Platform=${{env.BUILD_PLATFORM}}
+
+  run-tests:
+    runs-on: windows-latest
+    env:
+      PROJECT_FILE_PATH: build/lltool-test.vcxproj
+      BUILD_CONFIGURATION: Release
+      BUILD_PLATFORM: x64
+      
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Add MSBuild to PATH
+      uses: microsoft/setup-msbuild@v1.3.1
+
+    - name: Install dependencies
+      run: |
+        git clone https://github.com/microsoft/vcpkg.git
+        .\\vcpkg\\bootstrap-vcpkg.bat
+        .\\vcpkg\vcpkg integrate install
+        .\\vcpkg\vcpkg install fmt:x64-windows
+
+    - name: Build
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: msbuild ${{env.PROJECT_FILE_PATH}} -t:rebuild -p:Configuration=${{env.BUILD_CONFIGURATION}} -p:Platform=${{env.BUILD_PLATFORM}}
+
+    - name: Check
+      working-directory: build/bin/win-${{env.BUILD_PLATFORM}}-${{env.BUILD_CONFIGURATION}}
+      run: dir .
+
+    - name: Run
+      working-directory: build/bin/win-${{env.BUILD_PLATFORM}}-${{env.BUILD_CONFIGURATION}}
+      run: ./lltool-test.exe
