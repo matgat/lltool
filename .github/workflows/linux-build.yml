@@ -1,0 +1,46 @@
+name: linux-build
+
+on:
+  workflow_dispatch
+  #push:
+  #  branches: [ "main" ]
+
+jobs:
+  run-tests:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Use a recent compiler
+      run: |
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/ppa -y
+        sudo apt update
+        sudo apt install g++-13 gcc-13
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 --slave /usr/bin/g++ g++ /usr/bin/g++-13 --slave /usr/bin/gcov gcov /usr/bin/gcov-13
+
+    - name: Install dependencies
+    #  run: |
+    #    sudo apt-get update
+    #    sudo apt install -y libfmt-dev
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake
+        git clone https://github.com/fmtlib/fmt.git
+        cd fmt
+        mkdir build
+        cd build
+        cmake ..
+        make
+        sudo make install
+
+    - name: build
+      run: |
+        g++ --version
+        make test
+      working-directory: ./build
+
+    - name: run_tests
+      run: lltool-test
+      working-directory: ./build/bin
