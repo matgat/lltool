@@ -1,0 +1,23 @@
+# [generic]
+*.log
+**/tmp
+
+# [python]
+__pycache__
+*.pyc
+
+# [c++]
+*.gch
+*.pch
+*.o
+*.a
+*.obj
+*.exe
+
+# [msvc]
+.vs
+*.pdb
+*.ilk
+
+# [specific]
+build/bin
