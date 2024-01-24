@@ -25,14 +25,14 @@ namespace sys //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 #if defined(MS_WINDOWS)
 
 //---------------------------------------------------------------------------
-void add_to_path(std::initializer_list<std::string_view> folders) noexcept
+void add_to_path(const std::initializer_list<std::string_view> folders) noexcept
 {
     const std::string folder_list = str::join_left(';', folders);
     ::_putenv_s("PATH", folder_list.c_str());
 }
 
 //---------------------------------------------------------------------------
-void add_to_path_expanding_vars(std::initializer_list<std::string_view> folders) noexcept
+void add_to_path_expanding_vars(const std::initializer_list<std::string_view> folders) noexcept
 {
     const std::string folder_list = str::join_left(';', folders);
     ::_putenv_s("PATH", sys::expand_env_vars(folder_list).c_str());
@@ -81,14 +81,12 @@ void add_to_path_expanding_vars(std::initializer_list<std::string_view> folders)
 /////////////////////////////////////////////////////////////////////////////
 static ut::suite<"system_base"> system_base_tests = []
 {////////////////////////////////////////////////////////////////////////////
-//    using namespace std::literals; // "..."sv
-//    using ut::expect;
-//    using ut::that;
-//
+
 //    ut::test("sys::xxx()") = []
 //       {
-//        expect( that % true );
+//        ut::expect( ut::that % true );
 //       };
+
 };///////////////////////////////////////////////////////////////////////////
 #endif // TEST_UNITS ////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////

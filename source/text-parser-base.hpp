@@ -3,63 +3,20 @@
 //  Common encoding agnostic parsing facilities
 //  ---------------------------------------------
 #include <cassert>
-#include <cstdint> // std::uint8_t
-#include <stdexcept> // std::exception, std::runtime_error
-#include <concepts>
-#include <functional> // std::function
+#include <concepts> // std::predicate
 #include <array>
-#include <string>
-#include <string_view>
+
 #include <fmt/format.h> // fmt::format
 
+#include "parser_common.hpp" // parse::error, parse::flags
+#include "fnotify_type.hpp" // fnotify_t
 #include "text.hpp" // text::*
 
-using namespace std::literals; // "..."sv
 
 
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 namespace text
 {
-
-
-/////////////////////////////////////////////////////////////////////////////
-class parse_error final : public std::exception
-{
- private:
-    std::string m_msg;
-    std::string m_file;
-    std::size_t m_line;
-
- public:
-    explicit parse_error(std::string&& msg, const std::string_view fil, const std::size_t lin) noexcept
-       : m_msg{std::move(msg)}
-       , m_file{fil}
-       , m_line{lin}
-        {}
-
-    std::string const& file() const noexcept { return m_file; }
-    std::size_t line() const noexcept { return m_line; }
-
-    char const* what() const noexcept override { return m_msg.c_str(); }
-};
-
-
-/////////////////////////////////////////////////////////////////////////////
-using parse_flags_t = std::uint8_t;
-namespace parse_flag
-{
-    enum : parse_flags_t
-    {
-       NONE = 0x0
-      ,SKIP_STOPPER = 0x1 // Skip the codepoint that ended the collect
-       //,RESERVED = 0x2 // Reserved
-       //,RESERVED = 0x4 // Reserved
-       //,RESERVED = 0x8 // Reserved
-    };
-}
-
-using fnotify_t = std::function<void(std::string&&)>;
-
 
 /////////////////////////////////////////////////////////////////////////////
 template<text::Enc ENC>
@@ -115,7 +72,6 @@ class ParserBase
     [[nodiscard]] constexpr std::size_t curr_codepoint_byte_offset() const noexcept { return m_curr_codepoint_byte_offset; }
     [[nodiscard]] constexpr char32_t curr_codepoint() const noexcept { return m_curr_codepoint; }
 
- public:
     //-----------------------------------------------------------------------
     static constexpr void default_notify(std::string&&) {} // { fmt::print(fmt::runtime(msg)); }
     constexpr void set_on_notify_issue(fnotify_t const& f) { m_on_notify_issue = f; }
@@ -128,17 +84,17 @@ class ParserBase
        {
         std::swap(m_file_path, pth);
        }
-     [[nodiscard]] parse_error create_parse_error(std::string&& msg) const noexcept
+     [[nodiscard]] parse::error create_parse_error(std::string&& msg) const noexcept
        {
         return create_parse_error(std::move(msg), m_line);
        }
-     [[nodiscard]] parse_error create_parse_error(std::string&& msg, const std::size_t l) const noexcept
+     [[nodiscard]] parse::error create_parse_error(std::string&& msg, const std::size_t l) const noexcept
        {
         if( m_file_path.empty() )
            {// I'm probably parsing a buffer
-            return parse_error(std::move(msg), "buffer", l);
+            return parse::error(std::move(msg), "buffer", l);
            }
-        return parse_error(std::move(msg), m_file_path, l);
+        return parse::error(std::move(msg), m_file_path, l);
        }
 
     //-----------------------------------------------------------------------
@@ -303,14 +259,14 @@ class ParserBase
     //-----------------------------------------------------------------------
     //const auto bytes = parser.collect_bytes_until(text::is_any_of<U'=',U':'>, text::is_endline);
     template<std::predicate<const char32_t> CodepointPredicate =decltype(text::is_always_false)>
-    [[nodiscard]] constexpr std::string_view collect_bytes_until(CodepointPredicate is_end, CodepointPredicate is_unexpected =text::is_always_false, const parse_flags_t flags =parse_flag::NONE)
+    [[nodiscard]] constexpr std::string_view collect_bytes_until(CodepointPredicate is_end, CodepointPredicate is_unexpected =text::is_always_false, const parse::flags flags =parse::flag::NONE)
        {
         const auto start = save_context();
         do {
             if( is_end(curr_codepoint()) ) [[unlikely]]
                {
                 std::string_view collected = m_buf.get_view_between(start.curr_codepoint_byte_offset, m_curr_codepoint_byte_offset);
-                 if( flags & parse_flag::SKIP_STOPPER )
+                 if( flags & parse::flag::SKIP_STOPPER )
                    {
                     [[maybe_unused]] const bool has_next = get_next(); // Skip termination codepoint
                    }
@@ -344,7 +300,7 @@ class ParserBase
             a[0] = true;
             for(std::size_t i=1; i<a.size(); ++i)
                {
-                a[i] = a[i-1] && end_blk[i-1]==end_blk[i];
+                a[i] = a[i-1] and end_blk[i-1]==end_blk[i];
                }
             return a;
            }(end_block_arr);
@@ -397,13 +353,13 @@ class ParserBase
     template<char32_t end_codepoint>
     [[nodiscard]] constexpr std::string_view collect_bytes_until()
        {
-        return collect_bytes_until(text::is<end_codepoint>, text::is_always_false, parse_flag::SKIP_STOPPER);
+        return collect_bytes_until(text::is<end_codepoint>, text::is_always_false, parse::flag::SKIP_STOPPER);
        }
 
 
     //-----------------------------------------------------------------------
     template<std::predicate<const char32_t> CodepointPredicate =decltype(text::is_always_false)>
-    [[nodiscard]] constexpr std::u32string collect_until(CodepointPredicate is_end, CodepointPredicate is_unexpected =text::is_always_false, const parse_flags_t flags =parse_flag::NONE)
+    [[nodiscard]] constexpr std::u32string collect_until(CodepointPredicate is_end, CodepointPredicate is_unexpected =text::is_always_false, const parse::flags flags =parse::flag::NONE)
        {
         const std::string_view bytes = collect_bytes_until(is_end, is_unexpected, flags);
         return text::to_utf32<ENC>(bytes);
@@ -413,7 +369,7 @@ class ParserBase
     template<char32_t end_codepoint>
     [[nodiscard]] constexpr std::u32string collect_until()
        {
-        return collect_until(text::is<end_codepoint>, text::is_always_false, parse_flag::SKIP_STOPPER);
+        return collect_until(text::is<end_codepoint>, text::is_always_false, parse::flag::SKIP_STOPPER);
        }
 
     //-----------------------------------------------------------------------
@@ -455,8 +411,6 @@ class ParserBase
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
 static ut::suite<"text::ParserBase"> ParserBase_tests = []
 {////////////////////////////////////////////////////////////////////////////
-    using namespace std::literals; // "..."sv
-    //using namespace ut::literals; // _ul
     using ut::expect;
     using ut::that;
     using ut::throws;
@@ -587,11 +541,11 @@ static ut::suite<"text::ParserBase"> ParserBase_tests = []
         expect( parser.eat(U'\n') and parser.curr_line()==2u );
 
         expect( parser.eat(U'<') and parser.curr_line()==2u );
-        expect( throws<text::parse_error>([&parser] { [[maybe_unused]] auto n = parser.collect_bytes_until<U'☺'>(); }) ) << "missing closing character should throw\n";
+        expect( throws<parse::error>([&parser] { [[maybe_unused]] auto n = parser.collect_bytes_until<U'☺'>(); }) ) << "missing closing character should throw\n";
         expect( parser.collect_bytes_until<U'>'>()=="tag"sv and parser.curr_line()==2u and parser.got(U'a') );
         expect( parser.eat(U"a=\"") );
-        expect( throws<text::parse_error>([&parser] { [[maybe_unused]] auto n = parser.collect_until(text::is<U'*'>, text::is_endline, text::parse_flag::SKIP_STOPPER); }) ) << "missing closing character in same line should throw\n";
-        expect( parser.collect_until(text::is<U'\"'>, text::is_endline, text::parse_flag::SKIP_STOPPER)==U""sv and parser.got(U' ') );
+        expect( throws<parse::error>([&parser] { [[maybe_unused]] auto n = parser.collect_until(text::is<U'*'>, text::is_endline, parse::flag::SKIP_STOPPER); }) ) << "missing closing character in same line should throw\n";
+        expect( parser.collect_until(text::is<U'\"'>, text::is_endline, parse::flag::SKIP_STOPPER)==U""sv and parser.got(U' ') );
 
         parser.skip_blanks();
         expect( parser.eat(U"b=\"") );
@@ -636,7 +590,7 @@ static ut::suite<"text::ParserBase"> ParserBase_tests = []
         parser.skip_line();
 
         expect( parser.eat(U'b') and parser.eat(U'=') and parser.curr_line()==2 );
-        expect( throws<text::parse_error>([&parser] { [[maybe_unused]] auto n = parser.extract_index(); }) ) << "invalid index should throw\n";
+        expect( throws<parse::error>([&parser] { [[maybe_unused]] auto n = parser.extract_index(); }) ) << "invalid index should throw\n";
         expect( parser.eat(U'h') );
         expect( that % parser.extract_index()==1u );
         expect( parser.eat_endline() and parser.curr_line()==3u );

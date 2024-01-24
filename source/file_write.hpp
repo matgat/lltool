@@ -35,7 +35,7 @@ class file_write final
     explicit file_write(const char* const pth_cstr, const flags_t flags =NONE)
       : m_fstream( file_open(pth_cstr, (flags & file_write::APPEND) ? "ab" : "wb") )
        {
-        if( !m_fstream )
+        if( not m_fstream )
            {
             throw std::runtime_error( fmt::format("Cannot write to file {}", pth_cstr) );
            }

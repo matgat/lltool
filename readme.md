@@ -35,12 +35,27 @@ Command line structure:
 |      2       | Operation aborted due to a fatal error |
 
 
-### Examples
-To print usage info:
+
+### Command line invocation
+
+```bat
+> lltool [task] [arguments in any order]
+```
+
+The first argument selects the task; the order of the subsequent arguments
+is not relevant, except when the command switch must be followed by a value
+such as `--out` or `--options`.
+The switches can be passed in a brief notation using a single hyphen,
+for example `-vF` is equivalent to `--verbose --force`.
+
+To check the available command line switches:
 
 ```bat
 > lltool --help
 ```
+
+
+### Examples
 
 To update a project:
 
@@ -48,29 +63,35 @@ To update a project:
 > lltool update "C:\path\to\project.ppjs"
 ```
 
-> ***❗The choice to backup or not the original file is yours: do in your script❗***
+> ***❗The choice to backup or not the original file is yours: do it in your script❗***
 
 To update a project without overwriting the original file:
 
 ```bat
-> lltool update "C:\path\to\project.ppjs" --out "C:\path\to\project-updated.ppjs"
+> lltool update "C:\path\to\project.ppjs" --to "C:\path\to\project-updated.ppjs" --force
 ```
 
-> ***❗The output file will be overwritten without any confirmation❗***
+> ***Use `--force` to overwrite the output file if existing***
 
-To convert all `.h` files in the current directory into a given output directory:
+To convert a `.h` file to the corresponding `.pll` and `.plclib` in a
+given directory:
 
 ```sh
-$ lltool convert --output plc/LogicLab/generated-libs  prog/*.h
+$ lltool convert file.h --force --to path/to/dir
 ```
+
+> ***Use `--force` to allow write in the given directory if already existing***
 
 To convert all `.h` files in `prog/` and all `.pll` files in `plc/`,
-deleting existing files in the output folder,
-sorting objects by name and indicating the `plclib` schema version:
+deleting existing files in the given output folder and
+indicating some conversion options:
 
 ```sh
-$ lltool convert --fussy --options sort:by-name,schemaver:2.8 --clear --output plc/LogicLab/generated-libs  prog/*.h plc/*.pll
+$ lltool convert --options plclib-schemaver:2.8,plclib-indent:1 --force --to plc/LogicLab/generated-libs  prog/*.h plc/*.pll
 ```
+
+> ***❗Beware of output file name clashes of globbed input files❗***
+
 
 
 _________________________________________________________________________
@@ -81,6 +102,10 @@ their content in the project file.
 If the external libraries are stored in a different encoding,
 their content will be embedded respecting the original project file
 encoding.
+This operation has a strong guarantee: in case of typical runtime errors
+(ex. parsing errors) the filesystem is left in the same as before the
+invocation.
+
 
 The supported project formats are:
 |           |                     |
@@ -94,20 +119,25 @@ The supported library formats are:
 | `.pll`    | (Plc LogicLab3 Library) |
 | `.plclib` | (LogicLab5 PLC LIBrary) |
 
+> ***File type is determined by its extension (must be lowercase)***
+
 
 ### Limitations
 The following limitations are introduced to maximize efficiency:
 * The program assumes well formed files
 * Line breaks won't be converted: if the external libraries and
-the project file use a different end of line character sequence,
-the resulting file will contain mixed line breaks
+  the project file use a different end of line character sequence,
+  the resulting file will contain mixed line breaks
 * plclib content won't be reindented
+
 
 
 _________________________________________________________________________
 ## Converting to library
 The operation consists in taking some input files and translating their
 content in another format.
+This operation doesn't offer any guarantee in case of runtime errors:
+an output file could have been left in a corrupted state.
 
 The supported conversions are:
 * `.h` → `.pll`, `.plclib`
@@ -117,6 +147,8 @@ Where
 * `.h` (Sipro header)
 * `.pll` (Plc LogicLab3 Library)
 * `.plclib` (LogicLab5 PLC LIBrary)
+
+> ***File type is determined by its extension, mind the case!***
 
 Sipro header files resemble a *c-like* header containing just
 `#define` directives.
@@ -130,7 +162,8 @@ The following limitations are introduced to maximize efficiency:
 * Input files must be encoded in `UTF-8`
 * Input files must be syntactically correct
 * Input files should use preferably unix line breaks (`\n`)
-* Descriptions (`.h` `#define` inlined comments and `.pll` `{DE: ...}`) cannot contain XML special characters nor line breaks
+* Descriptions (`.h` `#define` inlined comments and `.pll` `{DE: ...}`)
+  cannot contain XML special characters nor line breaks
 
 _IEC 61131-3_ syntax
 * Parser is case sensitive (uppercase keywords)
@@ -206,9 +239,9 @@ The recognized fields are:
 
 
 _________________________________________________________________________
-## Text files encoding and like breaks
-Some limitations of this program come directly from the author biased
-opinions about the following topics:
+## Author's biased opinions
+Some limitations of this program come directly from the
+biased opinions of the author about the following topics:
 * Text file encoding: `UTF-8` it's the only sane choice
   _Rationale: `8-bit ANSI` must be finally dropped because
               incomplete, ambiguous and not portable.
@@ -216,12 +249,19 @@ opinions about the following topics:
               these mostly `ASCII` sources, have only
               disadvantages: huge waste of space and
               cache, endianness, less compatible with
-              old tools_
+              old tools. `UTF-16` is the worst choice
+              of all, combining the previous drawbacks
+              with having a variable number of codepoints_
 * Line breaks should be finally uniformed to _unix_ (`LF`, `\n`)
   _Rationale: No technical reason for two-chars `\r\n` lines breaks,
               unless supporting ancient teletype devices, this just
               introduces avoidable waste of space, (parsing) time
               and annoyances when using different operating systems_
+* Mind the case of file names
+  _Rationale: `Windows` users often don't pay attention if a file
+              has a lowercase or uppercase name, but the rest of
+              the world do, so better take into account that_
+
 
 
 _________________________________________________________________________
@@ -274,7 +314,7 @@ $ sudo apt install -y libfmt-dev
 
 ### Windows
 
-On Windows you need the latest Microsoft Visual Studio (Community Edition).
+On Windows you need at least Microsoft Visual Studio 2022 (Community Edition).
 Once you have `msbuild` visible in path, you can launch the build from the command line:
 
 ```bat
@@ -286,12 +326,13 @@ install the dependency beforehand with `vcpkg`:
 
 ```bat
 > git clone https://github.com/Microsoft/vcpkg.git
-> .\vcpkg\bootstrap-vcpkg.bat -disableMetrics
-> .\vcpkg\vcpkg integrate install
-> .\vcpkg\vcpkg install fmt:x64-windows
+> cd .\vcpkg
+> .\bootstrap-vcpkg.bat -disableMetrics
+> .\vcpkg integrate install
+> .\vcpkg install fmt:x64-windows
 ```
 
-To just update the libraries:
+To just update the `vcpkg` libraries:
 
 ```bat
 > cd .\vcpkg

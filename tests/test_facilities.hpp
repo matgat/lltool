@@ -4,9 +4,11 @@
 //  #include "test_facilities.hpp" // test::*
 //  ---------------------------------------------
 #include <stdexcept>
+#include <vector>
 #include <string_view>
+#include <ranges> // std::ranges::sort
 #include <cstdlib> // std::system()
-#include <thread>
+#include <thread> // std::this_thread
 #include <chrono>
 #include <filesystem> // std::filesystem
 
@@ -24,6 +26,37 @@ using namespace std::literals; // "..."sv
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 namespace test //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 {
+
+//---------------------------------------------------------------------------
+template<typename T>
+[[nodiscard]] bool have_same_elements(std::vector<T>&& v1, std::vector<T>&& v2)
+{
+    std::ranges::sort(v1);
+    std::ranges::sort(v2);
+    return v1 == v2;
+}
+
+//---------------------------------------------------------------------------
+template<typename T>
+[[nodiscard]] bool have_same_elements(std::vector<T>&& v, std::initializer_list<T> lst)
+{
+    return have_same_elements<T>( std::move(v), std::vector<T>{lst});
+}
+
+//---------------------------------------------------------------------------
+template<typename T>
+[[nodiscard]] std::vector<T> join(const std::vector<T>& v1, const std::vector<T>& v2)
+{
+    std::vector<T> v_tot{ v1 };
+  #ifdef __cpp_lib_containers_ranges
+    v_tot.append_range(v2);
+  #else
+    v_tot.reserve(v_tot.size() + v2.size());
+    v_tot.insert(v_tot.end(), v2.cbegin(), v2.cend());
+  #endif
+    return v_tot;
+}
+
 
 //---------------------------------------------------------------------------
 void sleep_for_seconds(const unsigned int t_s)
@@ -176,6 +209,10 @@ class TemporaryDirectory final
     TemporaryDirectory(const TemporaryDirectory&) = delete; // Prevent copy
     TemporaryDirectory& operator=(const TemporaryDirectory&) = delete;
 
+    [[nodiscard]] const fs::path& path() const noexcept
+       {
+        return m_dirpath;
+       }
 
     [[nodiscard]] fs::path build_file_path(const std::string_view name) const
        {
@@ -187,7 +224,5 @@ class TemporaryDirectory final
         return File(build_file_path(name), content);
        }
 };
-
-
 
 }//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::

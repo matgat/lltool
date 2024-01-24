@@ -32,7 +32,7 @@ namespace sys //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 }
 
 //---------------------------------------------------------------------------
-void shell_execute(const char* const pth, std::initializer_list<std::string_view> args ={}) noexcept
+void shell_execute(const char* const pth, const std::initializer_list<std::string_view> args ={}) noexcept
 {
     const std::string joined_args = str::join_left(' ', args);
 
@@ -50,7 +50,7 @@ void shell_execute(const char* const pth, std::initializer_list<std::string_view
 }
 
 //---------------------------------------------------------------------------
-//[[maybe_unused]] int shell_execute_wait(const char* const pth, std::initializer_list<std::string_view> args ={})
+//[[maybe_unused]] int shell_execute_wait(const char* const pth, const std::initializer_list<std::string_view> args ={})
 //{
 //    const bool show = true;
 //    const bool wait = true;
@@ -70,7 +70,7 @@ void shell_execute(const char* const pth, std::initializer_list<std::string_view
 //    ShExecInfo.lpDirectory = NULL; // base_dir.empty() ? NULL : base_dir.c_str();
 //    ShExecInfo.nShow = show ? SW_SHOW : SW_HIDE;
 //    ShExecInfo.hInstApp = NULL;
-//    if( !::ShellExecuteExA(&ShExecInfo) )
+//    if( not ::ShellExecuteExA(&ShExecInfo) )
 //       {
 //        throw std::runtime_error( fmt::format("Cannot run {}: {}", pth, sys::get_lasterr_msg()) );
 //       }
@@ -194,7 +194,7 @@ void execute(const char* const exe, Args&&... args) noexcept
 //            else if( WIFSTOPPED(status) ) return -1; // Stopped by WSTOPSIG(status)
 //            //else if( WIFCONTINUED(status) ) continue;
 //           }
-//        while( !WIFEXITED(status) && !WIFSIGNALED(status) );
+//        while( !WIFEXITED(status) and !WIFSIGNALED(status) );
 //        //if(pid != pid_child) // Failed: Child process vanished
 //       }
 //    //else // Fork failed
@@ -212,14 +212,12 @@ void execute(const char* const exe, Args&&... args) noexcept
 /////////////////////////////////////////////////////////////////////////////
 static ut::suite<"system_process"> system_process_tests = []
 {////////////////////////////////////////////////////////////////////////////
-//    using namespace std::literals; // "..."sv
-//    using ut::expect;
-//    using ut::that;
-//
+
 //    ut::test("sys::xxx()") = []
 //       {
-//        expect( that % true );
+//        ut::expect( ut::that % true );
 //       };
+
 };///////////////////////////////////////////////////////////////////////////
 #endif // TEST_UNITS ////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////

@@ -44,14 +44,13 @@ class args_extractor final
 
         [[nodiscard]] static bool is_switch(const std::string_view arg) noexcept
            {
-            return arg.size()>=2 && arg[0]=='-';
+            return arg.size()>1 and arg[0]=='-';
            }
 
-        [[nodiscard]] static std::string_view extract_switch(std::string_view arg) noexcept
+        [[nodiscard]] static std::size_t get_switch_prefix_size(const std::string_view arg) noexcept
            {
             assert( is_switch(arg) );
-            arg.remove_prefix(arg[1]=='-' ? 2 : 1); // Skip hyphen(s)
-            return arg;
+            return arg[1]=='-' ? 2 : 1;
            }
 };
 

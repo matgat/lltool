@@ -2,19 +2,18 @@
 //  ---------------------------------------------
 //  Parse xml format
 //  ---------------------------------------------
-//  #include "parser-xml.hpp" // xml::Parser
+//  #include "text-parser-xml.hpp" // text::xml::Parser
 //  ---------------------------------------------
 #include <algorithm> // std::min
 
-#include "parser-base.hpp" // text::parse_error, text::ParserBase
+#include "text-parser-base.hpp" // text::ParserBase, parse::*
 #include "string_map.hpp" // MG::string_map<>
 
 
 
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-namespace xml
+namespace text { namespace xml
 {
-
 
 /////////////////////////////////////////////////////////////////////////////
 class ParserEvent final
@@ -203,7 +202,7 @@ class Parser final : public text::ParserBase<ENC>
                     m_event.set_as_none();
                    }
                }
-            catch(text::parse_error&)
+            catch(parse::error&)
                {
                 throw;
                }
@@ -364,7 +363,7 @@ class Parser final : public text::ParserBase<ENC>
     [[nodiscard]] constexpr std::u32string collect_quoted_attr_value()
        {
         try{
-            return inherited::collect_until(text::is<U'\"'>, text::is_endline, text::parse_flag::SKIP_STOPPER);
+            return inherited::collect_until(text::is<U'\"'>, text::is_endline, parse::flag::SKIP_STOPPER);
            }
         catch(std::exception& e)
            {
@@ -387,7 +386,8 @@ class Parser final : public text::ParserBase<ENC>
 };
 
 
-}//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+}}//:::::::::::::::::::::::::::::: text::xml ::::::::::::::::::::::::::::::::
+
 
 
 
@@ -395,7 +395,7 @@ class Parser final : public text::ParserBase<ENC>
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 //---------------------------------------------------------------------------
-[[nodiscard]] constexpr std::string to_string( xml::ParserEvent::Attributes const& attrs )
+[[nodiscard]] constexpr std::string to_string( text::xml::ParserEvent::Attributes const& attrs )
    {
     std::string s;
     auto it = attrs.begin();
@@ -422,7 +422,7 @@ class Parser final : public text::ParserBase<ENC>
     return s;
    }
 //---------------------------------------------------------------------------
-[[nodiscard]] constexpr std::string to_string(xml::ParserEvent const& ev)
+[[nodiscard]] constexpr std::string to_string(text::xml::ParserEvent const& ev)
    {
     if( ev.is_open_tag() )
         return fmt::format("open tag: {} ({})", text::to_utf8(ev.value()), to_string(ev.attributes()));
@@ -446,16 +446,15 @@ class Parser final : public text::ParserBase<ENC>
    }
 
 /////////////////////////////////////////////////////////////////////////////
-static ut::suite<"xml::Parser"> XmlParser_tests = []
+static ut::suite<"text::xml::Parser"> XmlParser_tests = []
 {
-    using namespace std::literals; // "..."sv
     using ut::expect;
     using ut::that;
     using ut::throws;
 
     ut::test("ParserEvent") = []
        {
-        xml::ParserEvent event;
+        text::xml::ParserEvent event;
 
         expect( that % event == false) << "empty event should evaluate false\n";
 
@@ -509,13 +508,13 @@ static ut::suite<"xml::Parser"> XmlParser_tests = []
             "    </child>\n"
             "</root>\n";
 
-        xml::Parser<text::Enc::UTF8> parser{buf};
+        text::xml::Parser<text::Enc::UTF8> parser{buf};
         parser.options().set_collect_comment_text(true);
         parser.options().set_collect_text_sections(true);
         parser.set_on_notify_issue(notify_sink);
         std::size_t n_event = 0u;
         try{
-            while( const xml::ParserEvent& event = parser.next_event() )
+            while( const text::xml::ParserEvent& event = parser.next_event() )
                {
                 //ut::log << "\033[33m" << to_string(event) << "\033[36m" "(event " << n_event+1u << " line " << parser.curr_line() << ")\n" "\033[0m";
                 switch( ++n_event )
@@ -549,7 +548,7 @@ static ut::suite<"xml::Parser"> XmlParser_tests = []
                    }
                }
            }
-        catch( text::parse_error& e )
+        catch( parse::error& e )
            {
             ut::log << "\033[35m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(event " << n_event << " line " << e.line() << ")\n";
            }
@@ -559,9 +558,9 @@ static ut::suite<"xml::Parser"> XmlParser_tests = []
     ut::test("unclosed comment") = [&notify_sink]
        {
         const std::string_view buf = "<!--\n\n\n\n";
-        xml::Parser<text::Enc::UTF8> parser{buf};
+        text::xml::Parser<text::Enc::UTF8> parser{buf};
         parser.set_on_notify_issue(notify_sink);
-        expect( throws<text::parse_error>([&parser] { [[maybe_unused]] auto ev = parser.next_event(); }) ) << "unclosed comment should throw\n";
+        expect( throws<parse::error>([&parser] { [[maybe_unused]] auto ev = parser.next_event(); }) ) << "unclosed comment should throw\n";
        };
 
     ut::test("interface.xml sample") = [&notify_sink]
@@ -598,11 +597,11 @@ static ut::suite<"xml::Parser"> XmlParser_tests = []
             "</group> <!-- statistics -->\n"
             "\n"
             "</interface>\n";
-        xml::Parser<text::Enc::UTF8> parser{buf};
+        text::xml::Parser<text::Enc::UTF8> parser{buf};
         parser.set_on_notify_issue(notify_sink);
         std::size_t n_event = 0u;
         try{
-            while( const xml::ParserEvent& event = parser.next_event() )
+            while( const text::xml::ParserEvent& event = parser.next_event() )
                {
                 //ut::log << "\033[33m" << to_string(event) << "\033[36m" "(event " << n_event+1u << " line " << parser.curr_line() << ")\n" "\033[0m";
                 switch( ++n_event )
@@ -636,7 +635,7 @@ static ut::suite<"xml::Parser"> XmlParser_tests = []
                    }
                }
            }
-        catch( text::parse_error& e )
+        catch( parse::error& e )
            {
             ut::log << "\033[35m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(event " << n_event << " line " << e.line() << ")\n";
            }

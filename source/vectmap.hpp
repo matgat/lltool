@@ -9,6 +9,7 @@
 #include <vector>
 #include <optional>
 //#include <initializer_list>
+
 #include <fmt/format.h> // fmt::format
 
 
@@ -45,7 +46,7 @@ template<typename TKEY, typename TVAL> class vectmap final
         for( const_iterator it_other=other.begin(); it_other!=other.end(); ++it_other )
            {
             const_iterator it_mine = find(it_other->first);
-            if( it_mine==end() || it_mine->second!=it_other->second )
+            if( it_mine==end() or it_mine->second!=it_other->second )
                {
                 return false;
                }
@@ -236,8 +237,6 @@ template<typename TKEY, typename TVAL> class vectmap final
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
 static ut::suite<"MG::vectmap<>"> vectmap_tests = []
 {////////////////////////////////////////////////////////////////////////////
-    using namespace std::literals; // "..."sv
-    //using namespace ut::literals; // _ul
     using ut::expect;
     using ut::that;
     using ut::throws;
@@ -281,7 +280,7 @@ static ut::suite<"MG::vectmap<>"> vectmap_tests = []
         v.erase("key1");
         expect( that % v.size()==2u and v.string()=="key2=val2,key3=val3"s ) << "erasing first key\n";
         v.clear();
-        expect(that % v.is_empty() && v.size()==0u) << "should be empty after clear\n";
+        expect(that % v.is_empty() and v.size()==0u) << "should be empty after clear\n";
        };
 
 

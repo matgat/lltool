@@ -43,6 +43,26 @@ def launch(command_and_args):
 def pause():
     input(f'{YELLOW}Press <ENTER> to continue{END}')
 
+#----------------------------------------------------------------------------
+#def is_key_pressed():
+#    if os.name=='nt':
+#        import msvcrt
+#        return msvcrt.kbhit()
+#    else:
+#        import termios
+#        #import tty
+#        fd = sys.stdin.fileno()
+#        old_settings = termios.tcgetattr(fd)
+#        try:
+#            #tty.setcbreak(fd)
+#            return bool(sys.stdin.read(1))
+#        finally:
+#            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+
+#----------------------------------------------------------------------------
+#def wait_no_key_pressed():
+#    while is_key_pressed():
+#        time.sleep(0.1)
 
 #----------------------------------------------------------------------------
 def main():
@@ -68,6 +88,7 @@ def main():
 
     print("Closing...")
     time.sleep(3)
+    #wait_no_key_pressed()
     return 0
 
 #----------------------------------------------------------------------------

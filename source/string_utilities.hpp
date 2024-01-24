@@ -4,6 +4,7 @@
 //  #include "string_utilities.hpp" // str::*
 //  ---------------------------------------------
 //#include <concepts> // std::convertible_to
+#include <cctype> // std::tolower()
 #include <string>
 #include <string_view>
 
@@ -13,8 +14,8 @@ namespace str //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 {
 
 //-----------------------------------------------------------------------
-[[nodiscard]] constexpr std::string join_left(const char sep, std::initializer_list<std::string_view> svs)
-   {
+[[nodiscard]] constexpr std::string join_left(const char sep, const std::initializer_list<std::string_view> svs)
+{
     std::string joined;
 
     size_t total_size = svs.size(); // The separators
@@ -32,8 +33,17 @@ namespace str //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
        }
 
     return joined;
-   }
+}
 
+//-----------------------------------------------------------------------
+[[nodiscard]] constexpr std::string tolower(std::string&& s) noexcept
+{
+    for(char& ch : s)
+       {
+        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+       }
+    return s;
+}
 
 }//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -44,15 +54,22 @@ namespace str //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 /////////////////////////////////////////////////////////////////////////////
 static ut::suite<"string_utilities"> string_utilities_tests = []
 {////////////////////////////////////////////////////////////////////////////
-    using namespace std::literals; // "..."sv
-    using ut::expect;
-    using ut::that;
 
     ut::test("str::join_left()") = []
        {
-        expect( that % str::join_left(';', {"a","b","c"})==";a;b;c"sv );
-        expect( that % str::join_left(',', {})==""sv );
+        ut::expect( ut::that % str::join_left(';', {"a","b","c"})==";a;b;c"sv );
+        ut::expect( ut::that % str::join_left(',', {})==""sv );
        };
+       
+    ut::test("str::tolower()") = []
+       {
+        ut::expect( ut::that % str::tolower("AbCdE fGhI 23 L")=="abcde fghi 23 l"sv );
+        ut::expect( ut::that % str::tolower("a")=="a"sv );
+        ut::expect( ut::that % str::tolower("A")=="a"sv );
+        ut::expect( ut::that % str::tolower("1")=="1"sv );
+        ut::expect( ut::that % str::tolower("")==""sv );
+       };
+
 };///////////////////////////////////////////////////////////////////////////
 #endif // TEST_UNITS ////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////

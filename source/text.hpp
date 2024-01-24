@@ -142,9 +142,9 @@ bom_ret_t constexpr detect_encoding_of(const std::string_view bytes)
     using enum Enc;
     if( bytes.size()>2 ) [[likely]]
        {
-        if( bytes[0]=='\xFF' && bytes[1]=='\xFE' )
+        if( bytes[0]=='\xFF' and bytes[1]=='\xFE' )
            {
-            if( bytes.size()>=4 && bytes[2]=='\x00' && bytes[3]=='\x00' )
+            if( bytes.size()>=4 and bytes[2]=='\x00' and bytes[3]=='\x00' )
                {
                 return {UTF32LE, 4};
                }
@@ -153,15 +153,15 @@ bom_ret_t constexpr detect_encoding_of(const std::string_view bytes)
                 return {UTF16LE, 2};
                }
            }
-        else if( bytes[0]=='\xFE' && bytes[1]=='\xFF' )
+        else if( bytes[0]=='\xFE' and bytes[1]=='\xFF' )
            {
             return {UTF16BE, 2};
            }
-        else if( bytes.size()>=4 && bytes[0]=='\x00' && bytes[1]=='\x00' && bytes[2]=='\xFE' && bytes[3]=='\xFF' )
+        else if( bytes.size()>=4 and bytes[0]=='\x00' and bytes[1]=='\x00' and bytes[2]=='\xFE' and bytes[3]=='\xFF' )
            {
             return {UTF32BE, 4};
            }
-        else if( bytes[0]=='\xEF' && bytes[1]=='\xBB' && bytes[2]=='\xBF' )
+        else if( bytes[0]=='\xEF' and bytes[1]=='\xBB' and bytes[2]=='\xBF' )
            {
             return {UTF8, 3};
            }
@@ -195,7 +195,7 @@ template<> constexpr char32_t extract_codepoint<Enc::UTF8>(const std::string_vie
         return codepoint;
        }
 
-    else if( (pos+1)<bytes.size() && (bytes[pos] & 0xE0)==0xC0 && (bytes[pos+1] & 0xC0)==0x80 )
+    else if( (pos+1)<bytes.size() and (bytes[pos] & 0xE0)==0xC0 and (bytes[pos+1] & 0xC0)==0x80 )
        {
         const char32_t codepoint = static_cast<char32_t>((bytes[pos] & 0x1F) << 6) |
                                    static_cast<char32_t>(bytes[pos+1] & 0x3F);
@@ -203,7 +203,7 @@ template<> constexpr char32_t extract_codepoint<Enc::UTF8>(const std::string_vie
         return codepoint;
        }
 
-    else if( (pos+2)<bytes.size() && (bytes[pos] & 0xF0)==0xE0 && (bytes[pos+1] & 0xC0)==0x80 && (bytes[pos+2] & 0xC0)==0x80 )
+    else if( (pos+2)<bytes.size() and (bytes[pos] & 0xF0)==0xE0 and (bytes[pos+1] & 0xC0)==0x80 and (bytes[pos+2] & 0xC0)==0x80 )
        {
         const char32_t codepoint = static_cast<char32_t>((bytes[pos] & 0x0F) << 12) |
                                    static_cast<char32_t>((bytes[pos+1] & 0x3F) << 6) |
@@ -212,7 +212,7 @@ template<> constexpr char32_t extract_codepoint<Enc::UTF8>(const std::string_vie
         return codepoint;
        }
 
-    else if( (pos+3)<bytes.size() && (bytes[pos] & 0xF8)==0xF0 && (bytes[pos+1] & 0xC0)==0x80 && (bytes[pos+2] & 0xC0)==0x80 && (bytes[pos+3] & 0xC0)==0x80 )
+    else if( (pos+3)<bytes.size() and (bytes[pos] & 0xF8)==0xF0 and (bytes[pos+1] & 0xC0)==0x80 and (bytes[pos+2] & 0xC0)==0x80 and (bytes[pos+3] & 0xC0)==0x80 )
        {
         const char32_t codepoint = static_cast<char32_t>((bytes[pos] & 0x07) << 18) |
                                    static_cast<char32_t>((bytes[pos+1] & 0x3F) << 12) |
@@ -249,19 +249,19 @@ template<bool LE> constexpr char32_t extract_next_codepoint_from_utf16(const std
     const std::uint16_t codeunit1 = get_code_unit(bytes, pos);
     pos += 2;
 
-    if( codeunit1<0xD800 || codeunit1>=0xE000 ) [[likely]]
+    if( codeunit1<0xD800 or codeunit1>=0xE000 ) [[likely]]
        {// Basic Multilingual Plane
         return codeunit1;
        }
 
-    if( codeunit1>=0xDC00 || (pos+1)>=bytes.size() ) [[unlikely]]
+    if( codeunit1>=0xDC00 or (pos+1)>=bytes.size() ) [[unlikely]]
        {// Not a first surrogate!
         return err_codepoint;
        }
 
     // Here expecting the second codeunit
     const std::uint16_t codeunit2 = get_code_unit(bytes, pos);
-    if( codeunit2<0xDC00 || codeunit2>=0xE000 ) [[unlikely]]
+    if( codeunit2<0xDC00 or codeunit2>=0xE000 ) [[unlikely]]
        {// Not a second surrogate!
         return err_codepoint;
        }
@@ -453,11 +453,11 @@ template<Enc ENC> class bytes_buffer_t final
 
     [[nodiscard]] constexpr bool has_codepoint() const noexcept
        {
-        if constexpr(ENC==Enc::UTF16LE || ENC==Enc::UTF16BE)
+        if constexpr(ENC==Enc::UTF16LE or ENC==Enc::UTF16BE)
            {
             return (m_current_byte_offset+1) < m_byte_buf.size();
            }
-        else if constexpr(ENC==Enc::UTF32LE || ENC==Enc::UTF32BE)
+        else if constexpr(ENC==Enc::UTF32LE or ENC==Enc::UTF32BE)
            {
             return (m_current_byte_offset+3) < m_byte_buf.size();
            }
@@ -751,7 +751,6 @@ static ut::suite<"text::"> text_tests = []
 {////////////////////////////////////////////////////////////////////////////
     using ut::expect;
     using ut::that;
-    using namespace std::literals; // "..."sv
     using enum text::Enc;
 
 

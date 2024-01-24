@@ -168,7 +168,7 @@ def create_tests_array(manual_mode):
 
 #============================================================================
 def test_update_no_file(manual_mode):
-    ret_code = launch([exe, "update", "-v"])
+    ret_code = launch([exe, "update", "-v" if manual_mode else "-q"])
     return ret_code==2 # no file given should give a fatal error
 
 
@@ -176,7 +176,7 @@ def test_update_no_file(manual_mode):
 def test_update_empty(manual_mode):
     prj = TextFile('empty.ppjs', '')
     with TemporaryTextFile(prj) as prj_file:
-        ret_code = launch([exe, "update", "-v", prj_file.path])
+        ret_code = launch([exe, "update", "-v" if manual_mode else "-q", prj_file.path])
         return ret_code==2 # empty file should give a fatal error
 
 
@@ -188,7 +188,7 @@ def test_update_no_libs(manual_mode):
                     '    </libraries>\n'
                     '</plcProject>\n' )
     with TemporaryTextFile(prj) as prj_file:
-        ret_code = launch([exe, "update", "-v", prj_file.path])
+        ret_code = launch([exe, "update", "-v" if manual_mode else "-q", prj_file.path])
         return ret_code==1 # no libraries should raise an issue
 
 
@@ -201,7 +201,7 @@ def test_update_same_prj(manual_mode):
                     '</plcProject>\n',
                     'utf-16' )
     with TemporaryTextFile(prj) as prj_file:
-        ret_code = launch([exe, "update", "-v", "-o", prj_file.path, prj_file.path])
+        ret_code = launch([exe, "update", "-vF" if manual_mode else "-qF", "-o", prj_file.path, prj_file.path])
         return ret_code==2 # same output file should give a fatal error
 
 
@@ -220,7 +220,7 @@ def test_update_bad_prj(manual_mode):
             ret_code = launch([exe, "update", "-v", prj_file.path])
             time.sleep(0.5) # Give the time to show the bad file
         else:
-            ret_code = launch([exe, "update", "-v", "-q", prj_file.path])
+            ret_code = launch([exe, "update", "-q", prj_file.path])
         return ret_code==2 # bad project should give a fatal error
 
 
@@ -246,7 +246,7 @@ def test_update_bad_plclib(manual_mode):
             ret_code = launch([exe, "update", "-v", prj_path])
             time.sleep(0.5) # Give the time to show the bad file
         else:
-            ret_code = launch([exe, "update", "-v", "-q", prj_path])
+            ret_code = launch([exe, "update", "-q", prj_path])
         return ret_code==2 # bad library should give a fatal error
 
 
@@ -269,7 +269,7 @@ def test_update_nonexistent_lib(manual_mode):
         create_text_file(full_path(pll1.file_name), pll1.content, pll1.encoding)
         prj_path = full_path(prj.file_name)
         create_text_file(prj_path, prj.content, prj.encoding)
-        ret_code = launch([exe, "update", "-v", prj_path])
+        ret_code = launch([exe, "update", "-v" if manual_mode else "-q", prj_path])
         expected = prj.content.replace(f'name="{pll1.file_name}">x', f'name="{pll1.file_name}"><![CDATA[{pll1.content}]]>')
         content_equal = textfile_content_is(prj_path, prj.encoding, expected)
         return ret_code==1 # nonexistent library should raise an issue
@@ -306,7 +306,7 @@ def test_update_simple_prj(manual_mode):
         prj_path = full_path(prj.file_name)
         create_text_file(prj_path, prj.content, prj.encoding)
         out_path = full_path("updated.xml")
-        retcode = launch([exe, "update", "-v", "-o", out_path, prj_path])
+        retcode = launch([exe, "update", "-vF" if manual_mode else "-qF", "-o", out_path, prj_path])
         expected = ( prj.content.replace(f'name="{pll1.file_name}"><![CDATA[prev content]]>', f'name="{pll1.file_name}"><![CDATA[{pll1.content}]]>')
                                 .replace(f'name="{pll2.file_name}">', f'name="{pll2.file_name}"><![CDATA[{pll2.content}]]>')
                                 .replace(f'name="{plclib1.file_name}">prev content', f'name="{plclib1.file_name}">{plclib1.content}')
@@ -370,7 +370,7 @@ def test_update_ppjs(manual_mode):
         prj_path = full_path(prj.file_name)
         create_text_file(prj_path, prj.content, prj.encoding)
         out_path = full_path("updated.xml")
-        retcode = launch([exe, "update", "-v", "-o", out_path, prj_path])
+        retcode = launch([exe, "update", "-vF" if manual_mode else "-qF", "-o", out_path, prj_path])
         expected = ( prj.content.replace('#DEFVAR#', defvar.content)
                                 .replace('#IOMAP#', iomap.content) )
         content_equal = textfile_content_is(out_path, prj.encoding, expected)
@@ -475,7 +475,7 @@ def test_update_plcprj(manual_mode):
         prj_path = full_path(prj.file_name)
         create_text_file(prj_path, prj.content, prj.encoding)
         out_path = full_path("updated.xml")
-        retcode = launch([exe, "update", "-v", "-o", out_path, prj_path])
+        retcode = launch([exe, "update", "-vF" if manual_mode else "-qF", "-o", out_path, prj_path])
         expected = ( prj.content.replace('#DEFVAR#', defvar.content)
                                 .replace('#IOMAP#', iomap.content) )
         content_equal = textfile_content_is(out_path, prj.encoding, expected)
@@ -490,10 +490,10 @@ def test_update_strato_ppjs(manual_mode):
     out = "~updated.xml"
     with tempfile.TemporaryDirectory() as temp_dir:
         out = os.path.join(temp_dir, out)
-        retcode = launch([exe, "update", "-v", "-o", out, prj])
+        retcode = launch([exe, "update", "-vF" if manual_mode else "-qF", "-o", out, prj])
         if manual_mode and os.path.isfile(out):
             show_text_files_comparison(prj, out)
-    return False
+        return True
 
 
 #============================================================================
@@ -502,10 +502,10 @@ def test_update_strato_plcprj(manual_mode):
     out = "~updated.xml"
     with tempfile.TemporaryDirectory() as temp_dir:
         out = os.path.join(temp_dir, out)
-        retcode = launch([exe, "update", "-v", "-o", out, prj])
+        retcode = launch([exe, "update", "-vF" if manual_mode else "-qF", "-o", out, prj])
         if manual_mode and os.path.isfile(out):
             show_text_files_comparison(prj, out)
-    return False
+        return True
 
 
 

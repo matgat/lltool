@@ -106,7 +106,7 @@ template<details::f_resolve_var_t resolve_var =resolve_var_getenv>
                         return true;
                        }
                    }
-                else if( !next() )
+                else if( not next() )
                    {
                     break;
                    }
@@ -179,7 +179,6 @@ template<details::f_resolve_var_t resolve_var =resolve_var_getenv>
 /////////////////////////////////////////////////////////////////////////////
 static ut::suite<"sys::expand_env_vars()"> sys_expand_env_vars_tests = []
 {////////////////////////////////////////////////////////////////////////////
-    using namespace std::literals; // "..."sv
     using ut::expect;
     using ut::that;
 

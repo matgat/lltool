@@ -4,13 +4,17 @@
 namespace ut = boost::ut;
 #include "test_facilities.hpp" // test::*
 
-#define TEST_UNITS // Include units embedded tests
+#define TEST_UNITS
 #include "system_process.hpp" // sys::*
 #include "string_utilities.hpp" // str::*
+#include "globbing.hpp" // MG::glob_match()
+#include "file_globbing.hpp" // MG::file_glob()
 #include "string_map.hpp" // MG::string_map<>
+#include "vectmap.hpp" // MG::vectmap<>
 #include "text.hpp" // text::*
-#include "parser-base.hpp" // MG::ParserBase
-#include "parser-xml.hpp" // xml::Parser
+#include "text-parser-base.hpp" // text::ParserBase
+#include "text-parser-xml.hpp" // text::xml::Parser
 #include "project_updater.hpp" // ll::update_project_libraries()
+//#include "libraries_converter.hpp" // ll::convert_libraries()
 
 int main() {}

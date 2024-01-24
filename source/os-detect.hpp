@@ -4,10 +4,10 @@
 //  depending on host operating system
 //  ---------------------------------------------
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32) or defined(_WIN64)
   #define MS_WINDOWS 1
   #undef POSIX
-#elif defined(__unix__) || defined(__linux__)
+#elif defined(__unix__) or defined(__linux__)
   #undef MS_WINDOWS
   #define POSIX 1
 #else

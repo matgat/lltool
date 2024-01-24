@@ -19,7 +19,6 @@ namespace MG
 
 template<typename T>
 concept a_basic_string = std::same_as<T, std::basic_string<typename T::value_type, typename T::traits_type, typename T::allocator_type>>;
-//concept a_string_viewable = requires (const T& s) { std::basic_string_view{s}; };
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -50,7 +49,7 @@ template<a_basic_string TKEY, typename TVAL> class string_map final
         for( const_iterator it_other=other.begin(); it_other!=other.end(); ++it_other )
            {
             const_iterator it_mine = find(it_other->first);
-            if( it_mine==end() || it_mine->second!=it_other->second )
+            if( it_mine==end() or it_mine->second!=it_other->second )
                {
                 return false;
                }
@@ -256,11 +255,9 @@ template<typename TVAL>
 /////////////////////////////////////////////////////////////////////////////
 static ut::suite<"MG::string_map<>"> string_map_tests = []
 {////////////////////////////////////////////////////////////////////////////
-    using namespace std::literals; // "..."sv
     using ut::expect;
     using ut::that;
     using ut::throws;
-
 
     ut::test("basic operations") = []
        {
@@ -301,7 +298,7 @@ static ut::suite<"MG::string_map<>"> string_map_tests = []
         v.erase("key1");
         expect( that % v.size()==2u and to_string(v)=="key2=val2,key3=val3"s ) << "erasing first key\n";
         v.clear();
-        expect(that % v.is_empty() && v.size()==0u) << "should be empty after clear\n";
+        expect(that % v.is_empty() and v.size()==0u) << "should be empty after clear\n";
        };
 
 
