@@ -215,7 +215,7 @@ class Variables_Group final
     [[nodiscard]] std::vector<Variable>& mutable_variables() noexcept { return m_Variables; }
     [[nodiscard]] bool contains(const std::string_view var_name) const noexcept
        {
-        return std::ranges::any_of(m_Variables, [var_name](const Variable& var){ return var.name()==var_name; });
+        return std::ranges::any_of(m_Variables, [var_name](const Variable& var) noexcept { return var.name()==var_name; });
        }
     void add_variable(Variable&& var)
        {
@@ -228,7 +228,7 @@ class Variables_Group final
 
     void sort()
        {
-        std::ranges::sort(m_Variables, [](const Variable& a, const Variable& b) noexcept -> bool { return a.name()<b.name(); });
+        std::ranges::sort(m_Variables, [](const Variable& a, const Variable& b) noexcept { return a.name()<b.name(); });
        }
 };
 
@@ -276,7 +276,7 @@ class Variables_Groups final
 
     void sort()
        {
-        std::ranges::sort(groups(), [](const Variables_Group& a, const Variables_Group& b) noexcept -> bool { return a.name()<b.name(); });
+        std::ranges::sort(groups(), [](const Variables_Group& a, const Variables_Group& b) noexcept { return a.name()<b.name(); });
        }
 
     [[nodiscard]] const std::vector<Variables_Group>& groups() const noexcept { return m_Groups; }
@@ -312,7 +312,7 @@ class Struct final
     [[nodiscard]] const std::vector<Variable>& members() const noexcept { return m_Members; }
     [[nodiscard]] bool members_contain(const std::string_view var_name) const noexcept
        {
-        return std::ranges::any_of(m_Members, [var_name](const Variable& var){ return var.name()==var_name; });
+        return std::ranges::any_of(m_Members, [var_name](const Variable& var) noexcept { return var.name()==var_name; });
        }
     void add_member(Variable&& var)
        {
@@ -566,12 +566,12 @@ class Pou final
 
     void sort_variables()
        {
-        std::ranges::sort(inout_vars(), [](const Variable& a, const Variable& b) noexcept -> bool { return a.name()<b.name(); });
-        std::ranges::sort(input_vars(), [](const Variable& a, const Variable& b) noexcept -> bool { return a.name()<b.name(); });
-        std::ranges::sort(output_vars(), [](const Variable& a, const Variable& b) noexcept -> bool { return a.name()<b.name(); });
-        std::ranges::sort(external_vars(), [](const Variable& a, const Variable& b) noexcept -> bool { return a.name()<b.name(); });
-        std::ranges::sort(local_vars(), [](const Variable& a, const Variable& b) noexcept -> bool { return a.name()<b.name(); });
-        std::ranges::sort(local_constants(), [](const Variable& a, const Variable& b) noexcept -> bool { return a.name()<b.name(); });
+        std::ranges::sort(inout_vars(), [](const Variable& a, const Variable& b) noexcept { return a.name()<b.name(); });
+        std::ranges::sort(input_vars(), [](const Variable& a, const Variable& b) noexcept { return a.name()<b.name(); });
+        std::ranges::sort(output_vars(), [](const Variable& a, const Variable& b) noexcept { return a.name()<b.name(); });
+        std::ranges::sort(external_vars(), [](const Variable& a, const Variable& b) noexcept { return a.name()<b.name(); });
+        std::ranges::sort(local_vars(), [](const Variable& a, const Variable& b) noexcept { return a.name()<b.name(); });
+        std::ranges::sort(local_constants(), [](const Variable& a, const Variable& b) noexcept { return a.name()<b.name(); });
        }
 };
 
@@ -732,7 +732,7 @@ class Library final
         // Global constants must have a value (already checked in parsing)
         for( const auto& consts_grp : global_constants().groups() )
            {
-            if( const auto ivar=std::ranges::find_if(consts_grp.variables(), [](const Variable& var){ return not var.has_value(); });
+            if( const auto ivar=std::ranges::find_if(consts_grp.variables(), [](const Variable& var) noexcept { return not var.has_value(); });
                 ivar!=consts_grp.variables().end() )
                {
                 throw std::runtime_error(fmt::format("Global constant \"{}\" has no value", ivar->name()));
@@ -792,14 +792,14 @@ class Library final
         global_retainvars().sort();
         global_variables().sort();
 
-        std::ranges::sort(programs(), [](const Pou& a, const Pou& b) noexcept -> bool { return a.name()<b.name(); });
-        std::ranges::sort(function_blocks(), [](const Pou& a, const Pou& b) noexcept -> bool { return a.name()<b.name(); });
-        std::ranges::sort(functions(), [](const Pou& a, const Pou& b) noexcept -> bool { return a.name()<b.name(); });
-        std::ranges::sort(macros(), [](const Macro& a, const Macro& b) noexcept -> bool { return a.name()<b.name(); });
-        std::ranges::sort(typedefs(), [](const TypeDef& a, const TypeDef& b) noexcept -> bool { return a.name()<b.name(); });
-        std::ranges::sort(enums(), [](const Enum& a, const Enum& b) noexcept -> bool { return a.name()<b.name(); });
-        std::ranges::sort(subranges(), [](const Subrange& a, const Subrange& b) noexcept -> bool { return a.name()<b.name(); });
-        //std::ranges::sort(interfaces(), [](const Interface& a, const Interface& b) noexcept -> bool { return a.name()<b.name(); });
+        std::ranges::sort(programs(), [](const Pou& a, const Pou& b) noexcept { return a.name()<b.name(); });
+        std::ranges::sort(function_blocks(), [](const Pou& a, const Pou& b) noexcept { return a.name()<b.name(); });
+        std::ranges::sort(functions(), [](const Pou& a, const Pou& b) noexcept { return a.name()<b.name(); });
+        std::ranges::sort(macros(), [](const Macro& a, const Macro& b) noexcept { return a.name()<b.name(); });
+        std::ranges::sort(typedefs(), [](const TypeDef& a, const TypeDef& b) noexcept { return a.name()<b.name(); });
+        std::ranges::sort(enums(), [](const Enum& a, const Enum& b) noexcept { return a.name()<b.name(); });
+        std::ranges::sort(subranges(), [](const Subrange& a, const Subrange& b) noexcept { return a.name()<b.name(); });
+        //std::ranges::sort(interfaces(), [](const Interface& a, const Interface& b) noexcept { return a.name()<b.name(); });
 
         //for( auto& pou : programs() )        pou.sort_variables();
         //for( auto& pou : function_blocks() ) pou.sort_variables();

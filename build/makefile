@@ -2,14 +2,15 @@ PRJNAME = lltool
 SRCDIR = ../source
 BLDDIR = ./bin
 VPATH := $(SRCDIR)
-HEADERS = $(wildcard $(SRCDIR)/*.hpp)
-MAIN = $(SRCDIR)/main.cpp
+CPPS = $(sort $(wildcard $(SRCDIR)/*.cpp $(SRCDIR)/*/*.cpp))
+HEADERS = $(wildcard $(SRCDIR)/*.hpp $(SRCDIR)/*/*.hpp)
+INCLUDEDIRS = $(sort $(SRCDIR) $(dir $(wildcard $(SRCDIR)/*/)))
 TARGET = $(BLDDIR)/$(PRJNAME)
 TEST_MAIN = ../tests/test.cpp
 TEST_TARGET = $(BLDDIR)/$(PRJNAME)-test
 
 CXX = g++
-CXXFLAGS = -std=c++2b -fno-rtti -O3 -I$(SRCDIR)
+CXXFLAGS = -std=c++2b -fno-rtti -O3 $(addprefix -I, $(INCLUDEDIRS))
 CXXFLAGS += -march=native
 CXXFLAGS += -Wall -Wextra -Wpedantic -Wfatal-errors -Werror
 CXXFLAGS += -Wshadow -Wconversion -Wsign-conversion
@@ -22,15 +23,16 @@ default: executable
 
 all: executable test
 
+test: CXXFLAGS += -Wstrict-overflow=2
 debug: CXXFLAGS += -DDEBUG -D_DEBUG -g
 debug: executable
 
-executable: $(MAIN) $(HEADERS) makefile
-	$(info [executable])
+executable: $(CPPS) $(HEADERS) makefile
+	$(info [executable ${CPPS}])
 	mkdir -p ${BLDDIR}
-	$(CXX) -o $(TARGET) $(CXXFLAGS) $(MAIN)
+	$(CXX) -o $(TARGET) $(CXXFLAGS) $(CPPS)
 
-test: $(TEST_MAIN) $(MAIN) $(HEADERS) makefile
+test: $(TEST_MAIN) $(HEADERS) makefile
 	$(info [test])
 	mkdir -p ${BLDDIR}
 	$(CXX) -o $(TEST_TARGET) $(CXXFLAGS) $(TEST_MAIN)

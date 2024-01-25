@@ -215,7 +215,7 @@ static ut::suite<"filesystem_utilities"> filesystem_utilities_tests = []
         std::vector<std::string> tot = test::join(rem, del);
 
         ut::expect( test::have_same_elements(fsu::list_filenames_in_dir(dir.path()), std::move(tot)) );
-        ut::expect( ut::that % fsu::remove_files_with_suffix_in(dir.path(), {".tmp", ".bck"}) == 4 );
+        ut::expect( ut::that % fsu::remove_files_with_suffix_in(dir.path(), {".tmp", ".bck"}) == 4u );
         ut::expect( test::have_same_elements(fsu::list_filenames_in_dir(dir.path()), std::move(rem)) );
        };
 
