@@ -2,7 +2,6 @@
 //  ---------------------------------------------
 //  A map of string pairs
 //  ---------------------------------------------
-#include <cctype> // std::isspace, ...
 #include <string>
 #include <string_view>
 #include "string_map.hpp" // MG::string_map<>
@@ -33,30 +32,30 @@ class keyvals final
         while( i<s.size() )
            {
             // Skip possible spaces
-            while( i<s.size() && std::isspace(s[i]) ) ++i;
+            while( i<s.size() and std::isspace(s[i]) ) ++i;
             // Get key
             const std::size_t i_k0 = i;
-            while( i<s.size() && !std::isspace(s[i]) && s[i]!=sep && s[i]!=':' && s[i]!='=' ) ++i;
+            while( i<s.size() and !std::isspace(s[i]) and s[i]!=sep and s[i]!=':' and s[i]!='=' ) ++i;
             const std::size_t i_klen = i-i_k0;
             // Skip possible spaces
-            while( i<s.size() && std::isspace(s[i]) ) ++i;
+            while( i<s.size() and std::isspace(s[i]) ) ++i;
             // Get possible value
             std::size_t i_v0=0, i_vlen=0;
-            if( s[i]==':' || s[i]=='=' )
+            if( s[i]==':' or s[i]=='=' )
                {
                 // Skip key/value separator
                 ++i;
                 // Skip possible spaces
-                while( i<s.size() && std::isspace(s[i]) ) ++i;
+                while( i<s.size() and std::isspace(s[i]) ) ++i;
                 // Collect value
                 i_v0 = i;
-                while( i<s.size() && !std::isspace(s[i]) && s[i]!=sep ) ++i;
+                while( i<s.size() and !std::isspace(s[i]) and s[i]!=sep ) ++i;
                 i_vlen = i-i_v0;
                 // Skip possible spaces
-                while( i<s.size() && std::isspace(s[i]) ) ++i;
+                while( i<s.size() and std::isspace(s[i]) ) ++i;
                }
             // Skip possible delimiter
-            if( i<s.size() && s[i]==sep ) ++i;
+            if( i<s.size() and s[i]==sep ) ++i;
 
             // Add key if found
             if( i_klen>0 )
@@ -93,7 +92,7 @@ class keyvals final
     //    if( i!=m_map.end() )
     //       {
     //        s += i->first;
-    //        if( !i->second.empty() )
+    //        if( not i->second.empty() )
     //           {
     //            s += ':';
     //            s += i->second;
@@ -102,7 +101,7 @@ class keyvals final
     //           {
     //            s += sep;
     //            s += i->first;
-    //            if( !i->second.empty() )
+    //            if( not i->second.empty() )
     //               {
     //                s += ':';
     //                s += i->second;

@@ -68,8 +68,8 @@ def pause():
 def main():
     set_title(__file__)
     os.chdir(script_dir)
-    print(f"{BLUE}Building {CYAN}{projectname}{END}")
 
+    print(f"{BLUE}Building {CYAN}{projectname}{END}")
     if (build_ret:=launch(build_cmd))!=0:
         print(f"\n{RED}Build error: {YELLOW}{build_ret}{END}")
         pause()
@@ -82,7 +82,7 @@ def main():
 
     print(f"\n{GREEN}Build of {projectname} ok{END}")
 
-    #if configuration=="Release" and os.name=='nt' and os.path.isdir(dst_path:=os.path.expandvars('%UserProfile%/Bin')):
+    #if f"{configuration}|{platform}"=="Release|x64" and os.name=='nt' and os.path.isdir(dst_path:=os.path.expandvars('%UserProfile%/Bin')):
     #    print(f"{GRAY}Copying {END}{exe}{GRAY} to {END}{dst_path}")
     #    shutil.copy(exe, dst_path)
 

@@ -194,7 +194,7 @@ void execute(const char* const exe, Args&&... args) noexcept
 //            else if( WIFSTOPPED(status) ) return -1; // Stopped by WSTOPSIG(status)
 //            //else if( WIFCONTINUED(status) ) continue;
 //           }
-//        while( !WIFEXITED(status) and !WIFSIGNALED(status) );
+//        while( not WIFEXITED(status) and !WIFSIGNALED(status) );
 //        //if(pid != pid_child) // Failed: Child process vanished
 //       }
 //    //else // Fork failed

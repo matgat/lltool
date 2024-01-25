@@ -189,11 +189,11 @@ class Parser final : public text::ParserBase<ENC>
                        }
                     else if( options().is_collect_text_sections() )
                        {
-                        m_event.set_as_text( inherited::collect_until(text::is<U'<'>, text::is_always_false) ); // Trim right?
+                        m_event.set_as_text( inherited::collect_until(ascii::is<U'<'>) ); // Trim right?
                        }
                     else
                        {
-                        [[maybe_unused]] const auto text = inherited::collect_bytes_until(text::is<U'<'>, text::is_always_false);
+                        [[maybe_unused]] const auto text = inherited::collect_bytes_until(ascii::is<U'<'>);
                         m_event.set_as_text(); // Trim right?
                        }
                    }
@@ -338,7 +338,7 @@ class Parser final : public text::ParserBase<ENC>
        {
         inherited::skip_any_space();
         try{
-            return inherited::collect_until(text::is_space_or_any_of<U'>',U'/'>, text::is_punct_and_not<U'-',U':'>);
+            return inherited::collect_until(ascii::is_space_or_any_of<U'>',U'/'>, ascii::is_punct_and_none_of<U'-',U':'>);
            }
         catch(std::exception& e)
            {
@@ -351,7 +351,7 @@ class Parser final : public text::ParserBase<ENC>
        {
         assert( not inherited::got_space() ); // collect_unquoted_attr_name() expects non-space char"
         try{
-            return inherited::collect_until(text::is_space_or_any_of<U'=',U'>',U'/'>, text::is_punct_and_not<U'-'>);
+            return inherited::collect_until(ascii::is_space_or_any_of<U'=',U'>',U'/'>, ascii::is_punct_and_none_of<U'-'>);
            }
         catch(std::exception& e)
            {
@@ -363,7 +363,7 @@ class Parser final : public text::ParserBase<ENC>
     [[nodiscard]] constexpr std::u32string collect_quoted_attr_value()
        {
         try{
-            return inherited::collect_until(text::is<U'\"'>, text::is_endline, parse::flag::SKIP_STOPPER);
+            return inherited::collect_until_and_skip(ascii::is<U'\"'>, ascii::is_endline<char32_t>);
            }
         catch(std::exception& e)
            {
@@ -376,7 +376,7 @@ class Parser final : public text::ParserBase<ENC>
        {
         assert( not inherited::got_space() ); // collect_unquoted_attr_value() expects non-space char"
         try{
-            return inherited::collect_until(text::is_space_or_any_of<U'>',U'/'>, text::is_any_of<U'<',U'=',U'\"'>);
+            return inherited::collect_until(ascii::is_space_or_any_of<U'>',U'/'>, ascii::is_any_of<U'<',U'=',U'\"'>);
            }
         catch(std::exception& e)
            {

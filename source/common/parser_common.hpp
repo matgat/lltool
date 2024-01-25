@@ -39,17 +39,19 @@ class error final : public std::exception
 
 
 /////////////////////////////////////////////////////////////////////////////
-using flags = std::uint8_t;
-namespace flag
-{
-    enum : flags
-    {
-       NONE = 0x0
-      ,SKIP_STOPPER = 0x1 // Skip the codepoint that ended the collect
-       //,RESERVED = 0x2 // Reserved
-       //,RESERVED = 0x4 // Reserved
-       //,RESERVED = 0x8 // Reserved
-    };
-}
+// parse_function(..., const parse::flags flags =parse::flag::NONE)
+// if( flags & parse::flag::SKIP_STOPPER ) ...
+//using flags = std::uint8_t;
+//namespace flag
+//{
+//    enum : flags
+//    {
+//       NONE = 0x0
+//      ,SKIP_STOPPER = 0x1 // Skip the codepoint that ended the collect
+//       //,RESERVED = 0x2 // Reserved
+//       //,RESERVED = 0x4 // Reserved
+//       //,RESERVED = 0x8 // Reserved
+//    };
+//}
 
 }//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::

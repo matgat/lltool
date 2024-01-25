@@ -6,6 +6,8 @@ namespace ut = boost::ut;
 
 #define TEST_UNITS
 #include "system_process.hpp" // sys::*
+#include "ascii_predicates.hpp" // ascii::is_*
+#include "ascii_simple_parser.hpp" // ascii::simple_parser
 #include "string_utilities.hpp" // str::*
 #include "globbing.hpp" // MG::glob_match()
 #include "file_globbing.hpp" // MG::file_glob()

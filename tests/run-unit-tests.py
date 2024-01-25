@@ -53,6 +53,7 @@ def main():
     set_title(__file__)
     os.chdir(script_dir)
 
+    print(f"{BLUE}Building {CYAN}{testprojectname}{END}")
     if (build_ret:=launch(build_cmd))!=0:
         print(f"\n{RED}Build error: {YELLOW}{build_ret}{END}")
         pause()

@@ -1,27 +1,34 @@
 ﻿#pragma once
 //  ---------------------------------------------
-//  A map implemented with vector
-//  .Preserves the original insertion order
-//  .Cache friendly, performance degrades with N
+//  A map that preserves the original insertion
+//  order optimized to use strings as keys
 //  ---------------------------------------------
-//  #include "vectmap.hpp" // MG::vectmap<>
+//  #include "string_map.hpp" // MG::string_map<>
 //  ---------------------------------------------
+#include <concepts>
+#include <stdexcept> // std::runtime_error
 #include <vector>
+#include <string>
+#include <string_view>
 #include <optional>
-//#include <initializer_list>
-
-#include <fmt/format.h> // fmt::format
 
 
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 namespace MG
 {
 
+template<typename T>
+concept a_basic_string = std::same_as<T, std::basic_string<typename T::value_type, typename T::traits_type, typename T::allocator_type>>;
+
+
 /////////////////////////////////////////////////////////////////////////////
-template<typename TKEY, typename TVAL> class vectmap final
+template<a_basic_string TKEY, typename TVAL> class string_map final
 {
  public:
-    using item_type = std::pair<TKEY,TVAL>;
+    using key_type = TKEY;
+    using value_type = TVAL;
+    using key_view_type = decltype( std::basic_string_view{std::declval<const key_type&>()} );
+    using item_type = std::pair<key_type,value_type>;
     using container_type = std::vector<item_type>;
     using iterator = container_type::iterator;
     using const_iterator = container_type::const_iterator;
@@ -30,14 +37,10 @@ template<typename TKEY, typename TVAL> class vectmap final
     container_type m_v;
 
  public:
-    //constexpr vectmap(std::initializer_list<item_type> lst)
-    //  : m_v{lst}
-    //   {}
-
     [[nodiscard]] constexpr auto size() const noexcept { return m_v.size(); }
     [[nodiscard]] constexpr bool is_empty() const noexcept { return m_v.empty(); }
 
-    [[nodiscard]] constexpr bool operator==(vectmap<TKEY,TVAL> const& other) const noexcept
+    [[nodiscard]] constexpr bool operator==(string_map<TKEY,TVAL> const& other) const noexcept
        {
         if( size()!=other.size() )
            {
@@ -56,41 +59,42 @@ template<typename TKEY, typename TVAL> class vectmap final
 
 
 
-    [[maybe_unused]] constexpr TVAL& insert_if_missing(TKEY&& key, TVAL&& val)
+    [[maybe_unused]] constexpr value_type& insert_if_missing(key_type&& key, value_type&& val)
        {
         if( iterator it=find(key); it!=end() )
            {
             return it->second; // Already present, do nothing
            }
-        return append(std::move(key), std::move(val));
+        return append( item_type{std::move(key), std::move(val)} );
        }
 
-    [[maybe_unused]] constexpr TVAL& insert_or_assign(TKEY&& key, TVAL&& val)
+    [[maybe_unused]] constexpr value_type& insert_or_assign(key_type&& key, value_type&& val)
        {
         if( iterator it=find(key); it!=end() )
            {
             return it->second = val; // Already present, overwrite
            }
-        return append(std::move(key), std::move(val));
+        return append( item_type{std::move(key), std::move(val)} );
        }
 
-    [[maybe_unused]] constexpr TVAL& insert_unique(TKEY&& key, TVAL&& val)
+    [[maybe_unused]] constexpr value_type& insert_unique(key_type&& key, value_type&& val)
        {
         if( contains(key) )
            {
-            throw std::runtime_error( fmt::format("key '{}' already present in vectmap", key) );
+            throw std::runtime_error("key already present in string_map");
            }
-        return append(std::move(key), std::move(val));
+        return append( item_type{std::move(key), std::move(val)} );
        }
 
-    [[maybe_unused]] constexpr TVAL& append(TKEY&& key, TVAL&& val)
+    [[maybe_unused]] constexpr value_type& append(item_type&& item)
        {
-        return m_v.insert(m_v.end(), item_type(std::move(key), std::move(val)))->second;
+        m_v.push_back( std::move(item) );
+        return m_v.back().second;
        }
 
 
 
-    [[nodiscard]] constexpr const_iterator find(TKEY const& key) const noexcept
+    [[nodiscard]] constexpr const_iterator find(const key_view_type key) const noexcept
        {
         const_iterator it = m_v.begin();
         while( it!=m_v.end() )
@@ -101,7 +105,7 @@ template<typename TKEY, typename TVAL> class vectmap final
         return it;
        }
 
-    [[nodiscard]] constexpr iterator find(TKEY const& key) noexcept
+    [[nodiscard]] constexpr iterator find(const key_view_type key) noexcept
        {
         iterator it = m_v.begin();
         while( it!=m_v.end() )
@@ -118,14 +122,14 @@ template<typename TKEY, typename TVAL> class vectmap final
     //    std::forward<Self>(self)
     //   }
 
-    [[nodiscard]] constexpr bool contains(TKEY const& key) const noexcept
+    [[nodiscard]] constexpr bool contains(const key_view_type key) const noexcept
        {
         return find(key)!=end();
        }
 
-    [[nodiscard]] constexpr auto value_of(TKEY const& key) const noexcept
+    [[nodiscard]] constexpr auto value_of(const key_view_type key) const noexcept
        {
-        std::optional<std::reference_wrapper<const TVAL>> val;
+        std::optional< std::reference_wrapper<const value_type> > val;
         if( const_iterator it=find(key); it!=end() )
            {
             val = std::cref(it->second);
@@ -133,7 +137,7 @@ template<typename TKEY, typename TVAL> class vectmap final
         return val;
        }
 
-    [[nodiscard]] constexpr TVAL const& value_or(TKEY const& key, TVAL const& def) const noexcept
+    [[nodiscard]] constexpr value_type const& value_or(const key_view_type key, value_type const& def) const noexcept
        {
         if( const_iterator it=find(key); it!=end() )
            {
@@ -142,19 +146,19 @@ template<typename TKEY, typename TVAL> class vectmap final
         return def;
        }
 
-    [[nodiscard]] constexpr TVAL const& operator[](TKEY const& key) const
+    [[nodiscard]] constexpr value_type const& operator[](const key_view_type key) const
        {
         const_iterator it = find(key);
         if( it==end() )
            {
-            throw std::runtime_error( fmt::format("key '{}' not found in vectmap", key) );
+            throw std::runtime_error("key not found in string_map");
            }
         return it->second;
        }
 
-    [[nodiscard]] constexpr TVAL extract_or(TKEY const& key, TVAL const& def) noexcept
+    [[nodiscard]] constexpr value_type extract_or(const key_view_type key, value_type const& def) noexcept
        {
-        TVAL val{def};
+        value_type val{def};
         if( const_iterator it=find(key); it!=end() )
            {
             val = it->second;
@@ -182,7 +186,7 @@ template<typename TKEY, typename TVAL> class vectmap final
            }
        }
 
-    constexpr void erase(TKEY const& key)
+    constexpr void erase(const key_view_type key)
        {
         for( const_iterator it = m_v.begin(); it!=m_v.end(); ++it )
            {
@@ -209,21 +213,6 @@ template<typename TKEY, typename TVAL> class vectmap final
     [[nodiscard]] constexpr const_iterator end() const noexcept { return m_v.end(); }
     [[nodiscard]] constexpr iterator begin() noexcept { return m_v.begin(); }
     [[nodiscard]] constexpr iterator end() noexcept { return m_v.end(); }
-
-
-  #ifdef TEST_UNITS
-    [[nodiscard]] constexpr std::string string() const
-       {
-        std::string s;
-        const_iterator it = begin();
-        s = fmt::format("{}={}", it->first, it->second);
-        while( ++it!=end() )
-           {
-            s += fmt::format(",{}={}", it->first, it->second);
-           }
-        return s;
-       }
-  #endif
 };
 
 
@@ -235,38 +224,67 @@ template<typename TKEY, typename TVAL> class vectmap final
 
 /////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
-static ut::suite<"MG::vectmap<>"> vectmap_tests = []
+//---------------------------------------------------------------------------
+template<typename TVAL>
+[[nodiscard]] constexpr std::string to_string( MG::string_map<std::string,TVAL> const& strmap )
+   {
+    std::string s;
+    auto it = strmap.begin();
+    if( it!=strmap.end() )
+       {
+        s += it->first;
+        s += '=';
+        if constexpr(std::same_as<TVAL, std::string>)
+            s += it->second;
+        else
+            s += std::to_string(it->second);
+
+        while( ++it!=strmap.end() )
+           {
+            s += ',';
+            s += it->first;
+            s += '=';
+            if constexpr(std::same_as<TVAL, std::string>)
+                s += it->second;
+            else
+                s += std::to_string(it->second);
+           }
+       }
+    return s;
+   }
+/////////////////////////////////////////////////////////////////////////////
+static ut::suite<"MG::string_map<>"> string_map_tests = []
 {////////////////////////////////////////////////////////////////////////////
     using ut::expect;
     using ut::that;
     using ut::throws;
 
-    ut::test("MG::vectmap<std::string,std::string>") = []
+    ut::test("basic operations") = []
        {
-        MG::vectmap<std::string,std::string> v;
+        MG::string_map<std::string,std::string> v;
         expect( that % v.is_empty() and v.size()==0u );
 
         // Inserting
         v.insert_or_assign("key1","val1");
-        expect( that % v.size()==1u and v.string()=="key1=val1"s );
+        expect( that % v.size()==1u and to_string(v)=="key1=val1"s );
 
         v.insert_if_missing("key2","old2");
-        expect( that % v.size()==2u and v.string()=="key1=val1,key2=old2"s );
+        expect( that % v.size()==2u and to_string(v)=="key1=val1,key2=old2"s );
 
         v.insert_unique("key3","val3");
-        expect( that % v.size()==3u and v.string()=="key1=val1,key2=old2,key3=val3"s );
+        expect( that % v.size()==3u and to_string(v)=="key1=val1,key2=old2,key3=val3"s );
 
         v.insert_if_missing("key2","val2");
-        expect( that % v.size()==3u and v.string()=="key1=val1,key2=old2,key3=val3"s ) << "shouldn't modify already existing key\n";
+        expect( that % v.size()==3u and to_string(v)=="key1=val1,key2=old2,key3=val3"s ) << "shouldn't modify already existing key\n";
 
         // Overwriting
         v.insert_or_assign("key2","val2");
-        expect( that % v.size()==3u and v.string()=="key1=val1,key2=val2,key3=val3"s ) << "should have modified key2\n";
+        expect( that % v.size()==3u and to_string(v)=="key1=val1,key2=val2,key3=val3"s ) << "should have modified key2\n";
         expect( throws<std::runtime_error>([v] { ut::mut(v).insert_unique("key1",""); })) << "should throw runtime_error inserting already existing key\n";
 
         // Accessing not existing
         expect( throws<std::runtime_error>([&v] { [[maybe_unused]] auto s = v["x"]; })) << "should throw runtime_error accessing not existing key\n";
-        expect( !v.value_of("x").has_value() );
+        expect( not v.value_of("x").has_value() );
         expect( that % v.value_or("x","def")=="def"s );
 
         // Accessing existing
@@ -276,27 +294,27 @@ static ut::suite<"MG::vectmap<>"> vectmap_tests = []
 
         // Erasing
         v.erase("x");
-        expect( that % v.size()==3u and v.string()=="key1=val1,key2=val2,key3=val3"s ) << "erasing not existing key does nothing\n";
+        expect( that % v.size()==3u and to_string(v)=="key1=val1,key2=val2,key3=val3"s ) << "erasing not existing key does nothing\n";
         v.erase("key1");
-        expect( that % v.size()==2u and v.string()=="key2=val2,key3=val3"s ) << "erasing first key\n";
+        expect( that % v.size()==2u and to_string(v)=="key2=val2,key3=val3"s ) << "erasing first key\n";
         v.clear();
         expect(that % v.is_empty() and v.size()==0u) << "should be empty after clear\n";
        };
 
 
-    ut::test("MG::vectmap<int,int> loop erase") = []
+    ut::test("loop erase") = []
        {
-        MG::vectmap<int,int> v;
-        v.insert_unique(1,1);
-        v.insert_unique(2,2);
-        v.insert_unique(3,3);
-        v.insert_unique(4,4);
-        v.insert_unique(5,5);
-        expect( that % v.string()=="1=1,2=2,3=3,4=4,5=5"s );
+        MG::string_map<std::string,int> v;
+        v.insert_unique("1",1);
+        v.insert_unique("2",2);
+        v.insert_unique("3",3);
+        v.insert_unique("4",4);
+        v.insert_unique("5",5);
+        expect( that % to_string(v)=="1=1,2=2,3=3,4=4,5=5"s );
 
         // Erase odd values
         v.erase_if( [](decltype(v)::const_iterator it) constexpr -> bool { return it->second % 2; } );
-        expect( that % v.string()=="2=2,4=4"s );
+        expect( that % to_string(v)=="2=2,4=4"s );
        };
 
 };///////////////////////////////////////////////////////////////////////////
