@@ -2,10 +2,11 @@
 //  ---------------------------------------------
 //  A map that preserves the original insertion
 //  order optimized to use strings as keys
+//  (uses string views to query keys)
 //  ---------------------------------------------
 //  #include "string_map.hpp" // MG::string_map<>
 //  ---------------------------------------------
-#include <concepts>
+#include <concepts> // std::same_as<>
 #include <stdexcept> // std::runtime_error
 #include <vector>
 #include <string>
@@ -18,15 +19,16 @@ namespace MG
 {
 
 template<typename T>
-concept a_basic_string = std::same_as<T, std::basic_string<typename T::value_type, typename T::traits_type, typename T::allocator_type>>;
+concept StdBasicString = std::same_as<T, std::basic_string<typename T::value_type, typename T::traits_type, typename T::allocator_type>>;
 
 
 /////////////////////////////////////////////////////////////////////////////
-template<a_basic_string TKEY, typename TVAL> class string_map final
+template<StdBasicString TKEY, typename TVAL> class string_map final
 {
  public:
     using key_type = TKEY;
     using value_type = TVAL;
+    using opt_refvalue_type = std::optional< std::reference_wrapper<const value_type> >;
     using key_view_type = decltype( std::basic_string_view{std::declval<const key_type&>()} );
     using item_type = std::pair<key_type,value_type>;
     using container_type = std::vector<item_type>;
@@ -129,7 +131,7 @@ template<a_basic_string TKEY, typename TVAL> class string_map final
 
     [[nodiscard]] constexpr auto value_of(const key_view_type key) const noexcept
        {
-        std::optional< std::reference_wrapper<const value_type> > val;
+        opt_refvalue_type val;
         if( const_iterator it=find(key); it!=end() )
            {
             val = std::cref(it->second);

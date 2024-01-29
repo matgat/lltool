@@ -2,6 +2,8 @@
 //  ---------------------------------------------
 //  A file buffered in memory
 //  ---------------------------------------------
+//  #include "memory_mapped_file.hpp" // sys::memory_mapped_file
+//  ---------------------------------------------
 #include <stdexcept> // std::runtime_error
 #include <string_view>
 //#include <string>
@@ -128,3 +130,25 @@ class memory_mapped_file final
 };
 
 }//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+#ifdef TEST_UNITS ///////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
+static ut::suite<"memory_mapped_file"> memory_mapped_file_tests = []
+{////////////////////////////////////////////////////////////////////////////
+
+    ut::test("file content match") = []
+       {
+        const std::string_view file_content = "123456"sv;
+        test::TemporaryFile file("~file.tmp", file_content);
+        const sys::memory_mapped_file mapped_file{ file.path().string().c_str() };
+
+        ut::expect( ut::that % mapped_file.as_string_view() == file_content );
+       };
+
+};///////////////////////////////////////////////////////////////////////////
+#endif // TEST_UNITS ////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////

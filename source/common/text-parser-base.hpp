@@ -1,6 +1,8 @@
 #pragma once
 //  ---------------------------------------------
-//  Common encoding agnostic parsing facilities
+//  Parse a unicode text buffer
+//  ---------------------------------------------
+//  #include "text-parser-base.hpp" // text::ParserBase, parse::*
 //  ---------------------------------------------
 #include <cassert>
 #include <concepts> // std::predicate

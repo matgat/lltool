@@ -1,12 +1,16 @@
 ﻿#pragma once
 //  ---------------------------------------------
 //  Facility to expand environment variables
+//  ---------------------------------------------
 //  #include "expand_env_vars.hpp" // sys::expand_env_vars()
 //  ---------------------------------------------
 #include <string_view>
 #include <string>
 #include <optional>
 #include <cstdlib> // std::getenv, ::getenv_s()
+
+#include "os-detect.hpp" // MS_WINDOWS, POSIX
+#include "ascii_simple_parser.hpp" // ascii::simple_parser
 
 
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -28,11 +32,11 @@ namespace details
     const std::string var_name_str = std::string(var_name);
 
   #if defined(MS_WINDOWS)
-    // std::getenv deemed unsafe, the Microsoft safe version requires a copy
-    // Check if variable is present
+    // std::getenv deemed unsafe (_CRT_SECURE_NO_WARNINGS, #pragma warning(disable: warning-code) )
+    // The Microsoft safe version requires a copy
     std::size_t val_size_plus_null = 0;
     if( 0==::getenv_s(&val_size_plus_null, nullptr, 0, var_name_str.c_str()) and val_size_plus_null>0 )
-       {
+       {// The variable is present, copy its value
         std::string var_value;
         var_value.resize(val_size_plus_null-1);
         if( 0==::getenv_s(&val_size_plus_null, var_value.data(), val_size_plus_null, var_name_str.c_str()) )
@@ -58,19 +62,17 @@ template<details::f_resolve_var_t resolve_var =resolve_var_getenv>
     std::string output;
     output.reserve( 2 * input.size() ); // An arbitrary guess
 
-    class parser_t final
+    class parser_t final : public ascii::simple_parser
     {
      private:
-        const std::string_view input;
-        std::size_t i = 0;
         std::size_t i_chunkstart = 0;
         std::size_t i_chunkend = 0;
         std::size_t i_varstart = 0;
         std::size_t i_varend = 0;
 
      public:
-        explicit parser_t(const std::string_view sv) noexcept
-          : input(sv)
+        explicit parser_t(const std::string_view buf) noexcept
+          : ascii::simple_parser(buf)
            {}
 
         [[nodiscard]] bool got_var_name() noexcept
@@ -80,23 +82,23 @@ template<details::f_resolve_var_t resolve_var =resolve_var_getenv>
                 if( got('%') )
                    {// Possible %var_name%
                     i_chunkend = pos();
-                    next();
+                    get_next();
                     if( got_varname_token() and got('%') )
                        {
-                        next();
+                        get_next();
                         return true;
                        }
                    }
                 else if( got('$') )
                    {
                     i_chunkend = pos();
-                    next();
+                    get_next();
                     if( got('{') )
                        {// Possible ${var_name}
-                        next();
+                        get_next();
                         if( got_varname_token() and got('}') )
                            {
-                            next();
+                            get_next();
                             return true;
                            }
                        }
@@ -105,7 +107,7 @@ template<details::f_resolve_var_t resolve_var =resolve_var_getenv>
                         return true;
                        }
                    }
-                else if( not next() )
+                else if( not this->get_next() )
                    {
                     break;
                    }
@@ -119,24 +121,19 @@ template<details::f_resolve_var_t resolve_var =resolve_var_getenv>
         void var_was_substituted() noexcept { i_chunkstart = pos(); }
 
     private:
-        [[nodiscard]] std::size_t pos() const noexcept { return i; }
-        [[nodiscard]] bool got(const char ch) const noexcept { return i<input.size() and input[i]==ch; }
-        [[maybe_unused]] bool next() noexcept { return ++i<input.size(); }
-
-        [[nodiscard]] bool got_varname_initial_char() const noexcept { return i<input.size() and std::isalnum(input[i]); }
-        [[nodiscard]] bool got_varname_char() const noexcept { return i<input.size() and (std::isalnum(input[i]) or input[i]=='_'); }
         [[nodiscard]] bool got_varname_token() noexcept
            {
             i_varstart = pos();
-            if( got_varname_initial_char() )
+            if( got_alpha() )
                {
-                next();
-                while( got_varname_char() ) next();
+                get_next();
+                while( got_ident() ) get_next();
                }
             i_varend = pos();
             return i_varend>i_varstart;
            }
     } parser(input);
+
 
     while( parser.got_var_name() )
        {
@@ -207,14 +204,8 @@ static ut::suite<"sys::expand_env_vars()"> sys_expand_env_vars_tests = []
 
     ut::test("os specific variable") = []
        {
-      #include "os-detect.hpp" // MS_WINDOWS, POSIX
       #if defined(MS_WINDOWS)
-        auto tolower = [](std::string s) constexpr -> std::string
-           {
-            for(char& c : s) c = static_cast<char>(std::tolower(c));
-            return s;
-           };
-        expect( that % tolower(sys::expand_env_vars("%WINDIR%-typical"sv))=="c:\\windows-typical"sv);
+        expect( that % test::compare_nocase(sys::expand_env_vars("%WINDIR%-typical"sv), "c:\\windows-typical"sv) );
       #elif defined(POSIX)
         expect( that % sys::expand_env_vars("$SHELL-typical"sv)=="/bin/bash-typical"sv);
       #endif

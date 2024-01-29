@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import os, sys
+import ctypes
 import subprocess
 import time
 import shutil
@@ -37,7 +38,7 @@ def set_title(title):
 
 #----------------------------------------------------------------------------
 def launch(command_and_args):
-    return subprocess.call(command_and_args)
+    return ctypes.c_int32( subprocess.call(command_and_args) ).value
 
 #----------------------------------------------------------------------------
 def pause():

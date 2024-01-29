@@ -4,6 +4,7 @@
 //  ---------------------------------------------
 //  #include "plc_library.hpp" // plcb::Library
 //  ---------------------------------------------
+#include <concepts> // std::convertible_to<>
 #include <stdexcept> // std::runtime_error
 #include <cstdint> // std::uint16_t
 #include <algorithm> // std::ranges::sort, std::ranges::find
@@ -93,6 +94,13 @@ class VariableAddress final
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 namespace buf //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 {// Content that refers to an external buffer
+
+
+//---------------------------------------------------------------------------
+template<typename T>
+concept ClassWithName = requires(T o) { { o.name() } -> std::convertible_to<std::string_view>; };
+template<ClassWithName T>
+[[nodiscard]] bool less_by_name(const T& a, const T& b) noexcept { return a.name()<b.name(); }
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -228,7 +236,7 @@ class Variables_Group final
 
     void sort()
        {
-        std::ranges::sort(m_Variables, [](const Variable& a, const Variable& b) noexcept { return a.name()<b.name(); });
+        std::ranges::sort(m_Variables, less_by_name<decltype(m_Variables)::value_type>);
        }
 };
 
@@ -276,7 +284,7 @@ class Variables_Groups final
 
     void sort()
        {
-        std::ranges::sort(groups(), [](const Variables_Group& a, const Variables_Group& b) noexcept { return a.name()<b.name(); });
+        std::ranges::sort(m_Groups, less_by_name<decltype(m_Groups)::value_type>);
        }
 
     [[nodiscard]] const std::vector<Variables_Group>& groups() const noexcept { return m_Groups; }
@@ -566,12 +574,12 @@ class Pou final
 
     void sort_variables()
        {
-        std::ranges::sort(inout_vars(), [](const Variable& a, const Variable& b) noexcept { return a.name()<b.name(); });
-        std::ranges::sort(input_vars(), [](const Variable& a, const Variable& b) noexcept { return a.name()<b.name(); });
-        std::ranges::sort(output_vars(), [](const Variable& a, const Variable& b) noexcept { return a.name()<b.name(); });
-        std::ranges::sort(external_vars(), [](const Variable& a, const Variable& b) noexcept { return a.name()<b.name(); });
-        std::ranges::sort(local_vars(), [](const Variable& a, const Variable& b) noexcept { return a.name()<b.name(); });
-        std::ranges::sort(local_constants(), [](const Variable& a, const Variable& b) noexcept { return a.name()<b.name(); });
+        std::ranges::sort(m_InOutVars, less_by_name<decltype(m_InOutVars)::value_type>);
+        std::ranges::sort(m_InputVars, less_by_name<decltype(m_InputVars)::value_type>);
+        std::ranges::sort(m_OutputVars, less_by_name<decltype(m_OutputVars)::value_type>);
+        std::ranges::sort(m_ExternalVars, less_by_name<decltype(m_ExternalVars)::value_type>);
+        std::ranges::sort(m_LocalVars, less_by_name<decltype(m_LocalVars)::value_type>);
+        std::ranges::sort(m_LocalConsts, less_by_name<decltype(m_LocalConsts)::value_type>);
        }
 };
 
@@ -792,14 +800,15 @@ class Library final
         global_retainvars().sort();
         global_variables().sort();
 
-        std::ranges::sort(programs(), [](const Pou& a, const Pou& b) noexcept { return a.name()<b.name(); });
-        std::ranges::sort(function_blocks(), [](const Pou& a, const Pou& b) noexcept { return a.name()<b.name(); });
-        std::ranges::sort(functions(), [](const Pou& a, const Pou& b) noexcept { return a.name()<b.name(); });
-        std::ranges::sort(macros(), [](const Macro& a, const Macro& b) noexcept { return a.name()<b.name(); });
-        std::ranges::sort(typedefs(), [](const TypeDef& a, const TypeDef& b) noexcept { return a.name()<b.name(); });
-        std::ranges::sort(enums(), [](const Enum& a, const Enum& b) noexcept { return a.name()<b.name(); });
-        std::ranges::sort(subranges(), [](const Subrange& a, const Subrange& b) noexcept { return a.name()<b.name(); });
-        //std::ranges::sort(interfaces(), [](const Interface& a, const Interface& b) noexcept { return a.name()<b.name(); });
+        std::ranges::sort(m_Programs, less_by_name<decltype(m_Programs)::value_type>);
+        std::ranges::sort(m_FunctionBlocks, less_by_name<decltype(m_FunctionBlocks)::value_type>);
+        std::ranges::sort(m_Functions, less_by_name<decltype(m_Functions)::value_type>);
+        std::ranges::sort(m_Macros, less_by_name<decltype(m_Macros)::value_type>);
+        std::ranges::sort(m_Structs, less_by_name<decltype(m_Structs)::value_type>);
+        std::ranges::sort(m_TypeDefs, less_by_name<decltype(m_TypeDefs)::value_type>);
+        std::ranges::sort(m_Enums, less_by_name<decltype(m_Enums)::value_type>);
+        std::ranges::sort(m_Subranges, less_by_name<decltype(m_Subranges)::value_type>);
+        //std::ranges::sort(m_Interfaces, less_by_name<decltype(m_Interfaces)::value_type>);
 
         //for( auto& pou : programs() )        pou.sort_variables();
         //for( auto& pou : function_blocks() ) pou.sort_variables();

@@ -28,12 +28,12 @@ debug: CXXFLAGS += -DDEBUG -D_DEBUG -g
 debug: executable
 
 executable: $(CPPS) $(HEADERS) makefile
-	$(info [executable ${CPPS}])
+	$(info [executable $(CPPS)])
 	mkdir -p ${BLDDIR}
 	$(CXX) -o $(TARGET) $(CXXFLAGS) $(CPPS)
 
 test: $(TEST_MAIN) $(HEADERS) makefile
-	$(info [test])
+	$(info [test $(TEST_MAIN)])
 	mkdir -p ${BLDDIR}
 	$(CXX) -o $(TEST_TARGET) $(CXXFLAGS) $(TEST_MAIN)
 

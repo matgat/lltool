@@ -668,9 +668,6 @@ template<text::Enc OUTENC>
 }
 
 
-    // Predicates (std::predicate<const char32_t>)
-    // Waiting the standard for a better solution, see "ascii_predicates.hpp"
-
 }//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 

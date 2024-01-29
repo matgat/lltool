@@ -4,9 +4,12 @@
 //  #include "string_utilities.hpp" // str::*
 //  ---------------------------------------------
 //#include <concepts> // std::convertible_to
-#include <cctype> // std::tolower()
 #include <string>
 #include <string_view>
+
+#include "ascii_predicates.hpp" // ascii::to_lower
+
+using namespace std::literals; // "..."sv
 
 
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -36,11 +39,11 @@ namespace str //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 }
 
 //-----------------------------------------------------------------------
-[[nodiscard]] constexpr std::string tolower(std::string&& s) noexcept
+[[nodiscard]] constexpr std::string tolower(std::string s) noexcept
 {
     for(char& ch : s)
        {
-        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        ch = ascii::to_lower(ch);
        }
     return s;
 }
@@ -60,7 +63,7 @@ static ut::suite<"string_utilities"> string_utilities_tests = []
         ut::expect( ut::that % str::join_left(';', {"a","b","c"})==";a;b;c"sv );
         ut::expect( ut::that % str::join_left(',', {})==""sv );
        };
-       
+
     ut::test("str::tolower()") = []
        {
         ut::expect( ut::that % str::tolower("AbCdE fGhI 23 L")=="abcde fghi 23 l"sv );

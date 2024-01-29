@@ -1,23 +1,23 @@
 ﻿#pragma once
 //  ---------------------------------------------
 //  test facilities
+//  This code should be already proven good
+//  and shouldn't depend on tested units
+//  ---------------------------------------------
 //  #include "test_facilities.hpp" // test::*
 //  ---------------------------------------------
 #include <stdexcept>
 #include <vector>
+#include <cctype> // std::tolower
+#include <string>
 #include <string_view>
 #include <ranges> // std::ranges::sort
-#include <cstdlib> // std::system()
 #include <thread> // std::this_thread
-#include <chrono>
+#include <chrono> // std::chrono::*
+#include <fstream> // std::ifstream, std::ofstream
 #include <filesystem> // std::filesystem
 
 #include <fmt/format.h> // fmt::format
-
-#include "string_utilities.hpp" // str::*
-//#include "system_process.hpp" // sys::*
-#include "file_write.hpp" // sys::file_write()
-#include "memory_mapped_file.hpp" // sys::memory_mapped_file
 
 namespace fs = std::filesystem;
 using namespace std::literals; // "..."sv
@@ -26,6 +26,17 @@ using namespace std::literals; // "..."sv
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 namespace test //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 {
+
+//-----------------------------------------------------------------------
+[[nodiscard]] bool compare_nocase(const std::string_view sv1, const std::string_view sv2) noexcept
+{
+    if( sv1.size()!=sv2.size() ) return false;
+    for( std::size_t i=0; i<sv1.size(); ++i )
+        if( std::tolower(static_cast<unsigned char>(sv1[i])) !=
+            std::tolower(static_cast<unsigned char>(sv2[i])) ) return false;
+    return true;
+}
+
 
 //---------------------------------------------------------------------------
 template<typename T>
@@ -42,6 +53,7 @@ template<typename T>
 {
     return have_same_elements<T>( std::move(v), std::vector<T>{lst});
 }
+
 
 //---------------------------------------------------------------------------
 template<typename T>
@@ -66,20 +78,7 @@ void sleep_for_seconds(const unsigned int t_s)
 
 
 //---------------------------------------------------------------------------
-[[maybe_unused]] int execute_wait(const char* const cmd)
-{
-    return std::system( cmd );
-}
-
-//---------------------------------------------------------------------------
-[[maybe_unused]] int execute_wait(const fs::path& exe, std::initializer_list<std::string_view> args ={})
-{
-    return execute_wait( fmt::format("{} {}", exe.string(), str::join_left(' ', args)).c_str() );
-}
-
-
-//---------------------------------------------------------------------------
-std::string generate_unique_timestamp(const std::string_view prefix)
+[[nodiscard]] std::string generate_unique_timestamp(const std::string_view prefix)
 {
     const auto milliseconds_epoch = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     return fmt::format("{}{:0>10}.{:0>3}", prefix, milliseconds_epoch/1000, milliseconds_epoch % 1000);
@@ -87,11 +86,24 @@ std::string generate_unique_timestamp(const std::string_view prefix)
 
 
 //---------------------------------------------------------------------------
-[[nodiscard]] bool have_same_content(const fs::path& path1, const fs::path& path2)
+[[nodiscard]] std::string read_file_content(const std::string& file_name)
 {
-    const sys::memory_mapped_file content1{ path1.string().c_str() };
-    const sys::memory_mapped_file content2{ path2.string().c_str() };
-    return content1.as_string_view() == content2.as_string_view();
+    std::ifstream file(file_name);
+    return std::string{ std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>() };
+}
+
+//---------------------------------------------------------------------------
+void write_to_file(const std::string& file_name, const std::string_view content)
+{
+    std::ofstream file(file_name);
+    file << content;
+}
+
+//---------------------------------------------------------------------------
+void append_to_file(const std::string& file_name, const std::string_view content)
+{
+    std::ofstream file(file_name, std::ios::app);
+    file << content;
 }
 
 
@@ -115,8 +127,7 @@ class File
     explicit File(fs::path&& pth, const std::string_view content)
       : File(std::move(pth))
        {
-        sys::file_write fw(m_path.string().c_str());
-        fw << content;
+        write_to_file(m_path.string(), content);
        }
 
     [[nodiscard]] const fs::path& path() const noexcept
@@ -126,14 +137,12 @@ class File
 
     [[nodiscard]] bool has_content(const std::string_view given_content) const
        {
-        const sys::memory_mapped_file file_content{ m_path.string().c_str() };
-        return file_content.as_string_view() == given_content;
+        return read_file_content(m_path.string()) == given_content;
        }
 
     void operator<<(const std::string_view content) const
        {
-        sys::file_write fw(m_path.string().c_str(), sys::file_write::APPEND);
-        fw << content;
+        append_to_file(m_path.string(), content);
        }
 
     void remove() noexcept
@@ -225,4 +234,4 @@ class TemporaryDirectory final
        }
 };
 
-}//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+}//::::::::::::::::::::::::::::::::::: test :::::::::::::::::::::::::::::::::

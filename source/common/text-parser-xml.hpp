@@ -1,6 +1,8 @@
 #pragma once
 //  ---------------------------------------------
-//  Parse xml format
+//  Parse xml format (in unicode text buffer)
+//  Uses ascii::* predicates, good enough because
+//  xml markup is composed by ascii characters
 //  ---------------------------------------------
 //  #include "text-parser-xml.hpp" // text::xml::Parser
 //  ---------------------------------------------
@@ -120,7 +122,7 @@ class ParserEvent final
         return attrib.has_value() and attrib->get().has_value() and attrib->get().value()==val;
        }
 
-    [[nodiscard]] constexpr operator bool() const noexcept { return m_type!=type::NONE; }
+    [[nodiscard]] explicit constexpr operator bool() const noexcept { return m_type!=type::NONE; }
     [[nodiscard]] constexpr bool is_comment() const noexcept { return m_type==type::COMMENT; }
     [[nodiscard]] constexpr bool is_text() const noexcept { return m_type==type::TEXT; }
     [[nodiscard]] constexpr bool is_open_tag() const noexcept { return m_type==type::OPENTAG; }
@@ -456,7 +458,7 @@ static ut::suite<"text::xml::Parser"> XmlParser_tests = []
        {
         text::xml::ParserEvent event;
 
-        expect( that % event == false) << "empty event should evaluate false\n";
+        expect( that % not event ) << "empty event should evaluate false\n";
 
         event.set_as_comment(U"cmt"s);
         expect( that % event.is_comment() and event.value()==U"cmt"sv ) << "should be a comment event\n";

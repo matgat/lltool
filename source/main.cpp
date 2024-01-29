@@ -1,13 +1,15 @@
 ﻿#include <stdexcept> // std::runtime_error
 #include <string>
 #include <string_view>
-#include <fmt/format.h> // fmt::*
 #include <filesystem> // std::filesystem
 namespace fs = std::filesystem;
 using namespace std::literals; // "..."sv
 
+#include <fmt/format.h> // fmt::*
+
 #include "args_extractor.hpp" // MG::args_extractor
 #include "issues_collector.hpp" // MG::issues
+#include "keyvals.hpp" // MG::keyvals
 #include "edit_text_file.hpp" // sys::edit_text_file()
 #include "file_globbing.hpp" // MG::file_glob()
 
@@ -23,7 +25,7 @@ class Arguments final
 {
     class task_t final
     {
-        enum en_task_t : char { NONE, UPDATE, CONVERT} m_value = NONE;
+        enum en_task_t : char { NONE, UPDATE, CONVERT } m_value = NONE;
 
      public:
         void set_as_update() noexcept { m_value=UPDATE; }
@@ -37,31 +39,28 @@ class Arguments final
     fs::path m_prj_path;
     std::vector<fs::path> m_input_files;
     fs::path m_out_path;
+    MG::keyvals m_options;
     task_t m_task;
     bool m_verbose = false; // More info to stdout
     bool m_quiet = false; // No user interaction
     bool m_force = false; // Overwrite or clear existing output files
 
-    //bool m_fussy = false;
-    //MG::keyvals m_options;
-
  public:
     [[nodiscard]] const auto& prj_path() const noexcept { return m_prj_path; }
     [[nodiscard]] const auto& input_files() const noexcept { return m_input_files; }
     [[nodiscard]] const auto& out_path() const noexcept { return m_out_path; }
+    [[nodiscard]] const auto& options() const noexcept { return m_options; }
     [[nodiscard]] const auto& task() const noexcept { return m_task; }
     [[nodiscard]] bool verbose() const noexcept { return m_verbose; }
     [[nodiscard]] bool quiet() const noexcept { return m_quiet; }
     [[nodiscard]] bool overwrite_existing() const noexcept { return m_force; }
-
-    //[[nodiscard]] bool fussy() const noexcept { return m_fussy; }
-    //[[nodiscard]] const auto& options() const noexcept { return m_options; }
 
  public:
     //-----------------------------------------------------------------------
     void parse(const int argc, const char* const argv[])
        {
         MG::args_extractor args(argc, argv);
+        args.apply_switch_by_name_or_char = [this](const std::string_view full_name, const char brief_name) { apply_switch(full_name,brief_name); };
 
         if( args.has_current() )
            {// As first argument I expect a task
@@ -76,7 +75,7 @@ class Arguments final
                }
             else if( args.is_switch(arg) )
                {
-                recognize_switch( arg );
+                args.apply_switch(arg);
                }
             else
                {
@@ -91,25 +90,20 @@ class Arguments final
                    {
                     if( arg=="--to"sv or arg=="--out"sv or arg=="-o"sv )
                        {
-                        args.next(); // Expecting an output path next
-                        if( not args.has_current() )
-                           {
-                            throw std::invalid_argument("Missing output path");
-                           }
+                        const std::string_view str = args.get_next_value_of(arg);
                         if( not m_out_path.empty() )
                            {
                             throw std::invalid_argument( fmt::format("Output was already set to {}", m_out_path.string()) );
                            }
-                        const std::string_view should_be_out_path = args.current();
-                        if( args.is_switch(should_be_out_path) )
-                           {
-                            throw std::invalid_argument( fmt::format("Missing output path before {}", should_be_out_path) );
-                           }
-                        m_out_path = should_be_out_path;
+                        m_out_path = str;
+                       }
+                    else if( arg=="--options"sv or arg=="-p"sv )
+                       {
+                        m_options.assign( args.get_next_value_of(arg) );
                        }
                     else
                        {
-                        recognize_switch(arg);
+                        args.apply_switch(arg);
                        }
                    }
                 else
@@ -226,6 +220,7 @@ class Arguments final
                     "   {0} update -v path/to/project.ppjs\n"
                     "   {0} convert -o path/to/dir -vF path/to/*.h path/to/*.pll\n"
                     "       --to/--out/-o (Specify output file/directory)\n"
+                    "       --options/-p (Specify comma separated key:value)\n"
                     "       --force/-F (Overwrite existing output files)\n"
                     "       --verbose/-v (Print more info on stdout)\n"
                     "       --quiet/-q (No user interaction)\n"
@@ -235,7 +230,7 @@ class Arguments final
 
  private:
     //-----------------------------------------------------------------------
-    void recognize_single_switch(const std::string_view full_name, const char brief_name ='\0')
+    void apply_switch(const std::string_view full_name, const char brief_name)
        {
         if( full_name=="force"sv or brief_name=='F' )
            {
@@ -256,26 +251,8 @@ class Arguments final
            }
         else
            {
-            if( brief_name ) throw std::invalid_argument( fmt::format("Unknown switch: '{}'", brief_name) );
-            else             throw std::invalid_argument( fmt::format("Unknown switch: \"{}\"", full_name) );
-           }
-       }
-
-    //-----------------------------------------------------------------------
-    void recognize_switch(std::string_view arg)
-       {
-        const std::size_t switch_prfx_size = MG::args_extractor::get_switch_prefix_size(arg);
-        arg.remove_prefix(switch_prfx_size);
-        if( switch_prfx_size==1 )
-           {// Single char switch
-            for(const char ch : arg )
-               {
-                recognize_single_switch(""sv, ch);
-               }
-           }
-        else
-           {// Full name switch
-            recognize_single_switch(arg);
+            if( full_name.empty() ) throw std::invalid_argument( fmt::format("Unknown switch: '{}'", brief_name) );
+            else                    throw std::invalid_argument( fmt::format("Unknown switch: \"{}\"", full_name) );
            }
        }
 };
