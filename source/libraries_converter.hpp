@@ -175,6 +175,9 @@ struct outpaths_t final
                 output_files_paths.set_pll(input_file_path);
                 output_files_paths.set_plclib(input_file_path);
                 break;
+
+            default:
+                ; // No output paths
            }
        }
 

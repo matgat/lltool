@@ -74,9 +74,9 @@ namespace details
         0x0   , 0x0   , 0x0   , 0x0   , 0x0   , 0x0   , 0x0   , 0x0   , 0x0   , 0x0   , 0x0   , 0x0   , 0x0   , 0x0   , 0x0   , 0x0 };
 
 
-    [[nodiscard]] inline constexpr bool check(const unsigned char ch, const mask_t mask){ return ascii_lookup_table[ch] & mask; }
-    [[nodiscard]] inline constexpr bool check(const char ch, const mask_t mask){ return check(static_cast<unsigned char>(ch), mask); }
-    [[nodiscard]] inline constexpr bool check(const char32_t cp, const mask_t mask)
+    [[nodiscard]] inline constexpr bool check(const unsigned char ch, const mask_t mask) noexcept { return ascii_lookup_table[ch] & mask; }
+    [[nodiscard]] inline constexpr bool check(const char ch, const mask_t mask) noexcept { return check(static_cast<unsigned char>(ch), mask); }
+    [[nodiscard]] inline constexpr bool check(const char32_t cp, const mask_t mask) noexcept
        {
         // Good enough for parsing code where non ASCII codepoints are just in text or comments
         if( cp<U'\x80' ) [[likely]]
@@ -298,7 +298,7 @@ ut::test("non-type parameterized templates") = []
     ut::expect( ut::that % not ascii::is_alnum_or_any_of<'a','\xE0',';'>('\xE1') );
     ut::expect( ut::that % not ascii::is_punct_and_none_of<','>('\xE1') );
    };
-   
+
 ut::test("implicit conversions") = []
    {
     ut::expect( ut::that % ascii::is_any_of<U'a',L'b',u8'c','d'>('b') );
