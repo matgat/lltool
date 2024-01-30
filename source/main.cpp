@@ -12,6 +12,7 @@ using namespace std::literals; // "..."sv
 #include "keyvals.hpp" // MG::keyvals
 #include "edit_text_file.hpp" // sys::edit_text_file()
 #include "file_globbing.hpp" // MG::file_glob()
+#include "has_duplicate_basenames.hpp" // MG::find_duplicate_basename()
 
 #include "project_updater.hpp" // ll::update_project_libraries()
 #include "libraries_converter.hpp" // ll::convert_libraries()
@@ -72,6 +73,10 @@ class Arguments final
             else if( arg=="convert"sv )
                {
                 m_task.set_as_convert();
+               }
+            else if( arg=="help"sv )
+               {
+                print_help_and_exit();
                }
             else if( args.is_switch(arg) )
                {
@@ -148,14 +153,14 @@ class Arguments final
                {
                 throw std::invalid_argument("Project file not given");
                }
+
             if( fs::exists(out_path()) )
                {// Specified an existing output path
                 if( fs::is_directory(out_path()) )
                    {
-                    //throw std::invalid_argument( fmt::format("Output \"{}\" must be a file", out_path().string()) );
                     m_out_path /= prj_path().filename();
                    }
-
+                // I'll ensure to not overwrite an existing file
                 if( fs::equivalent(prj_path(), out_path()) )
                    {
                     throw std::invalid_argument( fmt::format("Output file \"{}\" collides with project file, if your intent is overwrite don't specify output", out_path().string()) );
@@ -172,29 +177,18 @@ class Arguments final
                {
                 throw std::invalid_argument("No input files given");
                }
-            else if( input_files().size()==1 )
-               {// If converting just one file, if specified an existing output file, it must be writable with no harm
-                if( fs::exists(out_path()) and not fs::is_directory(out_path()) )
-                   {
-                    if( fs::equivalent(input_files().front(), out_path()) )
-                       {
-                        throw std::invalid_argument( fmt::format("Output file \"{}\" collides with original file", out_path().string()) );
-                       }
-                    else if( not overwrite_existing() )
-                       {
-                        throw std::invalid_argument( fmt::format("Won't overwrite existing file \"{}\" unless you explicitly tell me to", out_path().string()) );
-                       }
-                   }
-               }
-            else
-               {// If converting multiple files, must be specified (and be directory)
+
+            else if( input_files().size()>1  )
+               {// If converting multiple files...
+                //...An output directory must be specified
                 if( out_path().empty() )
                    {
                     throw std::invalid_argument("Output directory not given");
                    }
-                else if( fs::exists(out_path()) and fs::is_directory(out_path()) and not overwrite_existing() )
+                // Detect input files name clashes
+                if( const auto dup = MG::find_duplicate_basename(input_files()); dup.has_value() )
                    {
-                    throw std::invalid_argument( fmt::format("Won't write in existing directory \"{}\" unless you explicitly tell me to", out_path().string()) );
+                    throw std::runtime_error(fmt::format("Two or more input files named \"{}\"", dup.value()));
                    }
                }
            }
@@ -205,26 +199,27 @@ class Arguments final
        }
 
     //-----------------------------------------------------------------------
-    static void print_help() noexcept
+    static void print_help_and_exit()
        {
         fmt::print( "\n{} (ver. " __DATE__ ")\n"
                     "{}\n"
                     "\n", app_name, app_descr );
+        // The following triggers print_usage()
+        throw std::invalid_argument("Exiting after printing help");
        }
 
     //-----------------------------------------------------------------------
-    static void print_usage() noexcept
+    static void print_usage()
        {
         fmt::print( "\nUsage:\n"
-                    "   {0} [task] [arguments in any order]\n"
+                    "   {0} [update|convert|help] [switches] [path(s)]\n"
                     "   {0} update -v path/to/project.ppjs\n"
                     "   {0} convert -o path/to/dir -vF path/to/*.h path/to/*.pll\n"
                     "       --to/--out/-o (Specify output file/directory)\n"
                     "       --options/-p (Specify comma separated key:value)\n"
-                    "       --force/-F (Overwrite existing output files)\n"
+                    "       --force/-F (Overwrite/clear output files)\n"
                     "       --verbose/-v (Print more info on stdout)\n"
                     "       --quiet/-q (No user interaction)\n"
-                    "       --help/-h (Print this help)\n"
                     "\n", app_name );
        }
 
@@ -246,8 +241,7 @@ class Arguments final
            }
         else if( full_name=="help"sv or brief_name=='h' )
            {
-            print_help();
-            throw std::invalid_argument("Exiting after printing help");
+            print_help_and_exit();
            }
         else
            {
@@ -275,7 +269,7 @@ int main( const int argc, const char* const argv[] )
            {
             if( args.verbose() )
                {
-                fmt::print("Updating project {}\n", args.prj_path().string());
+                fmt::print("\nUpdating project {}\n", args.prj_path().string());
                }
             ll::update_project_libraries(args.prj_path(), args.out_path(), std::ref(issues));
            }
@@ -283,15 +277,16 @@ int main( const int argc, const char* const argv[] )
            {
             if( args.input_files().size()>1 )
                {
-                ll::prepare_converted_libs_output_dir( args.out_path(), args.overwrite_existing(), std::ref(issues) );
+                ll::prepare_output_dir(args.out_path(), args.overwrite_existing(), std::ref(issues));
                }
+
             for( const fs::path& file_path : args.input_files() )
                {
                 if( args.verbose() )
                    {
                     fmt::print("\nConverting {}\n", file_path.string());
                    }
-                ll::convert_library(file_path, args.out_path(), args.overwrite_existing(), std::ref(issues));
+                ll::convert_library(file_path, args.out_path(), args.overwrite_existing(), args.options(), std::ref(issues));
                }
            }
 

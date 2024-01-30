@@ -65,6 +65,7 @@ class VariableAddress final
     std::uint16_t m_SubIndex = 0;
 
  public:
+    VariableAddress() noexcept = default;
     explicit VariableAddress(const char typ,
                              const char vtyp,
                              const std::uint16_t idx,

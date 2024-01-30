@@ -1,6 +1,7 @@
 ﻿#pragma once
 //  ---------------------------------------------
 //  Abstract the issues notification mechanism
+//  ---------------------------------------------
 //  #include "issues_collector.hpp" // MG::issues
 //  ---------------------------------------------
 #include <string>

@@ -205,7 +205,7 @@ static ut::suite<"sys::expand_env_vars()"> sys_expand_env_vars_tests = []
     ut::test("os specific variable") = []
        {
       #if defined(MS_WINDOWS)
-        expect( that % test::compare_nocase(sys::expand_env_vars("%WINDIR%-typical"sv), "c:\\windows-typical"sv) );
+        expect( that % test::tolower(sys::expand_env_vars("%WINDIR%-typical"sv))=="c:\\windows-typical"sv );
       #elif defined(POSIX)
         expect( that % sys::expand_env_vars("$SHELL-typical"sv)=="/bin/bash-typical"sv);
       #endif

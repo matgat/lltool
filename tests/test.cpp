@@ -19,8 +19,11 @@ namespace ut = boost::ut;
 #include "text.hpp" // text::*
 #include "text-parser-base.hpp" // text::ParserBase
 #include "text-parser-xml.hpp" // text::xml::Parser
+#include "has_duplicate_basenames.hpp" // MG::has_duplicate_basenames()
 #include "project_updater.hpp" // ll::update_project_libraries()
 #include "libraries_converter.hpp" // ll::convert_libraries()
+#include "writer_pll.hpp" // pll::write()
+//#include "writer_plclib.hpp" // plclib::write()
 
 int main()
 {

@@ -22,37 +22,41 @@ _________________________________________________________________________
 > [`VC_redist.x64.exe`](https://aka.ms/vs/17/release/vc_redist.x64.exe)
 > as prerequisite.
 
-Command line structure:
+
+### Command line invocation:
+
+The program invocation in the most generic form:
 
 ```bat
-> lltool [update|convert] [switches] [path]
+> lltool [task] [arguments in any order]
 ```
+
+In a little more detail:
+
+```bat
+> lltool [update|convert|help] [switches] [path(s)]
+```
+
+The first argument selects the task; the order of the subsequent arguments
+is not relevant, except when the command switch must be followed by a value
+such as `--out/--to` or `--options`.
+The switches can be passed in a brief notation using a single hyphen,
+for example `-vF` is equivalent to `--verbose --force`.
+The program won't overwrite an existing file unless you `--force` it.
+
+To check all the available command line arguments:
+
+```bat
+> lltool help
+```
+
+### Exit value
 
 | Return value | Meaning                                |
 |--------------|----------------------------------------|
 |      0       | Operation successful                   |
 |      1       | Operation completed but with issues    |
 |      2       | Operation aborted due to a fatal error |
-
-
-
-### Command line invocation
-
-```bat
-> lltool [task] [arguments in any order]
-```
-
-The first argument selects the task; the order of the subsequent arguments
-is not relevant, except when the command switch must be followed by a value
-such as `--out` or `--options`.
-The switches can be passed in a brief notation using a single hyphen,
-for example `-vF` is equivalent to `--verbose --force`.
-
-To check the available command line switches:
-
-```bat
-> lltool --help
-```
 
 
 ### Examples
@@ -71,26 +75,29 @@ To update a project without overwriting the original file:
 > lltool update "C:\path\to\project.ppjs" --to "C:\path\to\project-updated.ppjs" --force
 ```
 
-> ***Use `--force` to overwrite the output file if existing***
+* _Use `--force` to overwrite the output file if existing_
 
-To convert a `.h` file to the corresponding `.pll` and `.plclib` in a
-given directory:
-
-```sh
-$ lltool convert file.h --force --to path/to/dir
-```
-
-> ***Use `--force` to allow write in the given directory if already existing***
 
 To convert all `.h` files in `prog/` and all `.pll` files in `plc/`,
 deleting existing files in the given output folder and
 indicating some conversion options:
 
-```sh
-$ lltool convert --options plclib-schemaver:2.8,plclib-indent:1 --force --to plc/LogicLab/generated-libs  prog/*.h plc/*.pll
+```bat
+$ lltool convert --options plclib-schemaver:2.8,plclib-indent:4 --force --to plc/LogicLab/generated-libs  prog/*.h plc/*.pll
 ```
 
-> ***❗Beware of output file name clashes of globbed input files❗***
+* _`.h` files will generate both `.pll` and `.plclib` files, while `.pll` files a `.plclib`_
+* _An error will be raised in case of library name clashes_
+* _Use `--force` to overwrite and clear the directory content_
+
+
+To reconvert a `.pll` file to a given output file:
+
+```bat
+$ lltool convert file.pll --force --to path/to/output.pll
+```
+
+* _File extension does matter to choose the desired parsing and writing functions_
 
 
 
@@ -102,9 +109,8 @@ their content in the project file.
 If the external libraries are stored in a different encoding,
 their content will be embedded respecting the original project file
 encoding.
-This operation has a strong guarantee: in case of typical runtime errors
-(ex. parsing errors) the filesystem is left in the same as before the
-invocation.
+This operation has a strong guarantee: in case of ordinary runtime errors
+the filesystem is left in the same state as before the invocation.
 
 
 The supported project formats are:
@@ -119,16 +125,16 @@ The supported library formats are:
 | `.pll`    | (Plc LogicLab3 Library) |
 | `.plclib` | (LogicLab5 PLC LIBrary) |
 
-> ***File type is determined by its extension (must be lowercase)***
+> *File type is determined by its extension (must be lowercase)*
 
 
 ### Limitations
 The following limitations are introduced to maximize efficiency:
-* The program assumes well formed files
+* The program assumes well formed projects
 * Line breaks won't be converted: if the external libraries and
   the project file use a different end of line character sequence,
   the resulting file will contain mixed line breaks
-* plclib content won't be reindented
+* plclib content won't be reindented (see `plclib-indent`)
 
 
 
@@ -136,25 +142,51 @@ _________________________________________________________________________
 ## Converting to library
 The operation consists in taking some input files and translating their
 content in another format.
-This operation doesn't offer any guarantee in case of runtime errors:
-an output file could have been left in a corrupted state.
+It is possible to indicate multiple input files also using a glob
+pattern, in that case an output directory must be specified;
+in case of duplicate file base names the program will exit with error.
+
+This operation offers just a basic guarantee in case of ordinary runtime
+errors: no files will be corrupted but part of the output files could
+have been already written, leaving the set of libraries in a possible
+incoherent state.
 
 The supported conversions are:
 * `.h` → `.pll`, `.plclib`
 * `.pll` → `.plclib`
+
+> *These will be the default conversions when the output file is not explicitly specified*
 
 Where
 * `.h` (Sipro header)
 * `.pll` (Plc LogicLab3 Library)
 * `.plclib` (LogicLab5 PLC LIBrary)
 
-> ***File type is determined by its extension, mind the case!***
+> *File type is determined by its extension, mind the case!*
 
 Sipro header files resemble a *c-like* header containing just
 `#define` directives.
 LogicLab libraries are *text* files embedding *IEC 61131-3* ST code;
 the latest format (`.plclib`) embraces a pervasive *xml* structure.
 More about these formats below.
+
+
+### Conversion options
+It is possible to specify a set of comma separated `key:value` pairs
+to provide some control on the produced output.
+The recognized keys are:
+|   key              |    value    |               description               |
+|--------------------|-------------|-----------------------------------------|
+| `no-timestamp`     | *<empty>*   | Don't put a timestamp in generated file |
+| `sort`             | *<empty>*   | Sort PLC elements and variables by name |
+| `plclib-schemaver` | *<number>*  | Schema version of generated plclib file |
+| `plclib-indent`    | *<integer>* | Spaces indentation of `<lib>` content   |
+
+Example:
+
+```bat
+$ lltool convert --options no-timestamp,plclib-indent:1,sort  ...
+```
 
 
 ### Limitations
@@ -164,19 +196,11 @@ The following limitations are introduced to maximize efficiency:
 * Input files should use preferably unix line breaks (`\n`)
 * Descriptions (`.h` `#define` inlined comments and `.pll` `{DE: ...}`)
   cannot contain XML special characters nor line breaks
-
-_IEC 61131-3_ syntax
-* Parser is case sensitive (uppercase keywords)
-* Not supported:
-  * Multidimensional arrays like `ARRAY[1..2, 1..2]`
-  * `RETAIN` specifier
-  * Pointers
-  * `IFDEF` LogicLab extension for conditional compilation
-  * Latest standard (`INTERFACE`, `THIS`, `PUBLIC`, `IMPLEMENTS`, `METHOD`, …)
+* Check syntax limitations below
 
 
 _________________________________________________________________________
-### `.h` files
+### Syntax of `.h` files
 Sipro header files supported syntax is:
 
 ```c
@@ -225,10 +249,22 @@ The recognized types are:
 
 
 _________________________________________________________________________
-### `.pll` files
-Authors are encouraged to include custom additional library data in
+### Syntax of `.pll` files
+
+Refer to _IEC 61131-3_ ST syntax.
+This parser has the following characteristics:
+* Is case sensitive: recognizes only uppercase keywords (`PROGRAM`, ...)
+* Tested only on pure Structured Text projects
+* Not supported:
+  * Multidimensional arrays like `ARRAY[1..2, 1..2]`
+  * `RETAIN` specifier
+  * Pointers
+  * LogicLab extension for conditional compilation `{IFDEF}`
+  * Latest standard (`INTERFACE`, `THIS`, `PUBLIC`, `IMPLEMENTS`, `METHOD`, …)
+
+Authors are encouraged to embed custom additional library data in
 the first comment of the `.pll` file.
-The recognized fields are:
+The recognized fields are `descr` and `version`, for example:
 
 ```
 (*
@@ -245,18 +281,18 @@ biased opinions of the author about the following topics:
 * Text file encoding: `UTF-8` it's the only sane choice
   _Rationale: `8-bit ANSI` must be finally dropped because
               incomplete, ambiguous and not portable.
-              All the others (`UTF-16`, `UTF-32`), for
-              these mostly `ASCII` sources, have only
-              disadvantages: huge waste of space and
-              cache, endianness, less compatible with
-              old tools. `UTF-16` is the worst choice
-              of all, combining the previous drawbacks
-              with having a variable number of codepoints_
+              `UTF-32` is a huge waste of space and cache
+              (at least with files that are mostly `ASCII`),
+              with the disadvantage of having to deal with endianness
+              and to be less compatible with old tools.
+              I'm not considering at all `UTF-16`, the worst possible
+              choice because combines all the drawbacks of the others
+              with a very little gain_
 * Line breaks should be finally uniformed to _unix_ (`LF`, `\n`)
-  _Rationale: No technical reason for two-chars `\r\n` lines breaks,
-              unless supporting ancient teletype devices, this just
-              introduces avoidable waste of space, (parsing) time
-              and annoyances when using different operating systems_
+  _Rationale: No technical reason for two-chars `\r\n` lines breaks
+              nowadays, this just introduces avoidable annoyances
+              porting on different platforms and a useless waste
+              of space and time_
 * Mind the case of file names
   _Rationale: `Windows` users often don't pay attention if a file
               has a lowercase or uppercase name, but the rest of

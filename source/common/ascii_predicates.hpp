@@ -13,7 +13,7 @@ namespace ascii //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 {
 
 namespace details
-{
+{   // The standard <cctype> behavior:
     // |         |                           |is   |is   |is   |is   |is   |is   |is   |is   |is   |is   |is   |is    |
     // | ASCII   | characters                |cntrl|print|graph|space|blank|punct|alnum|alpha|upper|lower|digit|xdigit|
     // |---------|---------------------------|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|------|
@@ -54,7 +54,7 @@ namespace details
         ISPRINT = 0x4000u  // std::isprint
        };
 
-    static_assert( sizeof(unsigned char)==1 );
+    static_assert( sizeof(unsigned char)==1 ); // Should really check CHAR_BIT?
     static constexpr table_entry_t ascii_lookup_table[256] =
       { 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x100C, 0x1004, 0x100C, 0x100C, 0x100C, 0x1000, 0x1000,
         0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000, 0x1000,
@@ -78,37 +78,50 @@ namespace details
     [[nodiscard]] inline constexpr bool check(const char ch, const mask_t mask){ return check(static_cast<unsigned char>(ch), mask); }
     [[nodiscard]] inline constexpr bool check(const char32_t cp, const mask_t mask)
        {
-        // Good enough for parsing code where non ASCII codepoints are just in strings or comments
+        // Good enough for parsing code where non ASCII codepoints are just in text or comments
         if( cp<U'\x80' ) [[likely]]
            {
             return check(static_cast<unsigned char>(cp), mask);
            }
         return false;
        }
+
+    // Facility for case conversion
+    template<bool SET> [[nodiscard]] inline constexpr char set_case_bit(char c) noexcept
+       {
+        static constexpr char case_bit = '\x20';
+        if constexpr (SET) c |= case_bit;
+        else               c &= ~case_bit;
+        return c;
+       }
 }
 
-
+// Supporting the following character types:
 template<typename T> concept CharLike = std::same_as<T, char> or std::same_as<T, unsigned char> or std::same_as<T, char32_t>;
 
-template<CharLike T> [[nodiscard]] constexpr bool is_lower(const T c) noexcept { return details::check(c, details::ISLOWER); }
-template<CharLike T> [[nodiscard]] constexpr bool is_upper(const T c) noexcept { return details::check(c, details::ISUPPER); }
-template<CharLike T> [[nodiscard]] constexpr bool is_space(const T c) noexcept { return details::check(c, details::ISSPACE); }
-template<CharLike T> [[nodiscard]] constexpr bool is_blank(const T c) noexcept { return details::check(c, details::ISBLANK); } // not equiv to std::isblank
-template<CharLike T> [[nodiscard]] constexpr bool is_alpha(const T c) noexcept { return details::check(c, details::ISALPHA); }
-template<CharLike T> [[nodiscard]] constexpr bool is_alnum(const T c) noexcept { return details::check(c, details::ISALNUM); }
-template<CharLike T> [[nodiscard]] constexpr bool is_digit(const T c) noexcept { return details::check(c, details::ISDIGIT); }
-template<CharLike T> [[nodiscard]] constexpr bool is_xdigi(const T c) noexcept { return details::check(c, details::ISXDIGI); }
-template<CharLike T> [[nodiscard]] constexpr bool is_punct(const T c) noexcept { return details::check(c, details::ISPUNCT); }
-template<CharLike T> [[nodiscard]] constexpr bool is_ident(const T c) noexcept { return details::check(c, details::ISIDENT); } // std::isalnum or '_'
-template<CharLike T> [[nodiscard]] constexpr bool is_cntrl(const T c) noexcept { return details::check(c, details::ISCNTRL); }
-template<CharLike T> [[nodiscard]] constexpr bool is_graph(const T c) noexcept { return details::check(c, details::ISGRAPH); }
-template<CharLike T> [[nodiscard]] constexpr bool is_print(const T c) noexcept { return details::check(c, details::ISPRINT); }
+// Basic predicates
+template<CharLike Chr> [[nodiscard]] constexpr bool is_lower(const Chr c) noexcept { return details::check(c, details::ISLOWER); }
+template<CharLike Chr> [[nodiscard]] constexpr bool is_upper(const Chr c) noexcept { return details::check(c, details::ISUPPER); }
+template<CharLike Chr> [[nodiscard]] constexpr bool is_space(const Chr c) noexcept { return details::check(c, details::ISSPACE); }
+template<CharLike Chr> [[nodiscard]] constexpr bool is_blank(const Chr c) noexcept { return details::check(c, details::ISBLANK); } // not equiv to std::isblank
+template<CharLike Chr> [[nodiscard]] constexpr bool is_alpha(const Chr c) noexcept { return details::check(c, details::ISALPHA); }
+template<CharLike Chr> [[nodiscard]] constexpr bool is_alnum(const Chr c) noexcept { return details::check(c, details::ISALNUM); }
+template<CharLike Chr> [[nodiscard]] constexpr bool is_digit(const Chr c) noexcept { return details::check(c, details::ISDIGIT); }
+template<CharLike Chr> [[nodiscard]] constexpr bool is_xdigi(const Chr c) noexcept { return details::check(c, details::ISXDIGI); }
+template<CharLike Chr> [[nodiscard]] constexpr bool is_punct(const Chr c) noexcept { return details::check(c, details::ISPUNCT); }
+template<CharLike Chr> [[nodiscard]] constexpr bool is_ident(const Chr c) noexcept { return details::check(c, details::ISIDENT); } // std::isalnum or '_'
+template<CharLike Chr> [[nodiscard]] constexpr bool is_cntrl(const Chr c) noexcept { return details::check(c, details::ISCNTRL); }
+template<CharLike Chr> [[nodiscard]] constexpr bool is_graph(const Chr c) noexcept { return details::check(c, details::ISGRAPH); }
+template<CharLike Chr> [[nodiscard]] constexpr bool is_print(const Chr c) noexcept { return details::check(c, details::ISPRINT); }
+// Other predicates
+template<CharLike Chr> [[nodiscard]] constexpr bool is_endline(const Chr c) noexcept { return c==static_cast<Chr>('\n'); }
+template<CharLike Chr> [[nodiscard]] constexpr bool is_always_false(const Chr) noexcept { return false; }
+// Composite predicates
+template<CharLike Chr> [[nodiscard]] constexpr bool is_space_or_punct(const Chr c) noexcept { return details::check(c, details::ISSPACE | details::ISPUNCT); }
 
-template<CharLike T> [[nodiscard]] constexpr bool is_space_or_punct(const T c) noexcept { return details::check(c, details::ISSPACE | details::ISPUNCT); }
 
-template<CharLike T> [[nodiscard]] constexpr bool is_endline(const T c) noexcept { return c==static_cast<T>('\n'); }
-template<CharLike T> [[nodiscard]] constexpr bool is_always_false(const T) noexcept { return false; }
-
+//---------------------------------------------------------------------------
+// Non-type parameterized template predicates
 
 template<CharLike auto CH>
 [[nodiscard]] constexpr bool is(const decltype(CH) ch) noexcept
@@ -117,45 +130,44 @@ template<CharLike auto CH>
    }
 
 template<CharLike auto CH1, decltype(CH1)... CHS>
-[[nodiscard]] constexpr bool is_any_of(const decltype(CH1) ch)
+[[nodiscard]] constexpr bool is_any_of(const decltype(CH1) ch) noexcept
    {
     return ch==CH1 or ((ch==CHS) or ...);
    }
 
 template<CharLike auto CH1, decltype(CH1)... CHS>
-[[nodiscard]] constexpr bool is_none_of(const decltype(CH1) ch)
+[[nodiscard]] constexpr bool is_none_of(const decltype(CH1) ch) noexcept
    {
     return ch!=CH1 and ((ch!=CHS) and ...);
    }
 
+
+// Some examples of composite predicates
+
 template<CharLike auto CH1, decltype(CH1)... CHS>
-[[nodiscard]] constexpr bool is_space_or_any_of(const decltype(CH1) ch)
+[[nodiscard]] constexpr bool is_space_or_any_of(const decltype(CH1) ch) noexcept
    {
     return is_space(ch) or is_any_of<CH1, CHS ...>(ch);
    }
 
 template<CharLike auto CH1, decltype(CH1)... CHS>
-[[nodiscard]] constexpr bool is_alnum_or_any_of(const decltype(CH1) ch)
+[[nodiscard]] constexpr bool is_alnum_or_any_of(const decltype(CH1) ch) noexcept
    {
     return is_alnum(ch) or is_any_of<CH1, CHS ...>(ch);
    }
 
 template<CharLike auto CH1, decltype(CH1)... CHS>
-[[nodiscard]] constexpr bool is_punct_and_none_of(const decltype(CH1) ch)
+[[nodiscard]] constexpr bool is_punct_and_none_of(const decltype(CH1) ch) noexcept
    {
     return is_punct(ch) and is_none_of<CH1, CHS ...>(ch);
    }
 
 
 
-
 //---------------------------------------------------------------------------
 // Case conversion
-static constexpr char case_bit = '\x20';
-[[nodiscard]] constexpr char to_lower(char c) noexcept { if(is_upper(c)) c |= case_bit; return c; }
-[[nodiscard]] constexpr char to_upper(char c) noexcept { if(is_lower(c)) c &= ~case_bit; return c; }
-
-
+[[nodiscard]] constexpr char to_lower(char c) noexcept { if(is_upper(c)) c = details::set_case_bit<true>(c); return c; }
+[[nodiscard]] constexpr char to_upper(char c) noexcept { if(is_lower(c)) c = details::set_case_bit<false>(c); return c; }
 
 }//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -167,7 +179,7 @@ static constexpr char case_bit = '\x20';
 static ut::suite<"MG::ascii_predicates"> ascii_predicates_tests = []
 {////////////////////////////////////////////////////////////////////////////
 
-ut::test("basic") = []
+ut::test("basic predicates") = []
    {
     ut::expect( ut::that % not ascii::is_always_false('a') );
     ut::expect( ut::that % not ascii::is_endline('a') );
@@ -224,7 +236,18 @@ ut::test("basic") = []
     ut::expect( ut::that % not ascii::is_punct('\xE0') );
    };
 
-ut::test("templated") = []
+ut::test("my spaces predicates") = []
+   {
+    ut::expect( ut::that % ascii::is_space(' ')  and ascii::is_blank(' ') and not ascii::is_endline(' ') );
+    ut::expect( ut::that % ascii::is_space('\t') and ascii::is_blank('\t') and not ascii::is_endline('\t') );
+    ut::expect( ut::that % ascii::is_space('\n') and not ascii::is_blank('\n') and ascii::is_endline('\n') );
+    ut::expect( ut::that % ascii::is_space('\r') and ascii::is_blank('\r') and not ascii::is_endline('\r') );
+    ut::expect( ut::that % ascii::is_space('\v') and ascii::is_blank('\v') and not ascii::is_endline('\v') );
+    ut::expect( ut::that % ascii::is_space('\f') and ascii::is_blank('\f') and not ascii::is_endline('\f') );
+    ut::expect( ut::that % not ascii::is_space('\b') and not ascii::is_blank('\b') and not ascii::is_endline('\b') );
+   };
+
+ut::test("non-type parameterized templates") = []
    {
     ut::expect( ut::that % ascii::is<'a'>('a') );
     ut::expect( ut::that % ascii::is_any_of<'a','\xE0',';'>('a') );
@@ -275,16 +298,10 @@ ut::test("templated") = []
     ut::expect( ut::that % not ascii::is_alnum_or_any_of<'a','\xE0',';'>('\xE1') );
     ut::expect( ut::that % not ascii::is_punct_and_none_of<','>('\xE1') );
    };
-
-ut::test("my blanks tests") = []
+   
+ut::test("implicit conversions") = []
    {
-    ut::expect( ut::that % ascii::is_space(' ')  and ascii::is_blank(' ') and not ascii::is_endline(' ') );
-    ut::expect( ut::that % ascii::is_space('\t') and ascii::is_blank('\t') and not ascii::is_endline('\t') );
-    ut::expect( ut::that % ascii::is_space('\n') and not ascii::is_blank('\n') and ascii::is_endline('\n') );
-    ut::expect( ut::that % ascii::is_space('\r') and ascii::is_blank('\r') and not ascii::is_endline('\r') );
-    ut::expect( ut::that % ascii::is_space('\v') and ascii::is_blank('\v') and not ascii::is_endline('\v') );
-    ut::expect( ut::that % ascii::is_space('\f') and ascii::is_blank('\f') and not ascii::is_endline('\f') );
-    ut::expect( ut::that % not ascii::is_space('\b') and not ascii::is_blank('\b') and not ascii::is_endline('\b') );
+    ut::expect( ut::that % ascii::is_any_of<U'a',L'b',u8'c','d'>('b') );
    };
 
 ut::test("char32_t") = []

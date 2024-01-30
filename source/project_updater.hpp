@@ -10,6 +10,7 @@
 #include <string_view>
 #include <vector>
 #include <optional>
+
 #include <fmt/format.h> // fmt::*
 
 #include "filesystem_utilities.hpp" // fs::*, fsu::*
@@ -24,25 +25,9 @@ using namespace std::literals; // "..."sv
 namespace ll
 {
 
+// Note: valid for both ppjs and plcprj project types
 static constexpr std::u32string_view libraries_tag_name = U"libraries"sv;
 static constexpr std::u32string_view library_tag_name = U"lib"sv;
-
-
-//---------------------------------------------------------------------------
-//enum class project_type : std::uint8_t { ppjs, plcprj };
-//[[nodiscard]] project_type recognize_project_type( const fs::path& file_path )
-//{
-//    const std::string ext{ file_path.extension().string() };
-//    if( ext==".ppjs"sv )
-//       {
-//        return project_type::ppjs;
-//       }
-//    else if( ext==".plcprj"sv )
-//       {
-//        return project_type::plcprj;
-//       }
-//    throw std::runtime_error( fmt::format("Unrecognized project type: {}"sv, ext) );
-//}
 
 
 //---------------------------------------------------------------------------
@@ -89,7 +74,7 @@ template<text::Enc ENC>
     parser.set_on_notify_issue(notify_issue);
     parser.set_file_path( std::move(file_path) );
 
-    // The project is an xml file that contains the following structure:
+    // Both project types (ppjs, plcprj) are a xml file that contains the following structure:
     // plcProject/sources/libraries/lib[link,name]
 
     class prj_parser_t
@@ -361,7 +346,7 @@ void parse_and_rewrite_project( const fs::path& project_file_path, const fs::pat
         write_project_file(output_file_path, project_file_bytes, project_bytes_enc, libs);
        }
     catch(...)
-       {// Housekeep, don't leave a half-baked project around
+       {// Housekeeping, don't leave a half-baked project around
         if( fsu::exists(output_file_path) and not fsu::equivalent(project_file_path,output_file_path) )
            {
             fs::remove(output_file_path);
