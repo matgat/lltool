@@ -67,31 +67,31 @@ namespace MG //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 static ut::suite<"globbing"> globbing_tests = []
 {////////////////////////////////////////////////////////////////////////////
 
-    ut::test("MG::contains_wildcards()") = []
-       {
-        ut::expect( not MG::contains_wildcards("abcde"sv) );
-        ut::expect( not MG::contains_wildcards(""sv) );
-        ut::expect( MG::contains_wildcards("ab*de"sv) );
-        ut::expect( MG::contains_wildcards("ab?de"sv) );
-        ut::expect( MG::contains_wildcards("*"sv) );
-        ut::expect( MG::contains_wildcards("?"sv) );
-        ut::expect( MG::contains_wildcards("?*"sv) );
-       };
+ut::test("MG::contains_wildcards()") = []
+   {
+    ut::expect( not MG::contains_wildcards("abcde"sv) );
+    ut::expect( not MG::contains_wildcards(""sv) );
+    ut::expect( MG::contains_wildcards("ab*de"sv) );
+    ut::expect( MG::contains_wildcards("ab?de"sv) );
+    ut::expect( MG::contains_wildcards("*"sv) );
+    ut::expect( MG::contains_wildcards("?"sv) );
+    ut::expect( MG::contains_wildcards("?*"sv) );
+   };
 
-    ut::test("MG::glob_match()") = []
-       {
-        ut::expect( not MG::glob_match("abcd 1234"sv, ""sv) );
-        ut::expect( not MG::glob_match("abcd 1234"sv, "?"sv) );
-        ut::expect( MG::glob_match("abcd 1234"sv, "*"sv) );
-        ut::expect( MG::glob_match("abcd 1234"sv, "ab*"sv) );
-        ut::expect( MG::glob_match("abcd 1234"sv, "a?c*"sv) );
-        ut::expect( not MG::glob_match("abcd 1234"sv, "a?d*"sv) );
-        ut::expect( MG::glob_match("abcd 1234"sv, "a??d*"sv) );
-        ut::expect( MG::glob_match("abcd 1234"sv, "a??d 1234"sv) );
-        ut::expect( MG::glob_match("abcd 1234"sv, "a??d 123*"sv) );
-        ut::expect( MG::glob_match("abcd 1234"sv, "a??d 1234*"sv) );
-        ut::expect( not MG::glob_match("abcd 1234"sv, "a?d 1234*"sv) );
-       };
+ut::test("MG::glob_match()") = []
+   {
+    ut::expect( not MG::glob_match("abcd 1234"sv, ""sv) );
+    ut::expect( not MG::glob_match("abcd 1234"sv, "?"sv) );
+    ut::expect( MG::glob_match("abcd 1234"sv, "*"sv) );
+    ut::expect( MG::glob_match("abcd 1234"sv, "ab*"sv) );
+    ut::expect( MG::glob_match("abcd 1234"sv, "a?c*"sv) );
+    ut::expect( not MG::glob_match("abcd 1234"sv, "a?d*"sv) );
+    ut::expect( MG::glob_match("abcd 1234"sv, "a??d*"sv) );
+    ut::expect( MG::glob_match("abcd 1234"sv, "a??d 1234"sv) );
+    ut::expect( MG::glob_match("abcd 1234"sv, "a??d 123*"sv) );
+    ut::expect( MG::glob_match("abcd 1234"sv, "a??d 1234*"sv) );
+    ut::expect( not MG::glob_match("abcd 1234"sv, "a?d 1234*"sv) );
+   };
 
 };///////////////////////////////////////////////////////////////////////////
 #endif // TEST_UNITS ////////////////////////////////////////////////////////

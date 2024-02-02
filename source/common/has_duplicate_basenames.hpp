@@ -72,27 +72,27 @@ namespace details
 static ut::suite<"has_duplicate_basenames"> has_duplicate_basenames_tests = []
 {////////////////////////////////////////////////////////////////////////////
 
-    ut::test("MG::has_duplicate_basenames()") = []
-       {
-        ut::expect( not MG::has_duplicate_basenames( {"/path/to/file1.txt", "/path/to/file2.h", "/path3/to/file3.c"}) );
+ut::test("MG::has_duplicate_basenames()") = []
+   {
+    ut::expect( not MG::has_duplicate_basenames( {"/path/to/file1.txt", "/path/to/file2.h", "/path3/to/file3.c"}) );
 
-      #if defined(MS_WINDOWS)
-        ut::expect( MG::has_duplicate_basenames( {"/path/to/file1.txt", "/path/to/File2.h", "/path3/to/File1.c"}) );
-      #else
-        ut::expect( MG::has_duplicate_basenames( {"/path/to/file1.txt", "/path/to/File2.h", "/path3/to/file1.c"}) );
-      #endif
-       };
+  #if defined(MS_WINDOWS)
+    ut::expect( MG::has_duplicate_basenames( {"/path/to/file1.txt", "/path/to/File2.h", "/path3/to/File1.c"}) );
+  #else
+    ut::expect( MG::has_duplicate_basenames( {"/path/to/file1.txt", "/path/to/File2.h", "/path3/to/file1.c"}) );
+  #endif
+   };
 
-    ut::test("MG::find_duplicate_basename()") = []
-       {
-        ut::expect( not MG::find_duplicate_basename( {"/path/to/file1.txt", "/path/to/file2.h", "/path3/to/file3.c"}) );
+ut::test("MG::find_duplicate_basename()") = []
+   {
+    ut::expect( not MG::find_duplicate_basename( {"/path/to/file1.txt", "/path/to/file2.h", "/path3/to/file3.c"}) );
 
-      #if defined(MS_WINDOWS)
-        ut::expect( MG::find_duplicate_basename( {"/path/to/file1.txt", "/path/to/File2.h", "/path3/to/File1.c"}).value()=="file1"sv );
-      #else
-        ut::expect( MG::find_duplicate_basename( {"/path/to/file1.txt", "/path/to/File2.h", "/path3/to/file1.c"}).value()=="file1"sv );
-      #endif
-       };
+  #if defined(MS_WINDOWS)
+    ut::expect( MG::find_duplicate_basename( {"/path/to/file1.txt", "/path/to/File2.h", "/path3/to/File1.c"}).value()=="file1"sv );
+  #else
+    ut::expect( MG::find_duplicate_basename( {"/path/to/file1.txt", "/path/to/File2.h", "/path3/to/file1.c"}).value()=="file1"sv );
+  #endif
+   };
 
 };///////////////////////////////////////////////////////////////////////////
 #endif // TEST_UNITS ////////////////////////////////////////////////////////

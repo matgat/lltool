@@ -59,6 +59,10 @@ class simple_parser
     [[nodiscard]] constexpr bool got(CharPredicate is) const noexcept { return i<input.size() and is(input[i]); }
 
     template<std::predicate<const char> CharPredicate =decltype(ascii::is_always_false<char>)>
+    constexpr void skip_while(CharPredicate is) noexcept
+       { while( got(is) and get_next() ); }
+       
+    template<std::predicate<const char> CharPredicate =decltype(ascii::is_always_false<char>)>
     [[nodiscard]] constexpr std::string_view get_while(CharPredicate is) noexcept
        {
         const std::size_t i_start = pos();
@@ -66,10 +70,20 @@ class simple_parser
         return {input.data()+i_start, pos()-i_start};
        }
 
+    template<std::predicate<const char> CharPredicate =decltype(ascii::is_always_false<char>)>
+    [[nodiscard]] constexpr std::string_view get_while_not(CharPredicate is) noexcept
+       {
+        const std::size_t i_start = pos();
+        while( not got(is) and get_next() );
+        return {input.data()+i_start, pos()-i_start};
+       }
+       
     [[nodiscard]] constexpr std::string_view get_alphabetic() noexcept { return get_while(ascii::is_alpha<char>); }
     [[nodiscard]] constexpr std::string_view get_alnums() noexcept { return get_while(ascii::is_alnum<char>); }
-    [[nodiscard]] constexpr std::string_view get_digits() noexcept { return get_while(ascii::is_digit<char>); }
     [[nodiscard]] constexpr std::string_view get_identifier() noexcept { return get_while(ascii::is_ident<char>); }
+    [[nodiscard]] constexpr std::string_view get_digits() noexcept { return get_while(ascii::is_digit<char>); }
+    
+    [[nodiscard]] constexpr std::string_view remaining() const noexcept { return input.substr(i); }
 };
 
 

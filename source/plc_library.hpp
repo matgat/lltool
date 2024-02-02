@@ -59,17 +59,17 @@ static constexpr std::array<std::string_view,15> num_types =
 class VariableAddress final
 {
  private:
-    char m_Type = '\0'; // Typically will be 'M'
-    char m_TypeVar = '\0';
+    char m_Type = '\0'; // Typically 'M'
+    char m_TypeVar = '\0'; // 'B', ...
     std::uint16_t m_Index = 0;
     std::uint16_t m_SubIndex = 0;
 
  public:
     VariableAddress() noexcept = default;
-    explicit VariableAddress(const char typ,
-                             const char vtyp,
-                             const std::uint16_t idx,
-                             const std::uint16_t sub) noexcept
+    VariableAddress(const char typ,
+                    const char vtyp,
+                    const std::uint16_t idx,
+                    const std::uint16_t sub) noexcept
       : m_Type(typ)
       , m_TypeVar(vtyp)
       , m_Index(idx)
@@ -118,7 +118,7 @@ class Directive final
        {
         if( sv.empty() )
            {
-            throw std::runtime_error("Empty directive key");
+            throw std::runtime_error{"Empty directive key"};
            }
         m_Key = sv;
        }
@@ -149,7 +149,7 @@ class Variable final
        {
         if( sv.empty() )
            {
-            throw std::runtime_error("Empty variable name");
+            throw std::runtime_error{"Empty variable name"};
            }
         m_Name = sv;
        }
@@ -163,7 +163,7 @@ class Variable final
        {
         if( sv.empty() )
            {
-            throw std::runtime_error("Empty variable type");
+            throw std::runtime_error{"Empty variable type"};
            }
         m_Type = sv;
        }
@@ -180,9 +180,9 @@ class Variable final
        {
         if( idx_start>=idx_last )
            {
-            throw std::runtime_error(fmt::format("Invalid array range {}..{} of variable \"{}\"", idx_start, idx_last, name()));
+            throw std::runtime_error{ fmt::format("Invalid array range {}..{} of variable \"{}\"", idx_start, idx_last, name()) };
            }
-        //if( idx_start!=0u ) throw std::runtime_error(fmt::format("Invalid array start index {} of variable \"{}\"", start_idx, name()));
+        //if( idx_start!=0u ) throw std::runtime_error{ fmt::format("Invalid array start index {} of variable \"{}\"", start_idx, name()) };
         m_ArrayFirstIdx = idx_start;
         m_ArrayDim = idx_last - idx_start + 1u;
        }
@@ -193,7 +193,7 @@ class Variable final
        {
         if( sv.empty() )
            {
-            throw std::runtime_error("Empty variable initialization value");
+            throw std::runtime_error{"Setting a variable initialization value as empty"};
            }
         m_Value = sv;
        }
@@ -230,7 +230,7 @@ class Variables_Group final
        {
         if( contains(var.name()) )
            {
-            throw std::runtime_error(fmt::format("Duplicate variable \"{}\" in group \"{}\"", var.name(), name()));
+            throw std::runtime_error{ fmt::format("Duplicate variable \"{}\" in group \"{}\"", var.name(), name()) };
            }
         m_Variables.push_back(std::move(var));
        }
@@ -309,7 +309,7 @@ class Struct final
        {
         if( sv.empty() )
            {
-            throw std::runtime_error("Empty struct name");
+            throw std::runtime_error{"Empty struct name"};
            }
         m_Name = sv;
        }
@@ -327,7 +327,7 @@ class Struct final
        {
         if( members_contain(var.name()) )
            {
-            throw std::runtime_error(fmt::format("Duplicate struct member \"{}\"", var.name()));
+            throw std::runtime_error{ fmt::format("Duplicate struct member \"{}\"", var.name()) };
            }
         m_Members.push_back(std::move(var));
        }
@@ -358,28 +358,18 @@ class TypeDef final
        {
         if( var.has_value() )
            {
-            throw std::runtime_error(fmt::format("Typedef \"{}\" cannot have a value ({})", var.name(), var.value()));
+            throw std::runtime_error{ fmt::format("Typedef \"{}\" cannot have a value ({})", var.name(), var.value()) };
            }
         if( var.has_address() )
            {
-            throw std::runtime_error(fmt::format("Typedef \"{}\" cannot have an address", var.name()));
+            throw std::runtime_error{ fmt::format("Typedef \"{}\" cannot have an address", var.name()) };
            }
         //if(m_Length>0) --m_Length; // WTF Ad un certo punto Axel ha deciso che nei typedef la dimensione è meno uno??
        }
 
     [[nodiscard]] std::string_view name() const noexcept { return m_Name; }
-    //void set_name(const std::string_view sv)
-    //   {
-    //    if( sv.empty() ) throw std::runtime_error("Empty typedef name");
-    //    m_Name = sv;
-    //   }
 
     [[nodiscard]] std::string_view type() const noexcept { return m_Type; }
-    //void set_type(const std::string_view sv)
-    //   {
-    //    if( sv.empty() ) throw std::runtime_error("Empty typedef type");
-    //    m_Type = sv;
-    //   }
 
     [[nodiscard]] bool has_length() const noexcept { return m_Length>0; }
     [[nodiscard]] std::size_t length() const noexcept { return m_Length; }
@@ -415,7 +405,7 @@ class Enum final
             {
              if( sv.empty() )
                {
-                throw std::runtime_error("Empty enum constant name");
+                throw std::runtime_error{"Empty enum constant name"};
                }
              m_Name = sv;
             }
@@ -425,12 +415,11 @@ class Enum final
             {
              if( sv.empty() )
                {
-                throw std::runtime_error(fmt::format("Enum constant {} must have a value",name()));
+                throw std::runtime_error{ fmt::format("Enum constant {} must have a value",name()) };
                }
              m_Value = sv;
             }
 
-        //[[nodiscard]] bool has_descr() const noexcept { return not m_Descr.empty(); }
         [[nodiscard]] std::string_view descr() const noexcept { return m_Descr; }
         void set_descr(const std::string_view sv) noexcept { m_Descr = sv; }
     };
@@ -446,7 +435,7 @@ class Enum final
        {
         if( sv.empty() )
            {
-            throw std::runtime_error("Empty enum name");
+            throw std::runtime_error{"Empty enum name"};
            }
         m_Name = sv;
        }
@@ -477,7 +466,7 @@ class Subrange final
        {
         if( sv.empty() )
            {
-            throw std::runtime_error("Empty subrange name");
+            throw std::runtime_error{"Empty subrange name"};
            }
         m_Name = sv;
        }
@@ -487,7 +476,7 @@ class Subrange final
        {
         if( sv.empty() )
            {
-            throw std::runtime_error("Empty subrange type");
+            throw std::runtime_error{"Empty subrange type"};
            }
         m_Type = sv;
        }
@@ -498,7 +487,7 @@ class Subrange final
        {
         if( max_val<min_val )
            {
-            throw std::runtime_error(fmt::format("Invalid range {}..{} of subrange \"{}\"", min_val, max_val, name()));
+            throw std::runtime_error{ fmt::format("Invalid range {}..{} of subrange \"{}\"", min_val, max_val, name()) };
            }
         m_MinVal = min_val;
         m_MaxVal = max_val;
@@ -536,7 +525,7 @@ class Pou final
        {
         if( sv.empty() )
            {
-            throw std::runtime_error("Empty POU name");
+            throw std::runtime_error{"Empty POU name"};
            }
         m_Name = sv;
        }
@@ -604,7 +593,7 @@ class Macro final
            {
             if( sv.empty() )
                {
-                throw std::runtime_error("Empty parameter name");
+                throw std::runtime_error{"Empty parameter name"};
                }
             m_Name = sv;
            }
@@ -627,7 +616,7 @@ class Macro final
        {
         if( sv.empty() )
            {
-            throw std::runtime_error("Empty macro name");
+            throw std::runtime_error{"Empty macro name"};
            }
         m_Name = sv;
        }
@@ -671,7 +660,7 @@ class Library final
     //std::vector<Interface> m_Interfaces;
 
  public:
-    explicit Library(const std::string& nam) noexcept
+    explicit Library(const std::string_view nam) noexcept
       : m_Name(nam)
        {}
 
@@ -722,9 +711,9 @@ class Library final
 
     [[nodiscard]] bool is_empty() const noexcept
        {
-        return     global_constants().size()==0
-               and global_retainvars().size()==0
-               and global_variables().size()==0
+        return     global_constants().is_empty()
+               and global_retainvars().is_empty()
+               and global_variables().is_empty()
                and programs().empty()
                and function_blocks().empty()
                and functions().empty()
@@ -736,7 +725,7 @@ class Library final
                //and interfaces().empty();
        }
 
-    void check() const
+    void throw_if_incoherent() const
        {
         // Global constants must have a value (already checked in parsing)
         for( const auto& consts_grp : global_constants().groups() )
@@ -744,7 +733,7 @@ class Library final
             if( const auto ivar=std::ranges::find_if(consts_grp.variables(), [](const Variable& var) noexcept { return not var.has_value(); });
                 ivar!=consts_grp.variables().end() )
                {
-                throw std::runtime_error(fmt::format("Global constant \"{}\" has no value", ivar->name()));
+                throw std::runtime_error{ fmt::format("Global constant \"{}\" has no value", ivar->name()) };
                }
            }
 
@@ -753,19 +742,19 @@ class Library final
            {
             if( not funct.has_return_type() )
                {
-                throw std::runtime_error(fmt::format("Function \"{}\" has no return type",funct.name()));
+                throw std::runtime_error{ fmt::format("Function \"{}\" has no return type",funct.name()) };
                }
             if( not funct.output_vars().empty() )
                {
-                throw std::runtime_error(fmt::format("Function \"{}\" cannot have output variables",funct.name()));
+                throw std::runtime_error{ fmt::format("Function \"{}\" cannot have output variables",funct.name()) };
                }
             if( not funct.inout_vars().empty() )
                {
-                throw std::runtime_error(fmt::format("Function \"{}\" cannot have in-out variables",funct.name()));
+                throw std::runtime_error{ fmt::format("Function \"{}\" cannot have in-out variables",funct.name()) };
                }
             if( not funct.external_vars().empty() )
                {
-                throw std::runtime_error(fmt::format("Function \"{}\" cannot have external variables",funct.name()));
+                throw std::runtime_error{ fmt::format("Function \"{}\" cannot have external variables",funct.name()) };
                }
            }
 
@@ -774,23 +763,23 @@ class Library final
            {
             if( prog.has_return_type() )
                {
-                throw std::runtime_error(fmt::format("Program \"{}\" cannot have a return type",prog.name()));
+                throw std::runtime_error{ fmt::format("Program \"{}\" cannot have a return type",prog.name()) };
                }
             if( not prog.input_vars().empty() )
                {
-                throw std::runtime_error(fmt::format("Program \"{}\" cannot have input variables",prog.name()));
+                throw std::runtime_error{ fmt::format("Program \"{}\" cannot have input variables",prog.name()) };
                }
             if( not prog.output_vars().empty() )
                {
-                throw std::runtime_error(fmt::format("Program \"{}\" cannot have output variables",prog.name()));
+                throw std::runtime_error{ fmt::format("Program \"{}\" cannot have output variables",prog.name()) };
                }
             if( not prog.inout_vars().empty() )
                {
-                throw std::runtime_error(fmt::format("Program \"{}\" cannot have in-out variables",prog.name()));
+                throw std::runtime_error{ fmt::format("Program \"{}\" cannot have in-out variables",prog.name()) };
                }
             if( not prog.external_vars().empty() )
                {
-                throw std::runtime_error(fmt::format("Program \"{}\" cannot have external variables",prog.name()));
+                throw std::runtime_error{ fmt::format("Program \"{}\" cannot have external variables",prog.name()) };
                }
            }
        }
@@ -816,7 +805,7 @@ class Library final
         //for( auto& pou : functions() )       pou.sort_variables();
        }
 
-    [[nodiscard]] std::string to_str() const noexcept
+    [[nodiscard]] std::string get_summary() const noexcept
        {
         std::string s;
         s.reserve(512);
@@ -835,120 +824,91 @@ class Library final
         //if( not interfaces().empty() ) s += fmt::format(", {} interfaces", interfaces().size());
         return s;
        }
-
-    //---------------------------------------------------------------------------
-    //void write_full_summary(const sys::file_write& f, const std::string_view ind) const
-    //   {
-    //    if( not global_constants().is_empty() )
-    //       {
-    //        f << '\n' << ind << "constants:\n"sv;
-    //        for( const auto& group : global_constants().groups() )
-    //           {
-    //            f << ind << ind << group.name() << '\n';
-    //            for( const auto& var : group.variables() )
-    //               {
-    //                f << ind << ind << ind << var.name() << '\n';
-    //               }
-    //           }
-    //       }
-    //
-    //    if( not global_variables().is_empty() or not global_retainvars().is_empty() )
-    //       {
-    //        f << '\n' << ind << "global vars:\n"sv;
-    //        for( const auto& group : global_variables().groups() )
-    //           {
-    //            f << ind << ind << group.name() << '\n';
-    //            for( const auto& var : group.variables() )
-    //               {
-    //                f << ind << ind << ind << var.name() << '\n';
-    //               }
-    //           }
-    //        for( const auto& group : global_retainvars().groups() )
-    //           {
-    //            f << ind << ind << group.name() << '\n';
-    //            for( const auto& var : group.variables() )
-    //               {
-    //                f << ind << ind << ind << var.name() << '\n';
-    //               }
-    //           }
-    //       }
-    //
-    //    if( not functions().empty() )
-    //       {
-    //        f << '\n' << ind << "functions:\n"sv;
-    //        for( const auto& elem : functions() )
-    //           {
-    //            f << ind << ind << elem.name() << ':' << pou.return_type() << '\n';
-    //           }
-    //       }
-    //
-    //    if( not function_blocks().empty() )
-    //       {
-    //        f << '\n' << ind << "function blocks:\n"sv;
-    //        for( const auto& elem : function_blocks() )
-    //           {
-    //            f << ind << ind << elem.name() << '\n';
-    //           }
-    //       }
-    //
-    //    if( not programs().empty() )
-    //       {
-    //        f << '\n' << ind << "programs:\n"sv;
-    //        for( const auto& elem : programs() )
-    //           {
-    //            f << ind << ind << elem.name() << '\n';
-    //           }
-    //       }
-    //
-    //    if( not macros().empty() )
-    //       {
-    //        f << '\n' << ind << "macros:\n"sv;
-    //        for( const auto& elem : macros() )
-    //           {
-    //            f << ind << ind << elem.name() << '\n';
-    //           }
-    //       }
-    //
-    //    if( not typedefs().empty() )
-    //       {
-    //        f << '\n' << ind << "typedefs:\n"sv;
-    //        for( const auto& elem : typedefs() )
-    //           {
-    //            f << ind << ind << elem.name() << '\n';
-    //           }
-    //       }
-    //
-    //    if( not enums().empty() )
-    //       {
-    //        f << '\n' << ind << "enums:\n"sv;
-    //        for( const auto& elem : enums() )
-    //           {
-    //            f << ind << ind << elem.name() << '\n';
-    //           }
-    //       }
-    //
-    //    if( not subranges().empty() )
-    //       {
-    //        f << '\n' << ind << "subranges:\n"sv;
-    //        for( const auto& elem : subranges() )
-    //           {
-    //            f << ind << ind << elem.name() << '\n';
-    //           }
-    //       }
-    //
-    //    //if( not interfaces().empty() )
-    //    //   {
-    //    //    f << '\n' << ind << "interfaces:\n"sv;
-    //    //    for( const auto& elem : interfaces() )
-    //    //       {
-    //    //        f << ind << ind << elem.name() << '\n';
-    //    //       }
-    //    //   }
-    //   }
 };
+
+
+
+#ifdef TEST_UNITS
+
+
+#endif // TEST_UNITS
+
 
 }//:::: buf :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 }//:::: plc :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 namespace plcb = plc::buf; // Objects that refer to an external buffer
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+#ifdef TEST_UNITS ///////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
+
+// Test convenience functions
+//:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+namespace plc{ namespace buf{
+
+//---------------------------------------------------------------------------
+[[nodiscard]] Variable make_var(const std::string_view nam,
+                                const std::string_view typ,
+                                const std::size_t len,
+                                const std::string_view val,
+                                const std::string_view descr,
+                                const char addr_type ='\0',
+                                const char addr_typevar ='\0',
+                                const std::uint16_t addr_index =0,
+                                const std::uint16_t addr_subindex =0 )
+{
+    Variable var;
+
+    var.set_name( nam );
+    var.set_type( typ );
+    var.set_length( len );
+    if( not val.empty() ) var.set_value( val );
+    var.set_descr( descr );
+
+    var.address().set_type( addr_type );
+    var.address().set_typevar( addr_typevar );
+    var.address().set_index( addr_index );
+    var.address().set_subindex( addr_subindex );
+
+    return var;
+}
+
+//---------------------------------------------------------------------------
+[[nodiscard]] Enum::Element make_enelem(const std::string_view nam,
+                                        const std::string_view val,
+                                        const std::string_view descr )
+{
+    Enum::Element elm;
+
+    elm.set_name( nam );
+    elm.set_value( val );
+    elm.set_descr( descr );
+
+    return elm;
+}
+
+//---------------------------------------------------------------------------
+[[nodiscard]] Macro::Parameter make_mparam(const std::string_view nam,
+                                           const std::string_view descr )
+{
+    Macro::Parameter par;
+
+    par.set_name( nam );
+    par.set_descr( descr );
+
+    return par;
+}
+
+
+
+
+}}//:::: plc::buf :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+/////////////////////////////////////////////////////////////////////////////
+#endif // TEST_UNITS ////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////

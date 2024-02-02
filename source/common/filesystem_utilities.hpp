@@ -185,39 +185,39 @@ class CurrentPathLocalChanger final
 static ut::suite<"filesystem_utilities"> filesystem_utilities_tests = []
 {////////////////////////////////////////////////////////////////////////////
 
-    ut::test("fsu::list_filenames_in_dir()") = []
-       {
-        test::TemporaryDirectory dir;
-        std::vector<std::string> lst = {
-                                        dir.add_file("abc", "_").path().filename().string(),
-                                        dir.add_file("def", "_").path().filename().string(),
-                                        dir.add_file("ghi.txt", "_").path().filename().string(),
-                                        dir.add_file("lmn.txt", "_").path().filename().string(),
-                                       };
-        ut::expect( test::have_same_elements(fsu::list_filenames_in_dir(dir.path()), std::move(lst)) );
-       };
+ut::test("fsu::list_filenames_in_dir()") = []
+   {
+    test::TemporaryDirectory dir;
+    std::vector<std::string> lst = {
+                                    dir.add_file("abc", "_").path().filename().string(),
+                                    dir.add_file("def", "_").path().filename().string(),
+                                    dir.add_file("ghi.txt", "_").path().filename().string(),
+                                    dir.add_file("lmn.txt", "_").path().filename().string(),
+                                   };
+    ut::expect( test::have_same_elements(fsu::list_filenames_in_dir(dir.path()), std::move(lst)) );
+   };
 
-    ut::test("fsu::remove_files_with_suffix_in()") = []
-       {
-        test::TemporaryDirectory dir;
-        std::vector<std::string> rem = {
-                                        dir.add_file("a", "_").path().filename().string(),
-                                        dir.add_file("b", "_").path().filename().string(),
-                                        dir.add_file("a.txt", "_").path().filename().string(),
-                                        dir.add_file("b.txt", "_").path().filename().string(),
-                                       };
-        std::vector<std::string> del = {
-                                        dir.add_file("a.bck", "_").path().filename().string(),
-                                        dir.add_file("a.tmp", "_").path().filename().string(),
-                                        dir.add_file("b.bck", "_").path().filename().string(),
-                                        dir.add_file("b.tmp", "_").path().filename().string()
-                                       };
-        std::vector<std::string> tot = test::join(rem, del);
+ut::test("fsu::remove_files_with_suffix_in()") = []
+   {
+    test::TemporaryDirectory dir;
+    std::vector<std::string> rem = {
+                                    dir.add_file("a", "_").path().filename().string(),
+                                    dir.add_file("b", "_").path().filename().string(),
+                                    dir.add_file("a.txt", "_").path().filename().string(),
+                                    dir.add_file("b.txt", "_").path().filename().string(),
+                                   };
+    std::vector<std::string> del = {
+                                    dir.add_file("a.bck", "_").path().filename().string(),
+                                    dir.add_file("a.tmp", "_").path().filename().string(),
+                                    dir.add_file("b.bck", "_").path().filename().string(),
+                                    dir.add_file("b.tmp", "_").path().filename().string()
+                                   };
+    std::vector<std::string> tot = test::join(rem, del);
 
-        ut::expect( test::have_same_elements(fsu::list_filenames_in_dir(dir.path()), std::move(tot)) );
-        ut::expect( ut::that % fsu::remove_files_with_suffix_in(dir.path(), {".tmp", ".bck"}) == 4u );
-        ut::expect( test::have_same_elements(fsu::list_filenames_in_dir(dir.path()), std::move(rem)) );
-       };
+    ut::expect( test::have_same_elements(fsu::list_filenames_in_dir(dir.path()), std::move(tot)) );
+    ut::expect( ut::that % fsu::remove_files_with_suffix_in(dir.path(), {".tmp", ".bck"}) == 4u );
+    ut::expect( test::have_same_elements(fsu::list_filenames_in_dir(dir.path()), std::move(rem)) );
+   };
 
 };///////////////////////////////////////////////////////////////////////////
 #endif // TEST_UNITS ////////////////////////////////////////////////////////

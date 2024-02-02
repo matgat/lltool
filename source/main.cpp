@@ -1,6 +1,7 @@
 ﻿#include <stdexcept> // std::runtime_error
 #include <string>
 #include <string_view>
+#include <ranges> // std::ranges::any_of
 #include <filesystem> // std::filesystem
 namespace fs = std::filesystem;
 using namespace std::literals; // "..."sv
@@ -84,7 +85,7 @@ class Arguments final
                }
             else
                {
-                throw std::invalid_argument( fmt::format("Unrecognized task: {}", arg) );
+                throw std::invalid_argument{ fmt::format("Unrecognized task: {}", arg) };
                }
             args.next();
 
@@ -98,7 +99,7 @@ class Arguments final
                         const std::string_view str = args.get_next_value_of(arg);
                         if( not m_out_path.empty() )
                            {
-                            throw std::invalid_argument( fmt::format("Output was already set to {}", m_out_path.string()) );
+                            throw std::invalid_argument{ fmt::format("Output was already set to {}", m_out_path.string()) };
                            }
                         m_out_path = str;
                        }
@@ -117,13 +118,13 @@ class Arguments final
                        {// Must be the project path
                         if( not m_prj_path.empty() )
                            {// This must be the project path
-                            throw std::invalid_argument( fmt::format("Project file was already set to {}", m_prj_path.string()) );
+                            throw std::invalid_argument{ fmt::format("Project file was already set to {}", m_prj_path.string()) };
                            }
 
                         m_prj_path = arg;
                         if( not fs::exists(m_prj_path) )
                            {
-                            throw std::invalid_argument( fmt::format("Project file not found: {}", m_prj_path.string()) );
+                            throw std::invalid_argument{ fmt::format("Project file not found: {}", m_prj_path.string()) };
                            }
                        }
                     else if( task().is_convert() )
@@ -151,7 +152,7 @@ class Arguments final
            {
             if( prj_path().empty() )
                {
-                throw std::invalid_argument("Project file not given");
+                throw std::invalid_argument{"Project file not given"};
                }
 
             if( fs::exists(out_path()) )
@@ -163,11 +164,11 @@ class Arguments final
                 // I'll ensure to not overwrite an existing file
                 if( fs::equivalent(prj_path(), out_path()) )
                    {
-                    throw std::invalid_argument( fmt::format("Output file \"{}\" collides with project file, if your intent is overwrite don't specify output", out_path().string()) );
+                    throw std::invalid_argument{ fmt::format("Output file \"{}\" collides with project file, if your intent is overwrite don't specify output", out_path().string()) };
                    }
                 else if( not overwrite_existing() )
                    {
-                    throw std::invalid_argument( fmt::format("Won't overwrite existing file \"{}\" unless you explicitly tell me to", out_path().string()) );
+                    throw std::invalid_argument{ fmt::format("Won't overwrite existing file \"{}\" unless you explicitly tell me to", out_path().string()) };
                    }
                }
            }
@@ -175,7 +176,7 @@ class Arguments final
            {
             if( input_files().empty() )
                {
-                throw std::invalid_argument("No input files given");
+                throw std::invalid_argument{"No input files given"};
                }
 
             else if( input_files().size()>1  )
@@ -183,18 +184,32 @@ class Arguments final
                 //...An output directory must be specified
                 if( out_path().empty() )
                    {
-                    throw std::invalid_argument("Output directory not given");
+                    throw std::invalid_argument{"Output directory not given"};
+                   }
+                else if( fs::exists(out_path()) and fs::is_directory(out_path()) )
+                   {//...And can't be the directory of an input file
+                    //for( const fs::path& input_file_path : input_files() )
+                    //   {
+                    //    if( fs::equivalent( out_path(), input_file_path.parelambda syntaxnt_path() ) )
+                    //       {
+                    //        throw std::runtime_error{ fmt::format("Output directory \"{}\" can't contain input files", out_path().string()) };
+                    //       }
+                    //   }
+                    if( std::ranges::any_of(input_files(), [this](const fs::path& input_file_path){return fs::equivalent(out_path(), input_file_path.parent_path());}) )
+                       {
+                        throw std::runtime_error{ fmt::format("Output directory \"{}\" can't contain input files", out_path().string()) };
+                       }
                    }
                 // Detect input files name clashes
                 if( const auto dup = MG::find_duplicate_basename(input_files()); dup.has_value() )
                    {
-                    throw std::runtime_error(fmt::format("Two or more input files named \"{}\"", dup.value()));
+                    throw std::runtime_error{ fmt::format("Two or more input files named \"{}\"", dup.value()) };
                    }
                }
            }
         else
            {
-            throw std::invalid_argument("No task selected");
+            throw std::invalid_argument{"No task selected"};
            }
        }
 
@@ -205,7 +220,7 @@ class Arguments final
                     "{}\n"
                     "\n", app_name, app_descr );
         // The following triggers print_usage()
-        throw std::invalid_argument("Exiting after printing help");
+        throw std::invalid_argument{"Exiting after printing help"};
        }
 
     //-----------------------------------------------------------------------
@@ -245,8 +260,8 @@ class Arguments final
            }
         else
            {
-            if( full_name.empty() ) throw std::invalid_argument( fmt::format("Unknown switch: '{}'", brief_name) );
-            else                    throw std::invalid_argument( fmt::format("Unknown switch: \"{}\"", full_name) );
+            if( full_name.empty() ) throw std::invalid_argument{ fmt::format("Unknown switch: '{}'", brief_name) };
+            else                    throw std::invalid_argument{ fmt::format("Unknown switch: \"{}\"", full_name) };
            }
        }
 };
@@ -280,13 +295,13 @@ int main( const int argc, const char* const argv[] )
                 ll::prepare_output_dir(args.out_path(), args.overwrite_existing(), std::ref(issues));
                }
 
-            for( const fs::path& file_path : args.input_files() )
+            for( const fs::path& input_file_path : args.input_files() )
                {
                 if( args.verbose() )
                    {
-                    fmt::print("\nConverting {}\n", file_path.string());
+                    fmt::print("\nConverting {}\n", input_file_path.string());
                    }
-                ll::convert_library(file_path, args.out_path(), args.overwrite_existing(), args.options(), std::ref(issues));
+                ll::convert_library(input_file_path, args.out_path(), args.overwrite_existing(), args.options(), std::ref(issues));
                }
            }
 

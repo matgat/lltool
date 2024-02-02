@@ -309,7 +309,7 @@ void insert_library(const lib_t& lib, sys::file_write& out_file, const text::Enc
 void write_project_file(const fs::path& output_file_path, const std::string_view original_bytes, const text::Enc original_bytes_enc, const libs_t& libs)
 {
     sys::file_write out_file{ output_file_path.string().c_str() };
-    out_file.set_buffer_size(4_MB); // See BUFSIZ
+    out_file.set_buffer_size(4_MB);
     std::size_t i_chunk_byte_offset = 0;
 
     for( const auto& lib: libs)
@@ -335,7 +335,7 @@ void parse_and_rewrite_project( const fs::path& project_file_path, const fs::pat
     const std::string_view project_file_bytes{ project_file_mapped.as_string_view() };
     if( project_file_bytes.empty() )
        {
-        throw std::runtime_error("No data to parse (empty file?)");
+        throw std::runtime_error{"No data to parse (empty file?)"};
        }
 
     const auto [project_bytes_enc, bom_size] = text::detect_encoding_of(project_file_bytes);
@@ -368,7 +368,7 @@ void update_project_libraries( const fs::path& project_file_path, fs::path outpu
     // Ensure that the output file is not the original project!
     if( fs::exists(output_file_path) and fs::equivalent(project_file_path,output_file_path) )
        {
-        throw std::runtime_error( fmt::format("Specified output \"{}\" collides with original file", output_file_path.string()) );
+        throw std::runtime_error{ fmt::format("Specified output \"{}\" collides with original file", output_file_path.string()) };
        }
 
     parse_and_rewrite_project(project_file_path, output_file_path, notify_issue);
@@ -392,96 +392,97 @@ void update_project_libraries( const fs::path& project_file_path, fs::path outpu
 /////////////////////////////////////////////////////////////////////////////
 static ut::suite<"project_updater"> project_updater_tests = []
 {
-    ut::test("ll::update_project_libraries()") = []
+
+ut::test("ll::update_project_libraries()") = []
+   {
+    ut::should("Updating a nonexistent file") = []
        {
-        ut::should("Updating a nonexistent file") = []
-           {
-            ut::expect( ut::throws([]{ ll::update_project_libraries({"not-existing.ppjs"}, {}, [](std::string&&)noexcept{}); }) ) << "should throw\n";
-           };
-
-        ut::should("Updating an empty project") = []
-           {
-            test::TemporaryFile empty_prj("~empty.ppjs", "");
-            ut::expect( ut::throws([&empty_prj]{ ll::update_project_libraries(empty_prj.path(), {}, [](std::string&&)noexcept{}); }) ) << "should throw\n";
-           };
-
-        ut::should("Updating a project with no libs") = []
-           {
-            test::TemporaryFile nolibs_prj("~nolibs.ppjs", "<plcProject>\n<libraries>\n</libraries>\n</plcProject>\n");
-            int num_issues = 0;
-            auto notify_issue = [&num_issues](std::string&&) noexcept { ++num_issues; };
-            ll::update_project_libraries(nolibs_prj.path(), {}, notify_issue);
-            ut::expect( ut::that % num_issues==1 ) << "should raise an issue\n";
-           };
-
-        ut::should("Using the project itself as output") = []
-           {
-            test::TemporaryFile fake_prj("~fake_prj.ppjs", "<plcProject>\n<libraries>\n</libraries>\n</plcProject>\n");
-            ut::expect( ut::throws([&fake_prj]{ ll::update_project_libraries(fake_prj.path(), fake_prj.path(), [](std::string&&)noexcept{}); }) ) << "should throw\n";
-           };
-
-        ut::should("Updating an ill formed project") = []
-           {
-            test::TemporaryFile bad_prj("~bad.ppjs", "<foo>");
-            ut::expect( ut::throws([&bad_prj]{ ll::update_project_libraries(bad_prj.path(), {}, [](std::string&&)noexcept{}); }) ) << "should throw\n";
-           };
-
-        ut::should("Updating a project with an ill formed lib") = []
-           {
-            test::TemporaryFile bad_plclib("~bad.plclib", "<lib><lib>forbidden nested</lib></lib>");
-            test::TemporaryFile prj_with_badplclib("~prj_with_badplclib.ppjs",
-                                                    "<plcProject>\n"
-                                                    "    <libraries>\n"
-                                                    "        <lib link=\"true\" name=\"~bad.plclib\"></lib>\n"
-                                                    "    </libraries>\n"
-                                                    "</plcProject>\n" );
-            ut::expect( ut::throws([&bad_plclib, &prj_with_badplclib]{ ll::update_project_libraries(prj_with_badplclib.path(), {}, [](std::string&&)noexcept{}); }) ) << "should throw\n";
-           };
-
-        ut::should("Updating a project with a nonexistent lib") = []
-           {
-            test::TemporaryFile existing("~existing.pll", "content");
-            test::TemporaryFile prj_with_nonextlib("~prj_with_nonextlib.ppjs",
-                                                    "<plcProject>\n"
-                                                    "    <libraries>\n"
-                                                    "        <lib link=\"true\" name=\"~existing.pll\"></lib>\n"
-                                                    "        <lib link=\"true\" name=\"not-existing.pll\"></lib>\n"
-                                                    "    </libraries>\n"
-                                                    "</plcProject>\n");
-            int num_issues = 0;
-            auto notify_issue = [&num_issues](std::string&&) noexcept { ++num_issues; };
-            ll::update_project_libraries(prj_with_nonextlib.path(), {}, notify_issue);
-            ut::expect( ut::that % num_issues==1 ) << "should raise an issue\n";
-           };
-
-        ut::should("update simple") = []
-           {
-            test::TemporaryDirectory tmp_dir;
-            tmp_dir.add_file("pll1.pll", "abc");
-            tmp_dir.add_file("pll2.pll", "def");
-            const auto prj_file = tmp_dir.add_file("prj.ppjs",
-                "\uFEFF"
-                "<plcProject>\n"
-                "    <libraries>\n"
-                "        <lib link=\"true\" name=\"pll1.pll\"><![CDATA[prev]]></lib>\n"
-                "        <lib link=\"true\" name=\"pll2.pll\"></lib>\n"
-                "    </libraries>\n"
-                "</plcProject>\n"sv);
-
-            const std::string_view expected =
-                "\uFEFF"
-                "<plcProject>\n"
-                "    <libraries>\n"
-                "        <lib link=\"true\" name=\"pll1.pll\"><![CDATA[abc]]></lib>\n"
-                "        <lib link=\"true\" name=\"pll2.pll\"><![CDATA[def]]></lib>\n"
-                "    </libraries>\n"
-                "</plcProject>\n"sv;
-
-            ll::update_project_libraries(prj_file.path(), {}, [](std::string&&)noexcept{});
-
-            ut::expect( ut::that % prj_file.has_content(expected) );
-           };
+        ut::expect( ut::throws([]{ ll::update_project_libraries({"not-existing.ppjs"}, {}, [](std::string&&)noexcept{}); }) ) << "should throw\n";
        };
+
+    ut::should("Updating an empty project") = []
+       {
+        test::TemporaryFile empty_prj("~empty.ppjs", "");
+        ut::expect( ut::throws([&empty_prj]{ ll::update_project_libraries(empty_prj.path(), {}, [](std::string&&)noexcept{}); }) ) << "should throw\n";
+       };
+
+    ut::should("Updating a project with no libs") = []
+       {
+        test::TemporaryFile nolibs_prj("~nolibs.ppjs", "<plcProject>\n<libraries>\n</libraries>\n</plcProject>\n");
+        int num_issues = 0;
+        auto notify_issue = [&num_issues](std::string&&) noexcept { ++num_issues; };
+        ll::update_project_libraries(nolibs_prj.path(), {}, notify_issue);
+        ut::expect( ut::that % num_issues==1 ) << "should raise an issue\n";
+       };
+
+    ut::should("Using the project itself as output") = []
+       {
+        test::TemporaryFile fake_prj("~fake_prj.ppjs", "<plcProject>\n<libraries>\n</libraries>\n</plcProject>\n");
+        ut::expect( ut::throws([&fake_prj]{ ll::update_project_libraries(fake_prj.path(), fake_prj.path(), [](std::string&&)noexcept{}); }) ) << "should throw\n";
+       };
+
+    ut::should("Updating an ill formed project") = []
+       {
+        test::TemporaryFile bad_prj("~bad.ppjs", "<foo>");
+        ut::expect( ut::throws([&bad_prj]{ ll::update_project_libraries(bad_prj.path(), {}, [](std::string&&)noexcept{}); }) ) << "should throw\n";
+       };
+
+    ut::should("Updating a project with an ill formed lib") = []
+       {
+        test::TemporaryFile bad_plclib("~bad.plclib", "<lib><lib>forbidden nested</lib></lib>");
+        test::TemporaryFile prj_with_badplclib("~prj_with_badplclib.ppjs",
+                                                "<plcProject>\n"
+                                                "    <libraries>\n"
+                                                "        <lib link=\"true\" name=\"~bad.plclib\"></lib>\n"
+                                                "    </libraries>\n"
+                                                "</plcProject>\n" );
+        ut::expect( ut::throws([&bad_plclib, &prj_with_badplclib]{ ll::update_project_libraries(prj_with_badplclib.path(), {}, [](std::string&&)noexcept{}); }) ) << "should throw\n";
+       };
+
+    ut::should("Updating a project with a nonexistent lib") = []
+       {
+        test::TemporaryFile existing("~existing.pll", "content");
+        test::TemporaryFile prj_with_nonextlib("~prj_with_nonextlib.ppjs",
+                                                "<plcProject>\n"
+                                                "    <libraries>\n"
+                                                "        <lib link=\"true\" name=\"~existing.pll\"></lib>\n"
+                                                "        <lib link=\"true\" name=\"not-existing.pll\"></lib>\n"
+                                                "    </libraries>\n"
+                                                "</plcProject>\n");
+        int num_issues = 0;
+        auto notify_issue = [&num_issues](std::string&&) noexcept { ++num_issues; };
+        ll::update_project_libraries(prj_with_nonextlib.path(), {}, notify_issue);
+        ut::expect( ut::that % num_issues==1 ) << "should raise an issue\n";
+       };
+
+    ut::should("update simple") = []
+       {
+        test::TemporaryDirectory tmp_dir;
+        tmp_dir.add_file("pll1.pll", "abc");
+        tmp_dir.add_file("pll2.pll", "def");
+        const auto prj_file = tmp_dir.add_file("prj.ppjs",
+            "\uFEFF"
+            "<plcProject>\n"
+            "    <libraries>\n"
+            "        <lib link=\"true\" name=\"pll1.pll\"><![CDATA[prev]]></lib>\n"
+            "        <lib link=\"true\" name=\"pll2.pll\"></lib>\n"
+            "    </libraries>\n"
+            "</plcProject>\n"sv);
+
+        const std::string_view expected =
+            "\uFEFF"
+            "<plcProject>\n"
+            "    <libraries>\n"
+            "        <lib link=\"true\" name=\"pll1.pll\"><![CDATA[abc]]></lib>\n"
+            "        <lib link=\"true\" name=\"pll2.pll\"><![CDATA[def]]></lib>\n"
+            "    </libraries>\n"
+            "</plcProject>\n"sv;
+
+        ll::update_project_libraries(prj_file.path(), {}, [](std::string&&)noexcept{});
+
+        ut::expect( ut::that % prj_file.has_content(expected) );
+       };
+   };
 
 };///////////////////////////////////////////////////////////////////////////
 #endif // TEST_UNITS ////////////////////////////////////////////////////////

@@ -561,6 +561,10 @@ def ask_what_to_do(tests_array, manual_mode):
 def main():
     set_title(__file__)
     os.chdir(script_dir)
+    if not os.path.isfile(exe):
+        print(f"{RED}{exe} not found!{END}")
+        pause()
+        sys.exit(1)
     manual_mode = is_manual_mode()
     print(f'{exe} ({"manual" if manual_mode else "auto"})')
     tests = create_tests_array(manual_mode);

@@ -2,14 +2,14 @@
 //  ---------------------------------------------
 //  Writes lib to LogicLab 'pll' format
 //  ---------------------------------------------
-//  #include "writer_pll.hpp" // pll::write()
+//  #include "writer_pll.hpp" // pll::write_lib()
 //  ---------------------------------------------
-#include <fmt/format.h> // fmt::format
+#include <cassert>
 
-#include "output_streamable_concept.hpp" // MG::OutputStreamable
 #include "keyvals.hpp" // MG::keyvals
 #include "timestamp.hpp" // MG::get_human_readable_timestamp()
 #include "plc_library.hpp" // plcb::*
+#include "output_streamable_concept.hpp" // MG::OutputStreamable
 
 using namespace std::string_view_literals; // Use "..."sv
 
@@ -19,7 +19,6 @@ namespace pll
 {
 
 //---------------------------------------------------------------------------
-// Write variable to pll file
 inline void write(MG::OutputStreamable auto& f, const plcb::Variable& var)
 {
     assert( !var.name().empty() );
@@ -66,8 +65,7 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Variable& var)
 
 
 //---------------------------------------------------------------------------
-// Write POU to pll file
-inline void write(const sys::file_write& f, const plcb::Pou& pou, const std::string_view tag)
+inline void write(MG::OutputStreamable auto& f, const plcb::Pou& pou, const std::string_view tag)
 {
     f << '\n' << tag << ' ' << pou.name();
     if( pou.has_return_type() )
@@ -127,9 +125,113 @@ inline void write(const sys::file_write& f, const plcb::Pou& pou, const std::str
 }
 
 
+
 //---------------------------------------------------------------------------
-// Write macro to plclib file
-inline void write(const sys::file_write& f, const plcb::Macro& macro)
+inline void write(MG::OutputStreamable auto& f, const plcb::Enum& enm)
+{
+    f<< "\n\t"sv << enm.name() << ": (\n"sv;
+    if( !enm.descr().empty() )
+       {
+        f<< "\t\t{ DE:\""sv << enm.descr() << "\" }\n"sv;
+       }
+    if( !enm.elements().empty() )
+       {
+        const auto it_last = std::prev( enm.elements().cend() );
+        for( auto it=enm.elements().cbegin(); it!=it_last; ++it )
+           {
+            f<< "\t\t"sv << it->name() << " := "sv << it->value() << ',';
+            if( !it->descr().empty() )
+               {
+                f<< " { DE:\""sv << it->descr() << "\" }"sv;
+               }
+            f<< '\n';
+           }
+        // Last element
+        f<< "\t\t"sv << it_last->name() << " := "sv << it_last->value();
+        if( !it_last->descr().empty() )
+           {
+            f<< " { DE:\""sv << it_last->descr() << "\" }"sv;
+           }
+        f<< '\n';
+       }
+    f<< "\t);\n"sv;
+}
+
+
+
+//---------------------------------------------------------------------------
+inline void write(MG::OutputStreamable auto& f, const plcb::TypeDef& tdef)
+{
+    f<< '\t' << tdef.name() << " : "sv;
+
+    if( tdef.has_length() )
+       {// STRING[ 80 ]
+        f<< tdef.type() << "[ "sv << std::to_string(tdef.length()) << " ]"sv;
+       }
+    else if( tdef.is_array() )
+       {// ARRAY[ 0..999 ] OF BOOL
+        f<< "ARRAY[ "sv << std::to_string(tdef.array_startidx()) << ".."sv << std::to_string(tdef.array_lastidx()) << " ] OF "sv << tdef.type();
+       }
+    else
+       {// DINT
+        f<< tdef.type();
+       }
+    f<< ';';
+
+    if( !tdef.descr().empty() )
+       {
+        f<< " { DE:\""sv << tdef.descr() << "\" }"sv;
+       }
+    f<< '\n';
+}
+
+
+
+//---------------------------------------------------------------------------
+inline void write(MG::OutputStreamable auto& f, const plcb::Struct& strct)
+{
+    f<< '\t' << strct.name() << " : STRUCT"sv;
+
+    if( !strct.descr().empty() )
+       {
+        f<< " { DE:\""sv << strct.descr() << "\" }"sv;
+       }
+    f<< '\n';
+
+    for( const auto& var : strct.members() )
+       {
+        f<< "\t\t"sv << var.name() << " : "sv << var.type() << ';';
+        if( !var.descr().empty() )
+           {
+            f<< " { DE:\""sv << var.descr() << "\" }"sv;
+           }
+        f<< '\n';
+       }
+    f<< "\tEND_STRUCT;\n\n"sv;
+}
+
+
+
+//---------------------------------------------------------------------------
+inline void write(MG::OutputStreamable auto& f, const plcb::Subrange& subrng)
+{
+    f<< '\t' << subrng.name() << " : "sv << subrng.type()
+     << " ("sv
+     << std::to_string(subrng.min_value()) << ".."sv
+     << std::to_string(subrng.max_value())
+     << ");"sv;
+
+    if( !subrng.descr().empty() )
+       {
+        f<< " { DE:\""sv << subrng.descr() << "\" }"sv;
+       }
+    f<< '\n';
+}
+
+
+
+//---------------------------------------------------------------------------
+inline void write(MG::OutputStreamable auto& f, const plcb::Macro& macro)
 {
     f << "\nMACRO "sv << macro.name() << '\n';
 
@@ -157,14 +259,13 @@ inline void write(const sys::file_write& f, const plcb::Macro& macro)
 }
 
 
+
 //---------------------------------------------------------------------------
-// Write library to pll file
-void write(const sys::file_write& f, const plcb::Library& lib, [[maybe_unused]] const MG::keyvals& options)
+void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG::keyvals& options)
 {
     // [Options]
-    //auto xxx = options.value_of("xxx");
-    const std::string_view sects_spacer = "\n\n\n"sv;
-    const std::string_view blocks_spacer = "\n\n"sv;
+    const std::string_view sects_spacer = "\n\n\n"sv; // options.value_or("pll-sects-spacer", "\n\n\n"sv);
+    const std::string_view blocks_spacer = "\n\n"sv; // options.value_or("pll-blocks-spacer", "\n\n"sv);
 
     // [Heading]
     f<< "(*\n"sv
@@ -296,25 +397,9 @@ void write(const sys::file_write& f, const plcb::Library& lib, [[maybe_unused]] 
             "\t(*****************)\n"sv;
         f<< blocks_spacer <<
             "TYPE\n\n"sv;
-        for( const auto& en : lib.enums() )
+        for( const auto& enm : lib.enums() )
            {
-            f<< "\n\t"sv << en.name() << ": (\n"sv;
-            if(!en.descr().empty()) f<< "\t\t{ DE:\""sv << en.descr() << "\" }\n"sv;
-            if( !en.elements().empty() )
-               {
-                const auto ie_last = std::prev( en.elements().cend() );
-                for( auto ie=en.elements().cbegin(); ie!=ie_last; ++ie )
-                   {
-                    f<< "\t\t"sv << ie->name() << " := "sv << ie->value() << ',';
-                    if(!ie->descr().empty()) f<< " { DE:\""sv << ie->descr() << "\" }"sv;
-                    f<< '\n';
-                   }
-                // Last element
-                f<< "\t\t"sv << ie_last->name() << " := "sv << ie_last->value();
-                if(!ie_last->descr().empty()) f<< " { DE:\""sv << ie_last->descr() << "\" }"sv;
-                f<< '\n';
-               }
-            f<< "\t);\n"sv;
+            write(f, enm);
            }
         f<< "\nEND_TYPE\n"sv;
        }
@@ -332,24 +417,7 @@ void write(const sys::file_write& f, const plcb::Library& lib, [[maybe_unused]] 
             "TYPE\n\n"sv;
         for( const auto& tdef : lib.typedefs() )
            {
-            f<< '\t' << tdef.name() << " : "sv;
-
-            if( tdef.has_length() )
-               {// STRING[ 80 ]
-                f<< tdef.type() << "[ "sv << std::to_string(tdef.length()) << " ]"sv;
-               }
-            else if( tdef.is_array() )
-               {// ARRAY[ 0..999 ] OF BOOL
-                f<< "ARRAY[ "sv << std::to_string(tdef.array_startidx()) << ".."sv << std::to_string(tdef.array_lastidx()) << " ] OF "sv << tdef.type();
-               }
-            else
-               {// DINT
-                f<< tdef.type();
-               }
-            f<< ';';
-
-            if(!tdef.descr().empty()) f<< " { DE:\""sv << tdef.descr() << "\" }"sv;
-            f<< '\n';
+            write(f, tdef);
            }
         f<< "\nEND_TYPE\n"sv;
        }
@@ -367,16 +435,7 @@ void write(const sys::file_write& f, const plcb::Library& lib, [[maybe_unused]] 
             "TYPE\n\n"sv;
         for( const auto& strct : lib.structs() )
            {
-            f<< '\t' << strct.name() << " : STRUCT"sv;
-            if(!strct.descr().empty()) f<< " { DE:\""sv << strct.descr() << "\" }"sv;
-            f<< '\n';
-            for( const auto& var : strct.members() )
-               {
-                f<< "\t\t"sv << var.name() << " : "sv << var.type() << ';';
-                if(!var.descr().empty()) f<< " { DE:\""sv << var.descr() << "\" }"sv;
-                f<< '\n';
-               }
-            f<< "\tEND_STRUCT;\n\n"sv;
+            write(f, strct);
            }
         f<< "\nEND_TYPE\n"sv;
        }
@@ -392,12 +451,9 @@ void write(const sys::file_write& f, const plcb::Library& lib, [[maybe_unused]] 
             "\t(*********************)\n"sv;
         f<< blocks_spacer <<
             "TYPE\n\n"sv;
-        for( const auto& subr : lib.subranges() )
+        for( const auto& subrng : lib.subranges() )
            {
-            f<< '\t' << subr.name() << " : "sv << subr.type()
-             << " ("sv << std::to_string(subr.min_value()) << ".."sv << std::to_string(subr.max_value()) << ");"sv;
-            if(!subr.descr().empty()) f<< " { DE:\""sv << subr.descr() << "\" }"sv;
-            f<< '\n';
+            write(f, subrng);
            }
         f<< "\nEND_TYPE\n"sv;
        }
@@ -441,28 +497,336 @@ void write(const sys::file_write& f, const plcb::Library& lib, [[maybe_unused]] 
 
 /////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
-#include <sstream> // std::stringstream
+#include "string_write.hpp" // MG::string_write
 /////////////////////////////////////////////////////////////////////////////
 static ut::suite<"writer_pll"> writer_pll_tests = []
 {
 
 ut::test("pll::write(plcb::Variable)") = []
    {
-    plcb::Variable var;
+    MG::string_write out;
 
-    var.set_name( "varname" );
-    var.set_type( "INT" );
-    //var.set_length( 80 );
-    var.set_descr( "testing variable" );
+    ut::should("write an INT variable") = [out]() mutable
+       {
+        pll::write(out, plcb::make_var("vn320"sv, "INT"sv, 0, ""sv, "testing variable"sv, 'M', 'W', 400, 320));
+        ut::expect( ut::that % out.str() == "\tvn320 AT %MW400.320 : INT; { DE:\"testing variable\" }\n"sv );
+       };
 
-    var.address().set_type( 'M' );
-    var.address().set_typevar( 'B' );
-    var.address().set_index( 700 );
-    var.address().set_subindex( 320 );
+    ut::should("write a STRING variable") = [out]() mutable
+       {
+        pll::write(out, plcb::make_var("va0", "STRING", 80, ""sv, "testing array", 'M', 'B', 700, 0));
+        ut::expect( ut::that % out.str() == "\tva0 AT %MB700.0 : STRING[ 80 ]; { DE:\"testing array\" }\n"sv );
+       };
+   };
 
-    std::stringstream out;
-    pll::write(out, var);
-    ut::expect( ut::that % out.str() == "\tvarname AT %MB700.320 : INT; { DE:\"testing variable\" }\n"sv );
+
+ut::test("pll::write(plcb::Pou)") = []
+   {
+    plcb::Pou pou;
+    pou.set_name("pouname");
+    pou.set_descr("testing pou");
+    pou.set_return_type("INT");
+    pou.inout_vars() = { plcb::make_var("inout1", "DINT", 0u, ""sv, "inout1 descr"),
+                         plcb::make_var("inout2", "LREAL", 0u, ""sv, "inout2 descr") };
+    pou.input_vars() = { plcb::make_var("in1", "DINT", 0u, ""sv, "in1 descr"),
+                         plcb::make_var("in2", "LREAL", 0u, ""sv, "in2 descr") };
+    pou.output_vars() = { plcb::make_var("out1", "DINT", 0u, ""sv, "out1 descr"),
+                          plcb::make_var("out2", "LREAL", 0u, ""sv, "out2 descr") };
+    pou.external_vars() = { plcb::make_var("ext1", "DINT", 0u, ""sv, "ext1 descr"),
+                            plcb::make_var("ext2", "STRING", 80u, ""sv, "ext2 descr") };
+    pou.local_vars() = { plcb::make_var("loc1", "DINT", 0u, ""sv, "loc1 descr"),
+                         plcb::make_var("loc2", "LREAL", 0u, ""sv, "loc2 descr") };
+    pou.local_constants() = { plcb::make_var("const1", "DINT", 0u, "42"sv, "const1 descr"),
+                              plcb::make_var("const2", "LREAL", 0u, "1.5"sv, "const2 descr") };
+    pou.set_code_type("ST");
+    pou.set_body("body");
+
+    const std::string_view expected =
+        "\nFUNCTION pouname : INT\n"
+        "\n"
+        "{ DE:\"testing pou\" }\n"
+        "\n"
+        "\tVAR_IN_OUT\n"
+        "\tinout1 : DINT; { DE:\"inout1 descr\" }\n"
+        "\tinout2 : LREAL; { DE:\"inout2 descr\" }\n"
+        "\tEND_VAR\n"
+        "\n"
+        "\tVAR_INPUT\n"
+        "\tin1 : DINT; { DE:\"in1 descr\" }\n"
+        "\tin2 : LREAL; { DE:\"in2 descr\" }\n"
+        "\tEND_VAR\n"
+        "\n"
+        "\tVAR_OUTPUT\n"
+        "\tout1 : DINT; { DE:\"out1 descr\" }\n"
+        "\tout2 : LREAL; { DE:\"out2 descr\" }\n"
+        "\tEND_VAR\n"
+        "\n"
+        "\tVAR_EXTERNAL\n"
+        "\text1 : DINT; { DE:\"ext1 descr\" }\n"
+        "\text2 : STRING[ 80 ]; { DE:\"ext2 descr\" }\n"
+        "\tEND_VAR\n"
+        "\n"
+        "\tVAR\n"
+        "\tloc1 : DINT; { DE:\"loc1 descr\" }\n"
+        "\tloc2 : LREAL; { DE:\"loc2 descr\" }\n"
+        "\tEND_VAR\n"
+        "\n"
+        "\tVAR CONSTANT\n"
+        "\tconst1 : DINT := 42; { DE:\"const1 descr\" }\n"
+        "\tconst2 : LREAL := 1.5; { DE:\"const2 descr\" }\n"
+        "\tEND_VAR\n"
+        "\n"
+        "\t{ CODE:ST }body\n"
+        "END_FUNCTION\n\n"sv;
+
+    MG::string_write out;
+    pll::write(out, pou, "FUNCTION"sv);
+    ut::expect( ut::that % out.str() == expected );
+   };
+
+
+ut::test("pll::write(plcb::Enum)") = []
+   {
+    plcb::Enum enm;
+    enm.set_name("enumname");
+    enm.set_descr("testing enum");
+    enm.elements() = { plcb::make_enelem("elm1", "1", "elm1 descr"),
+                       plcb::make_enelem("elm2", "42", "elm2 descr") };
+
+    const std::string_view expected =
+        "\n\tenumname: (\n"
+        "\t\t{ DE:\"testing enum\" }\n"
+        "\t\telm1 := 1, { DE:\"elm1 descr\" }\n"
+        "\t\telm2 := 42 { DE:\"elm2 descr\" }\n"
+        "\t);\n"sv;
+
+    MG::string_write out;
+    pll::write(out, enm);
+    ut::expect( ut::that % out.str() == expected );
+   };
+
+
+ut::test("pll::write(plcb::TypeDef)") = []
+   {
+    plcb::TypeDef tdef{ plcb::make_var("typename", "LREAL", 0u, ""sv, "testing typedef") };
+
+    MG::string_write out;
+    pll::write(out, tdef);
+    ut::expect( ut::that % out.str() == "\ttypename : LREAL; { DE:\"testing typedef\" }\n"sv );
+   };
+
+
+ut::test("pll::write(plcb::Struct)") = []
+   {
+    plcb::Struct strct;
+    strct.set_name("structname");
+    strct.set_descr("testing struct");
+    strct.add_member( plcb::make_var("member1", "DINT", 0u, ""sv, "member1 descr")  );
+    strct.add_member( plcb::make_var("member2", "LREAL", 0u, ""sv, "member2 descr")  );
+
+    const std::string_view expected =
+        "\tstructname : STRUCT { DE:\"testing struct\" }\n"
+        "\t\tmember1 : DINT; { DE:\"member1 descr\" }\n"
+        "\t\tmember2 : LREAL; { DE:\"member2 descr\" }\n"
+        "\tEND_STRUCT;\n\n"sv;
+
+    MG::string_write out;
+    pll::write(out, strct);
+    ut::expect( ut::that % out.str() == expected );
+   };
+
+
+ut::test("pll::write(plcb::Subrange)") = []
+   {
+    plcb::Subrange subrng;
+    subrng.set_name("subrangename");
+    subrng.set_type("INT");
+    subrng.set_range(1,12);
+    subrng.set_descr("testing subrange");
+
+    MG::string_write out;
+    pll::write(out, subrng);
+    ut::expect( ut::that % out.str() == "\tsubrangename : INT (1..12); { DE:\"testing subrange\" }\n"sv );
+   };
+
+
+ut::test("pll::write(plcb::Macro)") = []
+   {
+    plcb::Macro macro;
+    macro.set_name("macroname");
+    macro.set_descr("testing macro");
+    macro.parameters() = { plcb::make_mparam("par1", "par1 descr"),
+                           plcb::make_mparam("par2", "par2 descr") };
+    macro.set_code_type("ST");
+    macro.set_body("body");
+
+    const std::string_view expected =
+        "\nMACRO macroname\n"
+        "{ DE:\"testing macro\" }\n"
+        "\n"
+        "\tPAR_MACRO\n"
+        "\tpar1; { DE:\"par1 descr\" }\n"
+        "\tpar2; { DE:\"par2 descr\" }\n"
+        "\tEND_PAR\n"
+        "\n"
+        "\t{ CODE:ST }body\n"
+        "END_MACRO\n\n"sv;
+
+    MG::string_write out;
+    pll::write(out, macro);
+    ut::expect( ut::that % out.str() == expected );
+   };
+
+
+ut::test("pll::write(plcb::Library)") = []
+   {
+    plcb::Library lib{"testlib"sv};
+
+   {auto& grp = lib.global_variables().groups().emplace_back();
+    grp.set_name("globs");
+    grp.mutable_variables() = { plcb::make_var("gvar1", "DINT", 0u, ""sv, "gvar1 descr"),
+                                plcb::make_var("gvar2", "LREAL", 0u, ""sv, "gvar2 descr") };
+   }
+    //lib.global_constants()
+    //lib.global_retainvars()
+
+   {auto& prg = lib.programs().emplace_back();
+    prg.set_name("prgname");
+    prg.set_descr("testing prg");
+    prg.local_vars() = { plcb::make_var("loc1", "DINT", 0u, ""sv, "loc1 descr"),
+                         plcb::make_var("loc2", "LREAL", 0u, ""sv, "loc2 descr") };
+    prg.set_code_type("ST");
+    prg.set_body("body");
+   }
+
+   {auto& fb = lib.function_blocks().emplace_back();
+    fb.set_name("fbname");
+    fb.set_descr("testing fb");
+    fb.inout_vars() = { plcb::make_var("inout1", "DINT", 0u, ""sv, "inout1 descr"),
+                        plcb::make_var("inout2", "LREAL", 0u, ""sv, "inout2 descr") };
+    fb.input_vars() = { plcb::make_var("in1", "DINT", 0u, ""sv, "in1 descr"),
+                        plcb::make_var("in2", "LREAL", 0u, ""sv, "in2 descr") };
+    fb.output_vars() = { plcb::make_var("out1", "DINT", 0u, ""sv, "out1 descr"),
+                         plcb::make_var("out2", "LREAL", 0u, ""sv, "out2 descr") };
+    fb.external_vars() = { plcb::make_var("ext1", "DINT", 0u, ""sv, "ext1 descr"),
+                           plcb::make_var("ext2", "STRING", 80u, ""sv, "ext2 descr") };
+    fb.local_vars() = { plcb::make_var("loc1", "DINT", 0u, ""sv, "loc1 descr"),
+                        plcb::make_var("loc2", "LREAL", 0u, ""sv, "loc2 descr") };
+    fb.local_constants() = { plcb::make_var("const1", "DINT", 0u, "42"sv, "const1 descr"),
+                             plcb::make_var("const2", "LREAL", 0u, "1.5"sv, "const2 descr") };
+    fb.set_code_type("ST");
+    fb.set_body("body");
+   }
+
+    //lib.functions()
+    //lib.function_blocks()
+    //lib.macros()
+    //lib.structs()
+    //lib.typedefs()
+    //lib.enums()
+    //lib.subranges()
+
+    const std::string_view expected =
+        "(*\n"
+        "\tname: testlib\n"
+        "\tdescr: PLC library\n"
+        "\tversion: 1.0.0\n"
+        "\tauthor: pll::write()\n"
+        "\tglobal-variables: 2\n"
+        "\tfunction blocks: 1\n"
+        "\tprograms: 1\n"
+        "*)\n"
+        "\n"
+        "\n"
+        "\n"
+        "\t(****************************)\n"
+        "\t(*                          *)\n"
+        "\t(*     GLOBAL VARIABLES     *)\n"
+        "\t(*                          *)\n"
+        "\t(****************************)\n"
+        "\n"
+        "\n"
+        "\tVAR_GLOBAL\n"
+        "\t{G:\"globs\"}\n"
+        "\tgvar1 : DINT; { DE:\"gvar1 descr\" }\n"
+        "\tgvar2 : LREAL; { DE:\"gvar2 descr\" }\n"
+        "\tEND_VAR\n"
+        "\n"
+        "\n"
+        "\n"
+        "\t(***************************)\n"
+        "\t(*                         *)\n"
+        "\t(*     FUNCTION BLOCKS     *)\n"
+        "\t(*                         *)\n"
+        "\t(***************************)\n"
+        "\n"
+        "\n"
+        "\n"
+        "FUNCTION_BLOCK fbname\n"
+        "\n"
+        "{ DE:\"testing fb\" }\n"
+        "\n"
+        "\tVAR_IN_OUT\n"
+        "\tinout1 : DINT; { DE:\"inout1 descr\" }\n"
+        "\tinout2 : LREAL; { DE:\"inout2 descr\" }\n"
+        "\tEND_VAR\n"
+        "\n"
+        "\tVAR_INPUT\n"
+        "\tin1 : DINT; { DE:\"in1 descr\" }\n"
+        "\tin2 : LREAL; { DE:\"in2 descr\" }\n"
+        "\tEND_VAR\n"
+        "\n"
+        "\tVAR_OUTPUT\n"
+        "\tout1 : DINT; { DE:\"out1 descr\" }\n"
+        "\tout2 : LREAL; { DE:\"out2 descr\" }\n"
+        "\tEND_VAR\n"
+        "\n"
+        "\tVAR_EXTERNAL\n"
+        "\text1 : DINT; { DE:\"ext1 descr\" }\n"
+        "\text2 : STRING[ 80 ]; { DE:\"ext2 descr\" }\n"
+        "\tEND_VAR\n"
+        "\n"
+        "\tVAR\n"
+        "\tloc1 : DINT; { DE:\"loc1 descr\" }\n"
+        "\tloc2 : LREAL; { DE:\"loc2 descr\" }\n"
+        "\tEND_VAR\n"
+        "\n"
+        "\tVAR CONSTANT\n"
+        "\tconst1 : DINT := 42; { DE:\"const1 descr\" }\n"
+        "\tconst2 : LREAL := 1.5; { DE:\"const2 descr\" }\n"
+        "\tEND_VAR\n"
+        "\n"
+        "\t{ CODE:ST }body\n"
+        "END_FUNCTION_BLOCK\n"
+        "\n"
+        "\n"
+        "\n"
+        "\n"
+        "\t(********************)\n"
+        "\t(*                  *)\n"
+        "\t(*     PROGRAMS     *)\n"
+        "\t(*                  *)\n"
+        "\t(********************)\n"
+        "\n"
+        "\n"
+        "\n"
+        "PROGRAM prgname\n"
+        "\n"
+        "{ DE:\"testing prg\" }\n"
+        "\n"
+        "\tVAR\n"
+        "\tloc1 : DINT; { DE:\"loc1 descr\" }\n"
+        "\tloc2 : LREAL; { DE:\"loc2 descr\" }\n"
+        "\tEND_VAR\n"
+        "\n"
+        "\t{ CODE:ST }body\n"
+        "END_PROGRAM\n"
+        "\n"sv;
+
+    MG::string_write out;
+    MG::keyvals opts; opts.assign("no-timestamp");
+    pll::write_lib(out, lib, opts);
+    ut::expect( ut::that % out.str() == expected );
    };
 
 };///////////////////////////////////////////////////////////////////////////

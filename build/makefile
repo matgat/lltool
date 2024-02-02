@@ -17,7 +17,7 @@ CXXFLAGS += -Wshadow -Wconversion -Wsign-conversion
 CXXFLAGS += -Wsign-promo -Wstrict-overflow=2 -Wcast-align -Wcast-qual -Wctor-dtor-privacy -Wdisabled-optimization -Wformat=2 -Winit-self -Wlogical-op -Wmissing-include-dirs -Wnoexcept -Wold-style-cast -Woverloaded-virtual -Wredundant-decls -Wstrict-null-sentinel -Wundef -Wunused
 CXXFLAGS += -I/usr/local/include -L/usr/local/lib -lfmt
 
-#MSVCFLAGS = cl.exe /std:c++latest /utf-8 /W4 /WX /O2
+#MSVCFLAGS = cl.exe /std:c++latest /permissive- /utf-8 /W4 /WX /O2 
 
 default: executable
 

@@ -420,193 +420,193 @@ class ParserBase
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
 static ut::suite<"text::ParserBase"> ParserBase_tests = []
 {////////////////////////////////////////////////////////////////////////////
-    using ut::expect;
-    using ut::that;
-    using ut::throws;
-    using enum text::Enc;
+using ut::expect;
+using ut::that;
+using ut::throws;
+using enum text::Enc;
 
-    auto notify_sink = [](const std::string_view msg) -> void { ut::log << "\033[33m" "parser: " "\033[0m" << msg; };
+auto notify_sink = [](const std::string_view msg) -> void { ut::log << "\033[33m" "parser: " "\033[0m" << msg; };
 
-    ut::test("empty") = []
+ut::test("empty") = []
+   {
+    text::ParserBase<UTF8> parser{""sv};
+
+    expect( not parser.has_codepoint() and parser.curr_codepoint()==text::null_codepoint );
+   };
+
+
+ut::test("simple utf-8") = []
+   {
+    text::ParserBase<UTF8> parser{"\x61\xC3\xA0\x20\xC2\xB1\xE2\x88\x86"sv}; // u8"aà ±∆"
+
+    expect( parser.has_codepoint() and parser.got(U'a') );
+    expect( parser.get_next() and parser.got(U'à') );
+    expect( parser.get_next() and parser.got(U' ') );
+    expect( parser.get_next() and parser.got(U'±') );
+    expect( parser.get_next() and parser.got(U'∆') );
+    expect( not parser.get_next() and parser.got(text::null_codepoint) );
+   };
+
+
+ut::test("simple utf-16le") = []
+   {
+    text::ParserBase<UTF16LE> parser{"\x61\x00\xE0\x00\x20\x00\xB1\x00\x06\x22"sv}; // u"aà ±∆"
+
+    expect( parser.has_codepoint() and parser.got(U'a') );
+    expect( parser.get_next() and parser.got(U'à') );
+    expect( parser.get_next() and parser.got(U' ') );
+    expect( parser.get_next() and parser.got(U'±') );
+    expect( parser.get_next() and parser.got(U'∆') );
+    expect( not parser.get_next() and parser.got(text::null_codepoint) );
+   };
+
+ut::test("context and eat") = []
+   {
+    text::ParserBase<UTF8> parser{ "abcdef"sv };
+    const auto start = parser.save_context();
+    expect( parser.eat(U"abc") and parser.eat(U"def") and not parser.has_bytes() );
+    //expect( parser.eat<U'a',U'b',U'c'>() and parser.eat<U'd',U'e',U'f'>() and not parser.has_bytes() );
+    parser.restore_context( start );
+    expect( parser.eat(U"abc") and parser.eat(U"def") and not parser.has_bytes() );
+    //expect( parser.eat<U'a',U'b',U'c'>() and parser.eat<U'd',U'e',U'f'>() and not parser.has_bytes() );
+   };
+
+ut::test("context and eat utf16") = []
+   {
+    text::ParserBase<UTF16BE> parser{ "\0a" "\0b" "\0c" "\0d" "\0e" "\0f"sv };
+    const auto start = parser.save_context();
+    expect( parser.eat(U"abc") and parser.eat(U"def") and not parser.has_bytes() );
+    //expect( parser.eat<U'a',U'b',U'c'>() and parser.eat<U'd',U'e',U'f'>() and not parser.has_bytes() );
+    parser.restore_context( start );
+    expect( parser.eat(U"abc") and parser.eat(U"def") and not parser.has_bytes() );
+    //expect( parser.eat<U'a',U'b',U'c'>() and parser.eat<U'd',U'e',U'f'>() and not parser.has_bytes() );
+   };
+
+ut::test("eating spaces") = []
+   {
+    text::ParserBase<UTF8> parser
        {
-        text::ParserBase<UTF8> parser{""sv};
-
-        expect( not parser.has_codepoint() and parser.curr_codepoint()==text::null_codepoint );
+        "1\n"
+        "2  \t\t  \r\n"
+        "3 \t \n"
+        "4 blah blah\r\n"
+        "5\r\n"
+        "6\t\t \r \t F\r\n"
+        "   \n"
+        "\t\t\n"
+        "9 blah\n"sv
        };
 
+    expect( parser.has_codepoint() and parser.got(U'1') );
+    parser.skip_blanks();
+    parser.skip_any_space();
+    expect( not parser.got_endline() and parser.got(U'1') and parser.curr_line()==1 );
+    expect( parser.get_next() and parser.got_endline() and parser.curr_line()==1 );
+    expect( parser.eat_endline() and parser.curr_line()==2 );
 
-    ut::test("simple utf-8") = []
+    expect( parser.got(U'2') );
+    expect( parser.get_next() and parser.got_blank() );
+    parser.skip_blanks();
+    expect( parser.eat_endline() and parser.curr_line()==3 );
+
+    expect( parser.got(U'3') and parser.curr_line()==3 and parser.get_next() );
+    parser.skip_any_space();
+
+    expect( parser.got(U'4') and parser.curr_line()==4 );
+    parser.skip_line();
+
+    expect( parser.got(U'5') and parser.curr_line()==5 and parser.get_next() );
+    parser.skip_endline();
+
+    expect( parser.got(U'6') and parser.curr_line()==6 and parser.get_next() );
+    parser.skip_blanks();
+    expect( parser.got(U'F') and parser.curr_line()==6 and parser.get_next() );
+    parser.skip_any_space();
+
+    expect( parser.got(U'9') and parser.curr_line()==9 );
+    parser.skip_line();
+
+    expect( not parser.has_bytes() and parser.curr_line()==9 );
+   };
+
+
+ut::test("parse utilities") = [&notify_sink]
+   {
+    text::ParserBase<UTF8> parser
        {
-        text::ParserBase<UTF8> parser{"\x61\xC3\xA0\x20\xC2\xB1\xE2\x88\x86"sv}; // u8"aà ±∆"
-
-        expect( parser.has_codepoint() and parser.got(U'a') );
-        expect( parser.get_next() and parser.got(U'à') );
-        expect( parser.get_next() and parser.got(U' ') );
-        expect( parser.get_next() and parser.got(U'±') );
-        expect( parser.get_next() and parser.got(U'∆') );
-        expect( not parser.get_next() and parser.got(text::null_codepoint) );
+        "abc123\n"
+        "<tag>a=\"\" b=\"str\"</tag>\n"
+        "/*block\n"
+        "comment*/end\n"
+        "blah <!--another\n"
+        "block\n"
+        "comment-->"sv
        };
+    parser.set_on_notify_issue(notify_sink);
+    expect( parser.has_codepoint() );
 
+    expect( not parser.eat(U"abb") and not parser.eat(U"abcd") and parser.eat(U"abc") and parser.got(U'1') and parser.curr_line()==1u );
+    expect( parser.eat(U'1') and not parser.eat(U'3') and parser.eat(U'2') and parser.eat(U'3') and parser.got(U'\n') and parser.curr_line()==1u );
+    expect( parser.eat(U'\n') and parser.curr_line()==2u );
 
-    ut::test("simple utf-16le") = []
+    expect( parser.eat(U'<') and parser.curr_line()==2u );
+    expect( throws<parse::error>([&parser] { [[maybe_unused]] auto n = parser.collect_bytes_until<U'☺'>(); }) ) << "missing closing character should throw\n";
+    expect( parser.collect_bytes_until<U'>'>()=="tag"sv and parser.curr_line()==2u and parser.got(U'a') );
+    expect( parser.eat(U"a=\"") );
+    expect( throws<parse::error>([&parser] { [[maybe_unused]] auto n = parser.collect_until_and_skip(ascii::is<U'*'>, ascii::is_endline<char32_t>); }) ) << "missing closing character in same line should throw\n";
+    expect( parser.collect_until_and_skip(ascii::is<U'\"'>, ascii::is_endline<char32_t>)==U""sv and parser.got(U' ') );
+
+    parser.skip_blanks();
+    expect( parser.eat(U"b=\"") );
+    expect( parser.collect_until(ascii::is<U'\"'>, ascii::is_endline<char32_t>)==U"str"sv and parser.eat(U'\"') and parser.eat(U"</"sv) );
+    expect( parser.collect_bytes_until<U'>'>()=="tag"sv and parser.eat_endline() );
+
+    expect( parser.eat(U"/*") and parser.curr_line()==3u );
+    expect( parser.collect_bytes_until<U'*',U'/'>()=="block\ncomment"sv );
+    expect( parser.eat(U"end") );
+
+    expect( parser.collect_until<U'<',U'!',U'-',U'-'>()==U"\nblah "sv and parser.got(U'a') );
+    expect( parser.collect_until<U'-',U'-',U'>'>()==U"another\nblock\ncomment"sv and not parser.has_bytes() );
+   };
+
+ut::test("end block edge case 1") = [&notify_sink]
+   {
+    text::ParserBase<UTF8> parser{ "****/a"sv };
+    parser.set_on_notify_issue(notify_sink);
+    expect( parser.collect_bytes_until<U'*',U'/'>()=="***"sv and parser.got(U'a') );
+   };
+
+ut::test("end block edge case 2") = [&notify_sink]
+   {
+    text::ParserBase<UTF8> parser{ "----->a"sv };
+    parser.set_on_notify_issue(notify_sink);
+    expect( parser.collect_bytes_until<U'-',U'-',U'>'>()=="---"sv and parser.got(U'a') );
+   };
+
+ut::test("numbers") = [&notify_sink]
+   {
+    text::ParserBase<UTF8> parser
        {
-        text::ParserBase<UTF16LE> parser{"\x61\x00\xE0\x00\x20\x00\xB1\x00\x06\x22"sv}; // u"aà ±∆"
-
-        expect( parser.has_codepoint() and parser.got(U'a') );
-        expect( parser.get_next() and parser.got(U'à') );
-        expect( parser.get_next() and parser.got(U' ') );
-        expect( parser.get_next() and parser.got(U'±') );
-        expect( parser.get_next() and parser.got(U'∆') );
-        expect( not parser.get_next() and parser.got(text::null_codepoint) );
+        "a=1234mm\n"
+        "b=h1\n"
+        "c=12"sv
        };
+    parser.set_on_notify_issue(notify_sink);
 
-    ut::test("context and eat") = []
-       {
-        text::ParserBase<UTF8> parser{ "abcdef"sv };
-        const auto start = parser.save_context();
-        expect( parser.eat(U"abc") and parser.eat(U"def") and not parser.has_bytes() );
-        //expect( parser.eat<U'a',U'b',U'c'>() and parser.eat<U'd',U'e',U'f'>() and not parser.has_bytes() );
-        parser.restore_context( start );
-        expect( parser.eat(U"abc") and parser.eat(U"def") and not parser.has_bytes() );
-        //expect( parser.eat<U'a',U'b',U'c'>() and parser.eat<U'd',U'e',U'f'>() and not parser.has_bytes() );
-       };
+    expect( parser.has_codepoint() and parser.eat(U'a') and parser.eat(U'=') );
+    expect( that % parser.extract_index()==1234u );
+    expect( parser.got(U'm') and parser.curr_line()==1u );
+    parser.skip_line();
 
-    ut::test("context and eat utf16") = []
-       {
-        text::ParserBase<UTF16BE> parser{ "\0a" "\0b" "\0c" "\0d" "\0e" "\0f"sv };
-        const auto start = parser.save_context();
-        expect( parser.eat(U"abc") and parser.eat(U"def") and not parser.has_bytes() );
-        //expect( parser.eat<U'a',U'b',U'c'>() and parser.eat<U'd',U'e',U'f'>() and not parser.has_bytes() );
-        parser.restore_context( start );
-        expect( parser.eat(U"abc") and parser.eat(U"def") and not parser.has_bytes() );
-        //expect( parser.eat<U'a',U'b',U'c'>() and parser.eat<U'd',U'e',U'f'>() and not parser.has_bytes() );
-       };
+    expect( parser.eat(U'b') and parser.eat(U'=') and parser.curr_line()==2 );
+    expect( throws<parse::error>([&parser] { [[maybe_unused]] auto n = parser.extract_index(); }) ) << "invalid index should throw\n";
+    expect( parser.eat(U'h') );
+    expect( that % parser.extract_index()==1u );
+    expect( parser.eat_endline() and parser.curr_line()==3u );
 
-    ut::test("eating spaces") = []
-       {
-        text::ParserBase<UTF8> parser
-           {
-            "1\n"
-            "2  \t\t  \r\n"
-            "3 \t \n"
-            "4 blah blah\r\n"
-            "5\r\n"
-            "6\t\t \r \t F\r\n"
-            "   \n"
-            "\t\t\n"
-            "9 blah\n"sv
-           };
-
-        expect( parser.has_codepoint() and parser.got(U'1') );
-        parser.skip_blanks();
-        parser.skip_any_space();
-        expect( not parser.got_endline() and parser.got(U'1') and parser.curr_line()==1 );
-        expect( parser.get_next() and parser.got_endline() and parser.curr_line()==1 );
-        expect( parser.eat_endline() and parser.curr_line()==2 );
-
-        expect( parser.got(U'2') );
-        expect( parser.get_next() and parser.got_blank() );
-        parser.skip_blanks();
-        expect( parser.eat_endline() and parser.curr_line()==3 );
-
-        expect( parser.got(U'3') and parser.curr_line()==3 and parser.get_next() );
-        parser.skip_any_space();
-
-        expect( parser.got(U'4') and parser.curr_line()==4 );
-        parser.skip_line();
-
-        expect( parser.got(U'5') and parser.curr_line()==5 and parser.get_next() );
-        parser.skip_endline();
-
-        expect( parser.got(U'6') and parser.curr_line()==6 and parser.get_next() );
-        parser.skip_blanks();
-        expect( parser.got(U'F') and parser.curr_line()==6 and parser.get_next() );
-        parser.skip_any_space();
-
-        expect( parser.got(U'9') and parser.curr_line()==9 );
-        parser.skip_line();
-
-        expect( not parser.has_bytes() and parser.curr_line()==9 );
-       };
-
-
-    ut::test("parse utilities") = [&notify_sink]
-       {
-        text::ParserBase<UTF8> parser
-           {
-            "abc123\n"
-            "<tag>a=\"\" b=\"str\"</tag>\n"
-            "/*block\n"
-            "comment*/end\n"
-            "blah <!--another\n"
-            "block\n"
-            "comment-->"sv
-           };
-        parser.set_on_notify_issue(notify_sink);
-        expect( parser.has_codepoint() );
-
-        expect( not parser.eat(U"abb") and not parser.eat(U"abcd") and parser.eat(U"abc") and parser.got(U'1') and parser.curr_line()==1u );
-        expect( parser.eat(U'1') and not parser.eat(U'3') and parser.eat(U'2') and parser.eat(U'3') and parser.got(U'\n') and parser.curr_line()==1u );
-        expect( parser.eat(U'\n') and parser.curr_line()==2u );
-
-        expect( parser.eat(U'<') and parser.curr_line()==2u );
-        expect( throws<parse::error>([&parser] { [[maybe_unused]] auto n = parser.collect_bytes_until<U'☺'>(); }) ) << "missing closing character should throw\n";
-        expect( parser.collect_bytes_until<U'>'>()=="tag"sv and parser.curr_line()==2u and parser.got(U'a') );
-        expect( parser.eat(U"a=\"") );
-        expect( throws<parse::error>([&parser] { [[maybe_unused]] auto n = parser.collect_until_and_skip(ascii::is<U'*'>, ascii::is_endline<char32_t>); }) ) << "missing closing character in same line should throw\n";
-        expect( parser.collect_until_and_skip(ascii::is<U'\"'>, ascii::is_endline<char32_t>)==U""sv and parser.got(U' ') );
-
-        parser.skip_blanks();
-        expect( parser.eat(U"b=\"") );
-        expect( parser.collect_until(ascii::is<U'\"'>, ascii::is_endline<char32_t>)==U"str"sv and parser.eat(U'\"') and parser.eat(U"</"sv) );
-        expect( parser.collect_bytes_until<U'>'>()=="tag"sv and parser.eat_endline() );
-
-        expect( parser.eat(U"/*") and parser.curr_line()==3u );
-        expect( parser.collect_bytes_until<U'*',U'/'>()=="block\ncomment"sv );
-        expect( parser.eat(U"end") );
-
-        expect( parser.collect_until<U'<',U'!',U'-',U'-'>()==U"\nblah "sv and parser.got(U'a') );
-        expect( parser.collect_until<U'-',U'-',U'>'>()==U"another\nblock\ncomment"sv and not parser.has_bytes() );
-       };
-
-    ut::test("end block edge case 1") = [&notify_sink]
-       {
-        text::ParserBase<UTF8> parser{ "****/a"sv };
-        parser.set_on_notify_issue(notify_sink);
-        expect( parser.collect_bytes_until<U'*',U'/'>()=="***"sv and parser.got(U'a') );
-       };
-
-    ut::test("end block edge case 2") = [&notify_sink]
-       {
-        text::ParserBase<UTF8> parser{ "----->a"sv };
-        parser.set_on_notify_issue(notify_sink);
-        expect( parser.collect_bytes_until<U'-',U'-',U'>'>()=="---"sv and parser.got(U'a') );
-       };
-
-    ut::test("numbers") = [&notify_sink]
-       {
-        text::ParserBase<UTF8> parser
-           {
-            "a=1234mm\n"
-            "b=h1\n"
-            "c=12"sv
-           };
-        parser.set_on_notify_issue(notify_sink);
-
-        expect( parser.has_codepoint() and parser.eat(U'a') and parser.eat(U'=') );
-        expect( that % parser.extract_index()==1234u );
-        expect( parser.got(U'm') and parser.curr_line()==1u );
-        parser.skip_line();
-
-        expect( parser.eat(U'b') and parser.eat(U'=') and parser.curr_line()==2 );
-        expect( throws<parse::error>([&parser] { [[maybe_unused]] auto n = parser.extract_index(); }) ) << "invalid index should throw\n";
-        expect( parser.eat(U'h') );
-        expect( that % parser.extract_index()==1u );
-        expect( parser.eat_endline() and parser.curr_line()==3u );
-
-        expect( parser.eat(U'c') and parser.eat(U'=') );
-        expect( that % parser.extract_index()==12u );
-       };
+    expect( parser.eat(U'c') and parser.eat(U'=') );
+    expect( that % parser.extract_index()==12u );
+   };
 
 };///////////////////////////////////////////////////////////////////////////
 #endif // TEST_UNITS ////////////////////////////////////////////////////////

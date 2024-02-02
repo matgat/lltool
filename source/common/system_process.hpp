@@ -72,7 +72,7 @@ void shell_execute(const char* const pth, const std::initializer_list<std::strin
 //    ShExecInfo.hInstApp = NULL;
 //    if( not ::ShellExecuteExA(&ShExecInfo) )
 //       {
-//        throw std::runtime_error( fmt::format("Cannot run {}: {}", pth, sys::get_lasterr_msg()) );
+//        throw std::runtime_error{ fmt::format("Cannot run {}: {}", pth, sys::get_lasterr_msg()) };
 //       }
 //
 //    DWORD ret = 0xFFFFFFFF; // A default value to be interpreted as "no exit code"
@@ -92,7 +92,7 @@ void shell_execute(const char* const pth, const std::initializer_list<std::strin
 //            else
 //               {
 //                ::CloseHandle(ShExecInfo.hProcess); // SEE_MASK_NOCLOSEPROCESS
-//                throw std::runtime_error( fmt::format("ShellExecuteEx: spawn error of {}",pth) );
+//                throw std::runtime_error{ fmt::format("ShellExecuteEx: spawn error of {}",pth) };
 //               }
 //           }
 //        while(true);
@@ -213,10 +213,10 @@ void execute(const char* const exe, Args&&... args) noexcept
 static ut::suite<"system_process"> system_process_tests = []
 {////////////////////////////////////////////////////////////////////////////
 
-//    ut::test("sys::xxx()") = []
-//       {
-//        ut::expect( ut::that % true );
-//       };
+//ut::test("sys::xxx()") = []
+//   {
+//    ut::expect( ut::that % true );
+//   };
 
 };///////////////////////////////////////////////////////////////////////////
 #endif // TEST_UNITS ////////////////////////////////////////////////////////

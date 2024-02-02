@@ -52,7 +52,7 @@ class memory_mapped_file final
         hFile = ::CreateFileA(pth_cstr, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, nullptr);
         if(hFile==INVALID_HANDLE_VALUE)
            {
-            throw std::runtime_error( fmt::format("Couldn't open {} ({}))", pth_cstr, get_lasterr_msg()));
+            throw std::runtime_error{ fmt::format("Couldn't open {} ({}))", pth_cstr, get_lasterr_msg()) };
            }
         m_bufsiz = ::GetFileSize(hFile, nullptr);
 
@@ -60,7 +60,7 @@ class memory_mapped_file final
         if(hMapping==nullptr)
            {
             ::CloseHandle(hFile);
-            throw std::runtime_error( fmt::format("Couldn't map {} ({})", pth_cstr, get_lasterr_msg()));
+            throw std::runtime_error{ fmt::format("Couldn't map {} ({})", pth_cstr, get_lasterr_msg()) };
            }
         //
         m_buf = static_cast<const char*>( ::MapViewOfFile(hMapping, FILE_MAP_READ, 0, 0, 0) );
@@ -68,22 +68,25 @@ class memory_mapped_file final
            {
             ::CloseHandle(hMapping);
             ::CloseHandle(hFile);
-            throw std::runtime_error( fmt::format("Couldn't create view of {} ({})", pth_cstr, get_lasterr_msg()) );
+            throw std::runtime_error{ fmt::format("Couldn't create view of {} ({})", pth_cstr, get_lasterr_msg()) };
            }
       #elif defined(POSIX)
         const int fd = open(pth_cstr, O_RDONLY);
-        if(fd==-1) throw std::runtime_error( fmt::format("Couldn't open {}", pth_cstr) );
+        if(fd==-1) throw std::runtime_error{ fmt::format("Couldn't open {}", pth_cstr) };
 
         // obtain file size
         struct stat sbuf {};
-        if(fstat(fd, &sbuf)==-1) throw std::runtime_error("Cannot stat file size");
+        if( fstat(fd, &sbuf)==-1 )
+           {
+            throw std::runtime_error{"Cannot fstat file size"};
+           }
         m_bufsiz = static_cast<std::size_t>(sbuf.st_size);
 
         m_buf = static_cast<const char*>(mmap(nullptr, m_bufsiz, PROT_READ, MAP_PRIVATE, fd, 0U));
         if(m_buf==MAP_FAILED)
            {
             m_buf = nullptr;
-            throw std::runtime_error("Cannot map file");
+            throw std::runtime_error{"Cannot map file"};
            }
       #endif
        }
@@ -137,17 +140,17 @@ class memory_mapped_file final
 /////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
-static ut::suite<"memory_mapped_file"> memory_mapped_file_tests = []
+static ut::suite<"sys::memory_mapped_file"> memory_mapped_file_tests = []
 {////////////////////////////////////////////////////////////////////////////
 
-    ut::test("file content match") = []
-       {
-        const std::string_view file_content = "123456"sv;
-        test::TemporaryFile file("~file.tmp", file_content);
-        const sys::memory_mapped_file mapped_file{ file.path().string().c_str() };
+ut::test("file content match") = []
+   {
+    const std::string_view file_content = "123456"sv;
+    test::TemporaryFile file("~file.tmp", file_content);
+    const sys::memory_mapped_file mapped_file{ file.path().string().c_str() };
 
-        ut::expect( ut::that % mapped_file.as_string_view() == file_content );
-       };
+    ut::expect( ut::that % mapped_file.as_string_view() == file_content );
+   };
 
 };///////////////////////////////////////////////////////////////////////////
 #endif // TEST_UNITS ////////////////////////////////////////////////////////

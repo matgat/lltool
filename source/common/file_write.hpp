@@ -37,7 +37,7 @@ class file_write final
        {
         if( not m_fstream )
            {
-            throw std::runtime_error( fmt::format("Cannot write to file {}", pth_cstr) );
+            throw std::runtime_error{ fmt::format("Cannot write to file {}", pth_cstr) };
            }
        }
 
@@ -99,5 +99,27 @@ class file_write final
        }
 };
 
-
 }//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+#ifdef TEST_UNITS ///////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
+static ut::suite<"sys::file_write"> file_write_tests = []
+{////////////////////////////////////////////////////////////////////////////
+
+ut::test("write and verify") = []
+   {
+    test::TemporaryFile file("~file_write.tmp");
+    const std::string_view content = "123456"sv;
+
+       {sys::file_write out{ file.path().string().c_str() };
+        out << content; }
+
+    ut::expect( file.has_content( content) );
+   };
+
+};///////////////////////////////////////////////////////////////////////////
+#endif // TEST_UNITS ////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////

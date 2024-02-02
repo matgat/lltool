@@ -79,7 +79,7 @@ class ParserEvent final
         m_attributes.clear();
         if( m_value.empty() )
            {
-            throw std::runtime_error("Empty open tag");
+            throw std::runtime_error{"Empty open tag"};
            }
        }
 
@@ -91,7 +91,7 @@ class ParserEvent final
         m_attributes.clear();
         if( m_value.empty() )
            {
-            throw std::runtime_error("Empty open tag");
+            throw std::runtime_error{"Empty open tag"};
            }
        }
 
@@ -252,12 +252,12 @@ class Parser final : public text::ParserBase<ENC>
                    }
                 else
                    {// A conditional section <![CONDITION[ ... ]]>
-                    throw std::runtime_error("Conditional sections not yet supported");
+                    throw std::runtime_error{"Conditional sections not yet supported"};
                    }
                }
             else if( not inherited::has_codepoint() )
                {
-                throw std::runtime_error("Unclosed <!");
+                throw std::runtime_error{"Unclosed <!"};
                }
             else
                {// A special block: ex. <!DOCTYPE HTML>
@@ -277,7 +277,7 @@ class Parser final : public text::ParserBase<ENC>
             inherited::skip_any_space();
             if( not inherited::eat(U'>') )
                {
-                throw std::runtime_error("Invalid close tag");
+                throw std::runtime_error{"Invalid close tag"};
                }
            }
         else
@@ -450,199 +450,200 @@ class Parser final : public text::ParserBase<ENC>
 /////////////////////////////////////////////////////////////////////////////
 static ut::suite<"text::xml::Parser"> XmlParser_tests = []
 {
-    using ut::expect;
-    using ut::that;
-    using ut::throws;
+using ut::expect;
+using ut::that;
+using ut::throws;
 
-    ut::test("ParserEvent") = []
-       {
-        text::xml::ParserEvent event;
+ut::test("ParserEvent") = []
+   {
+    text::xml::ParserEvent event;
 
-        expect( that % not event ) << "empty event should evaluate false\n";
+    expect( that % not event ) << "empty event should evaluate false\n";
 
-        event.set_as_comment(U"cmt"s);
-        expect( that % event.is_comment() and event.value()==U"cmt"sv ) << "should be a comment event\n";
+    event.set_as_comment(U"cmt"s);
+    expect( that % event.is_comment() and event.value()==U"cmt"sv ) << "should be a comment event\n";
 
-        event.set_as_text(U"txt"s);
-        expect( that % event.is_text() and event.value()==U"txt"sv ) << "should be a text event\n";
+    event.set_as_text(U"txt"s);
+    expect( that % event.is_text() and event.value()==U"txt"sv ) << "should be a text event\n";
 
-        event.set_as_open_tag(U"open-tag"s);
-        expect( that % event.is_open_tag(U"open-tag"sv) ) << "should be an open tag event\n";
+    event.set_as_open_tag(U"open-tag"s);
+    expect( that % event.is_open_tag(U"open-tag"sv) ) << "should be an open tag event\n";
 
-        event.set_as_close_tag(U"close-tag"s);
-        expect( that % event.is_close_tag(U"close-tag"sv) ) << "should be a close tag event\n";
+    event.set_as_close_tag(U"close-tag"s);
+    expect( that % event.is_close_tag(U"close-tag"sv) ) << "should be a close tag event\n";
 
-        event.set_as_proc_instr(U"proc-instr"s);
-        expect( that % event.is_proc_instr() and event.value()==U"proc-instr"sv ) << "should be a proc-instr event\n";
+    event.set_as_proc_instr(U"proc-instr"s);
+    expect( that % event.is_proc_instr() and event.value()==U"proc-instr"sv ) << "should be a proc-instr event\n";
 
-        event.set_as_special_block(U"block"s);
-        expect( that % event.is_special_block() and event.value()==U"block"sv ) << "should be a special block event\n";
-       };
+    event.set_as_special_block(U"block"s);
+    expect( that % event.is_special_block() and event.value()==U"block"sv ) << "should be a special block event\n";
+   };
 
 
-    auto notify_sink = [](const std::string_view msg) -> void { ut::log << "\033[33m" "parser: " "\033[0m" << msg; };
-    ut::test("generic xml") = [&notify_sink]
-       {
-        const std::string_view buf =
-            "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
-            "<!DOCTYPE doctype>\n"
-            //"<!DOCTYPE doctype [\n"
-            //"<!ELEMENT root (child+)>\n"
-            //"]>\n"
-            "<!-- comment -->\n"
-            "<tag1/><tag2 attr1=\"1\" attr2=2 attr3/>\n"
-            "<tag3>blah</tag3>\n"
-            "< nms:tag4 \n attr1=\"1&lt;2\" \n"
-            " attr2=\"42\" \n "
-            ">blah</ nms:tag4 >\n"
-            "  some text\n"
-            "<![CDATA[\n"
-            "  Some <>not parsed<> text\n"
-            "]]>\n"
-            "<root>\n"
-            "    <child key1=123 key2=\"quoted value\"/>\n"
-            "    <child key1 key2=\"blah blah\">\n"
-            "        &apos;text&apos;\n"
-            "        <subchild>\n"
-            "            text text text\n"
-            "            text text text\n"
-            "        </subchild>\n"
-            "    </child>\n"
-            "</root>\n";
+auto notify_sink = [](const std::string_view msg) -> void { ut::log << "\033[33m" "parser: " "\033[0m" << msg; };
+ut::test("generic xml") = [&notify_sink]
+   {
+    const std::string_view buf =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+        "<!DOCTYPE doctype>\n"
+        //"<!DOCTYPE doctype [\n"
+        //"<!ELEMENT root (child+)>\n"
+        //"]>\n"
+        "<!-- comment -->\n"
+        "<tag1/><tag2 attr1=\"1\" attr2=2 attr3/>\n"
+        "<tag3>blah</tag3>\n"
+        "< nms:tag4 \n attr1=\"1&lt;2\" \n"
+        " attr2=\"42\" \n "
+        ">blah</ nms:tag4 >\n"
+        "  some text\n"
+        "<![CDATA[\n"
+        "  Some <>not parsed<> text\n"
+        "]]>\n"
+        "<root>\n"
+        "    <child key1=123 key2=\"quoted value\"/>\n"
+        "    <child key1 key2=\"blah blah\">\n"
+        "        &apos;text&apos;\n"
+        "        <subchild>\n"
+        "            text text text\n"
+        "            text text text\n"
+        "        </subchild>\n"
+        "    </child>\n"
+        "</root>\n";
 
-        text::xml::Parser<text::Enc::UTF8> parser{buf};
-        parser.options().set_collect_comment_text(true);
-        parser.options().set_collect_text_sections(true);
-        parser.set_on_notify_issue(notify_sink);
-        std::size_t n_event = 0u;
-        try{
-            while( const text::xml::ParserEvent& event = parser.next_event() )
+    text::xml::Parser<text::Enc::UTF8> parser{buf};
+    parser.options().set_collect_comment_text(true);
+    parser.options().set_collect_text_sections(true);
+    parser.set_on_notify_issue(notify_sink);
+    std::size_t n_event = 0u;
+    try{
+        while( const text::xml::ParserEvent& event = parser.next_event() )
+           {
+            //ut::log << "\033[33m" << to_string(event) << "\033[36m" "(event " << n_event+1u << " line " << parser.curr_line() << ")\n" "\033[0m";
+            switch( ++n_event )
                {
-                //ut::log << "\033[33m" << to_string(event) << "\033[36m" "(event " << n_event+1u << " line " << parser.curr_line() << ")\n" "\033[0m";
-                switch( ++n_event )
-                   {
-                    case  1: expect(event.is_proc_instr()) << "got: " << to_string(event) << '\n'; break;
-                    case  2: expect(event.is_special_block()) << "got: " << to_string(event) << '\n'; break;
-                    case  3: expect(event.is_comment()) << "got: " << to_string(event) << '\n'; break;
-                    case  4: expect(event.is_open_tag(U"tag1") and event.attributes().size()==0) << "got: " << to_string(event) << '\n'; break;
-                    case  5: expect(event.is_close_tag(U"tag1")) << "got: " << to_string(event) << '\n'; break;
-                    case  6: expect(event.is_open_tag(U"tag2") and to_string(event.attributes())=="attr1=1,attr2=2,attr3") << "got: " << to_string(event) << '\n'; break;
-                    case  7: expect(event.is_close_tag(U"tag2")) << "got: " << to_string(event) << '\n'; break;
-                    case  8: expect(event.is_open_tag(U"tag3") and event.attributes().size()==0) << "got: " << to_string(event) << '\n'; break;
-                    case  9: expect(event.is_text() and event.value()==U"blah") << "got: " << to_string(event) << '\n'; break;
-                    case 10: expect(event.is_close_tag(U"tag3")) << "got: " << to_string(event) << '\n'; break;
-                    case 11: expect(event.is_open_tag(U"nms:tag4") and to_string(event.attributes())=="attr1=1&lt;2,attr2=42") << "got: " << to_string(event) << '\n'; break;
-                    case 12: expect(event.is_text() and event.value()==U"blah") << "got: " << to_string(event) << '\n'; break;
-                    case 13: expect(event.is_close_tag(U"nms:tag4")) << "got: " << to_string(event) << '\n'; break;
-                    case 14: expect(event.is_text() and event.value()==U"some text\n") << "got: " << to_string(event) << '\n'; break;
-                    case 15: expect(event.is_text() and event.value()==U"\n  Some <>not parsed<> text\n") << "got: " << to_string(event) << '\n'; break;
-                    case 16: expect(event.is_open_tag(U"root") and event.attributes().size()==0) << "got: " << to_string(event) << '\n'; break;
-                    case 17: expect(event.is_open_tag(U"child") and to_string(event.attributes())=="key1=123,key2=quoted value") << "got: " << to_string(event) << '\n'; break;
-                    case 18: expect(event.is_close_tag(U"child")) << "got: " << to_string(event) << '\n'; break;
-                    case 19: expect(event.is_open_tag(U"child") and to_string(event.attributes())=="key1,key2=blah blah") << "got: " << to_string(event) << '\n'; break;
-                    case 20: expect(event.is_text() and event.value()==U"&apos;text&apos;\n        ") << "got: " << to_string(event) << '\n'; break;
-                    case 21: expect(event.is_open_tag(U"subchild") and event.attributes().size()==0) << "got: " << to_string(event) << '\n'; break;
-                    case 22: expect(event.is_text()) << "got: " << to_string(event) << '\n'; break;
-                    case 23: expect(event.is_close_tag(U"subchild")) << "got: " << to_string(event) << '\n'; break;
-                    case 24: expect(event.is_close_tag(U"child")) << "got: " << to_string(event) << '\n'; break;
-                    case 25: expect(event.is_close_tag(U"root")) << "got: " << to_string(event) << '\n'; break;
-                    default: expect(false) << "unexpected event: " << to_string(event) << '\n';
-                   }
+                case  1: expect(event.is_proc_instr()) << "got: " << to_string(event) << '\n'; break;
+                case  2: expect(event.is_special_block()) << "got: " << to_string(event) << '\n'; break;
+                case  3: expect(event.is_comment()) << "got: " << to_string(event) << '\n'; break;
+                case  4: expect(event.is_open_tag(U"tag1") and event.attributes().size()==0) << "got: " << to_string(event) << '\n'; break;
+                case  5: expect(event.is_close_tag(U"tag1")) << "got: " << to_string(event) << '\n'; break;
+                case  6: expect(event.is_open_tag(U"tag2") and to_string(event.attributes())=="attr1=1,attr2=2,attr3") << "got: " << to_string(event) << '\n'; break;
+                case  7: expect(event.is_close_tag(U"tag2")) << "got: " << to_string(event) << '\n'; break;
+                case  8: expect(event.is_open_tag(U"tag3") and event.attributes().size()==0) << "got: " << to_string(event) << '\n'; break;
+                case  9: expect(event.is_text() and event.value()==U"blah") << "got: " << to_string(event) << '\n'; break;
+                case 10: expect(event.is_close_tag(U"tag3")) << "got: " << to_string(event) << '\n'; break;
+                case 11: expect(event.is_open_tag(U"nms:tag4") and to_string(event.attributes())=="attr1=1&lt;2,attr2=42") << "got: " << to_string(event) << '\n'; break;
+                case 12: expect(event.is_text() and event.value()==U"blah") << "got: " << to_string(event) << '\n'; break;
+                case 13: expect(event.is_close_tag(U"nms:tag4")) << "got: " << to_string(event) << '\n'; break;
+                case 14: expect(event.is_text() and event.value()==U"some text\n") << "got: " << to_string(event) << '\n'; break;
+                case 15: expect(event.is_text() and event.value()==U"\n  Some <>not parsed<> text\n") << "got: " << to_string(event) << '\n'; break;
+                case 16: expect(event.is_open_tag(U"root") and event.attributes().size()==0) << "got: " << to_string(event) << '\n'; break;
+                case 17: expect(event.is_open_tag(U"child") and to_string(event.attributes())=="key1=123,key2=quoted value") << "got: " << to_string(event) << '\n'; break;
+                case 18: expect(event.is_close_tag(U"child")) << "got: " << to_string(event) << '\n'; break;
+                case 19: expect(event.is_open_tag(U"child") and to_string(event.attributes())=="key1,key2=blah blah") << "got: " << to_string(event) << '\n'; break;
+                case 20: expect(event.is_text() and event.value()==U"&apos;text&apos;\n        ") << "got: " << to_string(event) << '\n'; break;
+                case 21: expect(event.is_open_tag(U"subchild") and event.attributes().size()==0) << "got: " << to_string(event) << '\n'; break;
+                case 22: expect(event.is_text()) << "got: " << to_string(event) << '\n'; break;
+                case 23: expect(event.is_close_tag(U"subchild")) << "got: " << to_string(event) << '\n'; break;
+                case 24: expect(event.is_close_tag(U"child")) << "got: " << to_string(event) << '\n'; break;
+                case 25: expect(event.is_close_tag(U"root")) << "got: " << to_string(event) << '\n'; break;
+                default: expect(false) << "unexpected event: " << to_string(event) << '\n';
                }
            }
-        catch( parse::error& e )
+       }
+    catch( parse::error& e )
+       {
+        ut::log << "\033[35m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(event " << n_event << " line " << e.line() << ")\n";
+       }
+    expect( that % n_event==25u ) << "events number should match";
+   };
+
+ut::test("unclosed comment") = [&notify_sink]
+   {
+    const std::string_view buf = "<!--\n\n\n\n";
+    text::xml::Parser<text::Enc::UTF8> parser{buf};
+    parser.set_on_notify_issue(notify_sink);
+    expect( throws<parse::error>([&parser] { [[maybe_unused]] auto ev = parser.next_event(); }) ) << "unclosed comment should throw\n";
+   };
+
+ut::test("interface.xml sample") = [&notify_sink]
+   {
+    const std::string_view buf =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+        "<?xml-stylesheet type=\"text/xsl\" href=\"Interface2XHTML.xsl\"?>\n"
+        "<!--\n"
+        "    Dizionario interfaccia unificata macchine Macotec\n"
+        "    ©2017-2022 gattanini@macotec.it\n"
+        "-->\n"
+        "<interface version=\"2022-09-06\"\n"
+        "           name=\"MacoLayer\"\n"
+        "           xmlns=\"http://www.macotec.it\">\n"
+        "\n"
+        "<!-- +------------------------------------------------------------------+\n"
+        "     ¦ Statistics and maintenance                                       ¦\n"
+        "     +------------------------------------------------------------------+ -->\n"
+        "<group name=\"statistics\">\n"
+        "\n"
+        "    <res    id=\"sheets-done\" tags=\"statistics,counter,sheets,done\" access=\"r\"\n"
+        "            type=\"int\">\n"
+        "        <text lang=\"en\" label=\"Done sheets\">Processed sheets count</text>\n"
+        "        <text lang=\"it\" label=\"Lastre lavorate\">Contatore lastre lavorate</text>\n"
+        "    </res>\n"
+        "\n"
+        "    <res    id=\"buffer-width\" tags=\"settings,machine,modules,size,width,buffer\" access=\"r\"\n"
+        "            type=\"double\" quantity=\"length\" unit=\"mm\" unit-coeff=\"0.001\"\n"
+        "            range=\"0:6000\" gran=\"0.1\" default=\"2400\">\n"
+        "        <text lang=\"en\" label=\"Buffer width\">Buffer longitudinal size</text>\n"
+        "        <text lang=\"it\" label=\"Largh polmone\">Larghezza del polmone</text>\n"
+        "    </res>\n"
+        "\n"
+        "</group> <!-- statistics -->\n"
+        "\n"
+        "</interface>\n";
+    text::xml::Parser<text::Enc::UTF8> parser{buf};
+    parser.set_on_notify_issue(notify_sink);
+    std::size_t n_event = 0u;
+    try{
+        while( const text::xml::ParserEvent& event = parser.next_event() )
            {
-            ut::log << "\033[35m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(event " << n_event << " line " << e.line() << ")\n";
-           }
-        expect( that % n_event==25u ) << "events number should match";
-       };
-
-    ut::test("unclosed comment") = [&notify_sink]
-       {
-        const std::string_view buf = "<!--\n\n\n\n";
-        text::xml::Parser<text::Enc::UTF8> parser{buf};
-        parser.set_on_notify_issue(notify_sink);
-        expect( throws<parse::error>([&parser] { [[maybe_unused]] auto ev = parser.next_event(); }) ) << "unclosed comment should throw\n";
-       };
-
-    ut::test("interface.xml sample") = [&notify_sink]
-       {
-        const std::string_view buf =
-            "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
-            "<?xml-stylesheet type=\"text/xsl\" href=\"Interface2XHTML.xsl\"?>\n"
-            "<!--\n"
-            "    Dizionario interfaccia unificata macchine Macotec\n"
-            "    ©2017-2022 gattanini@macotec.it\n"
-            "-->\n"
-            "<interface version=\"2022-09-06\"\n"
-            "           name=\"MacoLayer\"\n"
-            "           xmlns=\"http://www.macotec.it\">\n"
-            "\n"
-            "<!-- +------------------------------------------------------------------+\n"
-            "     ¦ Statistics and maintenance                                       ¦\n"
-            "     +------------------------------------------------------------------+ -->\n"
-            "<group name=\"statistics\">\n"
-            "\n"
-            "    <res    id=\"sheets-done\" tags=\"statistics,counter,sheets,done\" access=\"r\"\n"
-            "            type=\"int\">\n"
-            "        <text lang=\"en\" label=\"Done sheets\">Processed sheets count</text>\n"
-            "        <text lang=\"it\" label=\"Lastre lavorate\">Contatore lastre lavorate</text>\n"
-            "    </res>\n"
-            "\n"
-            "    <res    id=\"buffer-width\" tags=\"settings,machine,modules,size,width,buffer\" access=\"r\"\n"
-            "            type=\"double\" quantity=\"length\" unit=\"mm\" unit-coeff=\"0.001\"\n"
-            "            range=\"0:6000\" gran=\"0.1\" default=\"2400\">\n"
-            "        <text lang=\"en\" label=\"Buffer width\">Buffer longitudinal size</text>\n"
-            "        <text lang=\"it\" label=\"Largh polmone\">Larghezza del polmone</text>\n"
-            "    </res>\n"
-            "\n"
-            "</group> <!-- statistics -->\n"
-            "\n"
-            "</interface>\n";
-        text::xml::Parser<text::Enc::UTF8> parser{buf};
-        parser.set_on_notify_issue(notify_sink);
-        std::size_t n_event = 0u;
-        try{
-            while( const text::xml::ParserEvent& event = parser.next_event() )
+            //ut::log << "\033[33m" << to_string(event) << "\033[36m" "(event " << n_event+1u << " line " << parser.curr_line() << ")\n" "\033[0m";
+            switch( ++n_event )
                {
-                //ut::log << "\033[33m" << to_string(event) << "\033[36m" "(event " << n_event+1u << " line " << parser.curr_line() << ")\n" "\033[0m";
-                switch( ++n_event )
-                   {
-                    case  1: expect(event.is_proc_instr()) << "got: " << to_string(event) << '\n'; break;
-                    case  2: expect(event.is_proc_instr()) << "got: " << to_string(event) << '\n'; break;
-                    case  3: expect(event.is_comment()) << "got: " << to_string(event) << '\n'; break;
-                    case  4: expect(event.is_open_tag(U"interface") and event.attributes().size()==3) << "got: " << to_string(event) << '\n'; break;
-                    case  5: expect(event.is_comment()) << "got: " << to_string(event) << '\n'; break;
-                    case  6: expect(event.is_open_tag(U"group") and event.attributes()[U"name"]==U"statistics") << "got: " << to_string(event) << '\n'; break;
-                    case  7: expect(event.is_open_tag(U"res") and event.attributes()[U"id"]==U"sheets-done") << "got: " << to_string(event) << '\n'; break;
-                    case  8: expect(event.is_open_tag(U"text") and event.attributes()[U"lang"]==U"en") << "got: " << to_string(event) << '\n'; break;
-                    case  9: expect(event.is_text()) << "got: " << to_string(event) << '\n'; break;
-                    case 10: expect(event.is_close_tag(U"text")) << "got: " << to_string(event) << '\n'; break;
-                    case 11: expect(event.is_open_tag(U"text") and event.attributes()[U"lang"]==U"it") << "got: " << to_string(event) << '\n'; break;
-                    case 12: expect(event.is_text()) << "got: " << to_string(event) << '\n'; break;
-                    case 13: expect(event.is_close_tag(U"text")) << "got: " << to_string(event) << '\n'; break;
-                    case 14: expect(event.is_close_tag(U"res")) << "got: " << to_string(event) << '\n'; break;
-                    case 15: expect(event.is_open_tag(U"res") and event.attributes()[U"id"]==U"buffer-width") << "got: " << to_string(event) << '\n'; break;
-                    case 16: expect(event.is_open_tag(U"text") and event.attributes()[U"lang"]==U"en") << "got: " << to_string(event) << '\n'; break;
-                    case 17: expect(event.is_text()) << "got: " << to_string(event) << '\n'; break;
-                    case 18: expect(event.is_close_tag(U"text")) << "got: " << to_string(event) << '\n'; break;
-                    case 19: expect(event.is_open_tag(U"text") and event.attributes()[U"lang"]==U"it") << "got: " << to_string(event) << '\n'; break;
-                    case 20: expect(event.is_text()) << "got: " << to_string(event) << '\n'; break;
-                    case 21: expect(event.is_close_tag(U"text")) << "got: " << to_string(event) << '\n'; break;
-                    case 22: expect(event.is_close_tag(U"res")) << "got: " << to_string(event) << '\n'; break;
-                    case 23: expect(event.is_close_tag(U"group")) << "got: " << to_string(event) << '\n'; break;
-                    case 24: expect(event.is_comment()) << "got: " << to_string(event) << '\n'; break;
-                    case 25: expect(event.is_close_tag(U"interface")) << "got: " << to_string(event) << '\n'; break;
-                    default: expect(false) << "unexpected event: " << to_string(event) << '\n';
-                   }
+                case  1: expect(event.is_proc_instr()) << "got: " << to_string(event) << '\n'; break;
+                case  2: expect(event.is_proc_instr()) << "got: " << to_string(event) << '\n'; break;
+                case  3: expect(event.is_comment()) << "got: " << to_string(event) << '\n'; break;
+                case  4: expect(event.is_open_tag(U"interface") and event.attributes().size()==3) << "got: " << to_string(event) << '\n'; break;
+                case  5: expect(event.is_comment()) << "got: " << to_string(event) << '\n'; break;
+                case  6: expect(event.is_open_tag(U"group") and event.attributes()[U"name"]==U"statistics") << "got: " << to_string(event) << '\n'; break;
+                case  7: expect(event.is_open_tag(U"res") and event.attributes()[U"id"]==U"sheets-done") << "got: " << to_string(event) << '\n'; break;
+                case  8: expect(event.is_open_tag(U"text") and event.attributes()[U"lang"]==U"en") << "got: " << to_string(event) << '\n'; break;
+                case  9: expect(event.is_text()) << "got: " << to_string(event) << '\n'; break;
+                case 10: expect(event.is_close_tag(U"text")) << "got: " << to_string(event) << '\n'; break;
+                case 11: expect(event.is_open_tag(U"text") and event.attributes()[U"lang"]==U"it") << "got: " << to_string(event) << '\n'; break;
+                case 12: expect(event.is_text()) << "got: " << to_string(event) << '\n'; break;
+                case 13: expect(event.is_close_tag(U"text")) << "got: " << to_string(event) << '\n'; break;
+                case 14: expect(event.is_close_tag(U"res")) << "got: " << to_string(event) << '\n'; break;
+                case 15: expect(event.is_open_tag(U"res") and event.attributes()[U"id"]==U"buffer-width") << "got: " << to_string(event) << '\n'; break;
+                case 16: expect(event.is_open_tag(U"text") and event.attributes()[U"lang"]==U"en") << "got: " << to_string(event) << '\n'; break;
+                case 17: expect(event.is_text()) << "got: " << to_string(event) << '\n'; break;
+                case 18: expect(event.is_close_tag(U"text")) << "got: " << to_string(event) << '\n'; break;
+                case 19: expect(event.is_open_tag(U"text") and event.attributes()[U"lang"]==U"it") << "got: " << to_string(event) << '\n'; break;
+                case 20: expect(event.is_text()) << "got: " << to_string(event) << '\n'; break;
+                case 21: expect(event.is_close_tag(U"text")) << "got: " << to_string(event) << '\n'; break;
+                case 22: expect(event.is_close_tag(U"res")) << "got: " << to_string(event) << '\n'; break;
+                case 23: expect(event.is_close_tag(U"group")) << "got: " << to_string(event) << '\n'; break;
+                case 24: expect(event.is_comment()) << "got: " << to_string(event) << '\n'; break;
+                case 25: expect(event.is_close_tag(U"interface")) << "got: " << to_string(event) << '\n'; break;
+                default: expect(false) << "unexpected event: " << to_string(event) << '\n';
                }
            }
-        catch( parse::error& e )
-           {
-            ut::log << "\033[35m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(event " << n_event << " line " << e.line() << ")\n";
-           }
-        expect( that % n_event==25u ) << "events number should match";
-       };
+       }
+    catch( parse::error& e )
+       {
+        ut::log << "\033[35m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(event " << n_event << " line " << e.line() << ")\n";
+       }
+    expect( that % n_event==25u ) << "events number should match";
+   };
+
 };///////////////////////////////////////////////////////////////////////////
 #endif // TEST_UNITS ////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////

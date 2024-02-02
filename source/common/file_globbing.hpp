@@ -29,7 +29,7 @@ namespace MG //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
        }
     if( contains_wildcards(parent_folder.string()) )
        {
-        throw std::runtime_error("MG::file_glob(): Wildcards in directories not supported");
+        throw std::runtime_error{"MG::file_glob(): Wildcards in directories not supported"};
        }
 
     const std::string globbed_fname = globbed_path.filename().string();
@@ -64,53 +64,53 @@ namespace MG //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 static ut::suite<"file_globbing"> file_globbing_tests = []
 {////////////////////////////////////////////////////////////////////////////
 
-    ut::test("MG::file_glob()") = []
+ut::test("MG::file_glob()") = []
+   {
+    test::TemporaryDirectory dir;
+    const fs::path abcd = dir.add_file("abcd", "_").path();
+    const fs::path a = dir.add_file("a", "_").path();
+    const fs::path abcd_txt = dir.add_file("abcd.txt", "_").path();
+    const fs::path abcdef_txt = dir.add_file("abcdef.txt", "_").path();
+    const fs::path a_txt = dir.add_file("a.txt", "_").path();
+    const fs::path b_txt = dir.add_file("b.txt", "_").path();
+    const fs::path aa_txt = dir.add_file("aa.txt", "_").path();
+    const fs::path aa_cfg = dir.add_file("aa.cfg", "_").path();
+
+    ut::should("match all txt") = [&]
        {
-        test::TemporaryDirectory dir;
-        const fs::path abcd = dir.add_file("abcd", "_").path();
-        const fs::path a = dir.add_file("a", "_").path();
-        const fs::path abcd_txt = dir.add_file("abcd.txt", "_").path();
-        const fs::path abcdef_txt = dir.add_file("abcdef.txt", "_").path();
-        const fs::path a_txt = dir.add_file("a.txt", "_").path();
-        const fs::path b_txt = dir.add_file("b.txt", "_").path();
-        const fs::path aa_txt = dir.add_file("aa.txt", "_").path();
-        const fs::path aa_cfg = dir.add_file("aa.cfg", "_").path();
-
-        ut::should("match all txt") = [&]
-           {
-            ut::expect( test::have_same_elements(MG::file_glob(dir.path() / "*.txt"), {abcd_txt, abcdef_txt, a_txt, b_txt, aa_txt}) );
-           };
-
-        ut::should("match all t?t") = [&]
-           {
-            ut::expect( test::have_same_elements(MG::file_glob(dir.path() / "*.t?t"), {abcd_txt, abcdef_txt, a_txt, b_txt, aa_txt}) );
-           };
-
-        ut::should("match txt starting with a") = [&]
-           {
-            ut::expect( test::have_same_elements(MG::file_glob(dir.path() / "a*.txt"), {abcd_txt, abcdef_txt, a_txt, aa_txt}) );
-           };
-
-        ut::should("match containing a") = [&]
-           {
-            ut::expect( test::have_same_elements(MG::file_glob(dir.path() / "*a*.*"), {abcd_txt, abcdef_txt, a_txt, aa_txt, aa_cfg}) );
-           };
-
-        ut::should("match starting with a followed by a char") = [&]
-           {
-            ut::expect( test::have_same_elements(MG::file_glob(dir.path() / "a?.*"), {aa_txt, aa_cfg}) );
-           };
-
-        ut::should("match txt containing b") = [&]
-           {
-            ut::expect( test::have_same_elements(MG::file_glob(dir.path() / "*b*.txt"), {abcd_txt, abcdef_txt, b_txt}) );
-           };
-
-        ut::should("match txt containing bc followed by just a char") = [&]
-           {
-            ut::expect( test::have_same_elements(MG::file_glob(dir.path() / "*bc?.txt"), {abcd_txt}) );
-           };
+        ut::expect( test::have_same_elements(MG::file_glob(dir.path() / "*.txt"), {abcd_txt, abcdef_txt, a_txt, b_txt, aa_txt}) );
        };
+
+    ut::should("match all t?t") = [&]
+       {
+        ut::expect( test::have_same_elements(MG::file_glob(dir.path() / "*.t?t"), {abcd_txt, abcdef_txt, a_txt, b_txt, aa_txt}) );
+       };
+
+    ut::should("match txt starting with a") = [&]
+       {
+        ut::expect( test::have_same_elements(MG::file_glob(dir.path() / "a*.txt"), {abcd_txt, abcdef_txt, a_txt, aa_txt}) );
+       };
+
+    ut::should("match containing a") = [&]
+       {
+        ut::expect( test::have_same_elements(MG::file_glob(dir.path() / "*a*.*"), {abcd_txt, abcdef_txt, a_txt, aa_txt, aa_cfg}) );
+       };
+
+    ut::should("match starting with a followed by a char") = [&]
+       {
+        ut::expect( test::have_same_elements(MG::file_glob(dir.path() / "a?.*"), {aa_txt, aa_cfg}) );
+       };
+
+    ut::should("match txt containing b") = [&]
+       {
+        ut::expect( test::have_same_elements(MG::file_glob(dir.path() / "*b*.txt"), {abcd_txt, abcdef_txt, b_txt}) );
+       };
+
+    ut::should("match txt containing bc followed by just a char") = [&]
+       {
+        ut::expect( test::have_same_elements(MG::file_glob(dir.path() / "*bc?.txt"), {abcd_txt}) );
+       };
+   };
 
 };///////////////////////////////////////////////////////////////////////////
 #endif // TEST_UNITS ////////////////////////////////////////////////////////

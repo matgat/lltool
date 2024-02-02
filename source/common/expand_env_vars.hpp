@@ -175,41 +175,41 @@ template<details::f_resolve_var_t resolve_var =resolve_var_getenv>
 /////////////////////////////////////////////////////////////////////////////
 static ut::suite<"sys::expand_env_vars()"> sys_expand_env_vars_tests = []
 {////////////////////////////////////////////////////////////////////////////
-    using ut::expect;
-    using ut::that;
+using ut::expect;
+using ut::that;
 
-    ut::test("no expansions") = []
-       {
-        expect( that % sys::expand_env_vars<resolve_var_test>(""sv)==""sv );
-        expect( that % sys::expand_env_vars<resolve_var_test>("foo"sv)=="foo"sv );
-       };
+ut::test("no expansions") = []
+   {
+    expect( that % sys::expand_env_vars<resolve_var_test>(""sv)==""sv );
+    expect( that % sys::expand_env_vars<resolve_var_test>("foo"sv)=="foo"sv );
+   };
 
-    ut::test("single expansions") = []
-       {
-        expect( that % sys::expand_env_vars<resolve_var_test>("%foo%"sv)=="FOO"sv );
-        expect( that % sys::expand_env_vars<resolve_var_test>("$foo"sv)=="FOO"sv );
-        expect( that % sys::expand_env_vars<resolve_var_test>("${foo}"sv)=="FOO"sv );
-       };
+ut::test("single expansions") = []
+   {
+    expect( that % sys::expand_env_vars<resolve_var_test>("%foo%"sv)=="FOO"sv );
+    expect( that % sys::expand_env_vars<resolve_var_test>("$foo"sv)=="FOO"sv );
+    expect( that % sys::expand_env_vars<resolve_var_test>("${foo}"sv)=="FOO"sv );
+   };
 
-    ut::test("multiple expansions") = []
-       {
-        expect( that % sys::expand_env_vars<resolve_var_test>("/%foo%/%bad%/%foo/fo%o/%foo%%bar%/%foo%%bad%/%foo%"sv)=="/FOO/%bad%/%foo/fo%o/FOOBAR/FOO%bad%/FOO"sv );
-        expect( that % sys::expand_env_vars<resolve_var_test>("/$foo/$bad/$fooo/fo$o/$foo$bar/$foo$bad/$foo"sv)=="/FOO/$bad/$fooo/fo$o/FOOBAR/FOO$bad/FOO"sv );
-        expect( that % sys::expand_env_vars<resolve_var_test>("/${foo}/${bad}/${foo/fo${o/${foo}${bar}/${foo}${bad}/${foo}"sv)=="/FOO/${bad}/${foo/fo${o/FOOBAR/FOO${bad}/FOO"sv );
+ut::test("multiple expansions") = []
+   {
+    expect( that % sys::expand_env_vars<resolve_var_test>("/%foo%/%bad%/%foo/fo%o/%foo%%bar%/%foo%%bad%/%foo%"sv)=="/FOO/%bad%/%foo/fo%o/FOOBAR/FOO%bad%/FOO"sv );
+    expect( that % sys::expand_env_vars<resolve_var_test>("/$foo/$bad/$fooo/fo$o/$foo$bar/$foo$bad/$foo"sv)=="/FOO/$bad/$fooo/fo$o/FOOBAR/FOO$bad/FOO"sv );
+    expect( that % sys::expand_env_vars<resolve_var_test>("/${foo}/${bad}/${foo/fo${o/${foo}${bar}/${foo}${bad}/${foo}"sv)=="/FOO/${bad}/${foo/fo${o/FOOBAR/FOO${bad}/FOO"sv );
 
-        expect( that % sys::expand_env_vars<resolve_var_test>("%foo%/foo/$bar/bar"sv)=="FOO/foo/BAR/bar"sv );
-        expect( that % sys::expand_env_vars<resolve_var_test>("%bad%/bar/$bad/bar/${bar} /"sv)=="%bad%/bar/$bad/bar/BAR /"sv );
-        expect( that % sys::expand_env_vars<resolve_var_test>("fo%o/%foo%/ba$r/bar%bar%$bar${bar}bar"sv)=="fo%o/FOO/ba$r/barBARBARBARbar"sv );
-       };
+    expect( that % sys::expand_env_vars<resolve_var_test>("%foo%/foo/$bar/bar"sv)=="FOO/foo/BAR/bar"sv );
+    expect( that % sys::expand_env_vars<resolve_var_test>("%bad%/bar/$bad/bar/${bar} /"sv)=="%bad%/bar/$bad/bar/BAR /"sv );
+    expect( that % sys::expand_env_vars<resolve_var_test>("fo%o/%foo%/ba$r/bar%bar%$bar${bar}bar"sv)=="fo%o/FOO/ba$r/barBARBARBARbar"sv );
+   };
 
-    ut::test("os specific variable") = []
-       {
-      #if defined(MS_WINDOWS)
-        expect( that % test::tolower(sys::expand_env_vars("%WINDIR%-typical"sv))=="c:\\windows-typical"sv );
-      #elif defined(POSIX)
-        expect( that % sys::expand_env_vars("$SHELL-typical"sv)=="/bin/bash-typical"sv);
-      #endif
-       };
+ut::test("os specific variable") = []
+   {
+  #if defined(MS_WINDOWS)
+    expect( that % test::tolower(sys::expand_env_vars("%WINDIR%-typical"sv))=="c:\\windows-typical"sv );
+  #elif defined(POSIX)
+    expect( that % sys::expand_env_vars("$SHELL-typical"sv)=="/bin/bash-typical"sv);
+  #endif
+   };
 
 };///////////////////////////////////////////////////////////////////////////
 #endif // TEST_UNITS ////////////////////////////////////////////////////////

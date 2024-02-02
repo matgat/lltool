@@ -83,7 +83,7 @@ deleting existing files in the given output folder and
 indicating some conversion options:
 
 ```bat
-$ lltool convert --options plclib-schemaver:2.8,plclib-indent:4 --force --to plc/LogicLab/generated-libs  prog/*.h plc/*.pll
+$ lltool convert --options no-timestamp,sort,plclib-indent:4 --force --to plc/LogicLab/generated-libs  prog/*.h plc/*.pll
 ```
 
 * _`.h` files will generate both `.pll` and `.plclib` files, while `.pll` files a `.plclib`_
@@ -146,9 +146,9 @@ It is possible to indicate multiple input files also using a glob
 pattern, in that case an output directory must be specified;
 in case of duplicate file base names the program will exit with error.
 
-This operation offers just a basic guarantee in case of ordinary runtime
-errors: no files will be corrupted but part of the output files could
-have been already written, leaving the set of libraries in a possible
+This operation offers no guarantee in case of ordinary runtime
+errors: an output file could be left incomplete and others may
+have been already written, leaving the set of libraries in a
 incoherent state.
 
 The supported conversions are:
@@ -175,17 +175,17 @@ More about these formats below.
 It is possible to specify a set of comma separated `key:value` pairs
 to provide some control on the produced output.
 The recognized keys are:
-|   key              |    value    |               description               |
-|--------------------|-------------|-----------------------------------------|
-| `no-timestamp`     | *<empty>*   | Don't put a timestamp in generated file |
-| `sort`             | *<empty>*   | Sort PLC elements and variables by name |
-| `plclib-schemaver` | *<number>*  | Schema version of generated plclib file |
-| `plclib-indent`    | *<integer>* | Spaces indentation of `<lib>` content   |
+|   key              |    value        |               description               |
+|--------------------|-----------------|-----------------------------------------|
+| `no-timestamp`     | *<empty>*       | Don't put a timestamp in generated file |
+| `sort`             | *<empty>*       | Sort PLC elements and variables by name |
+| `plclib-schemaver` | *<uint>.<uint>* | Schema version of generated plclib file |
+| `plclib-indent`    | *<uint>*        | Tabs indentation of `<lib>` content     |
 
 Example:
 
 ```bat
-$ lltool convert --options no-timestamp,plclib-indent:1,sort  ...
+$ lltool convert --options no-timestamp,plclib-schemaver:2.8,plclib-indent:1,sort  ...
 ```
 
 
@@ -194,6 +194,8 @@ The following limitations are introduced to maximize efficiency:
 * Input files must be encoded in `UTF-8`
 * Input files must be syntactically correct
 * Input files should use preferably unix line breaks (`\n`)
+* On windows paths containing uppercase non ASCII characters may
+  compromise name collision checks (no lowercase converter for unicode)*
 * Descriptions (`.h` `#define` inlined comments and `.pll` `{DE: ...}`)
   cannot contain XML special characters nor line breaks
 * Check syntax limitations below

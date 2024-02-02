@@ -93,7 +93,7 @@ enum class Enc : std::uint8_t
         case UTF32BE: return L UTF32BE __VA_ARGS__;\
        }\
     std::unreachable();
-    //throw std::runtime_error( fmt::format("Unhandled encoding: {}"sv, std::to_underlying(E)) );
+    //throw std::runtime_error{ fmt::format("Unhandled encoding: {}"sv, std::to_underlying(E)) };
 
 #define TEXT_ATTACH_TO_ENC(E,L)\
     switch(E)\
@@ -679,224 +679,224 @@ template<text::Enc OUTENC>
 #include <array>
 static ut::suite<"text::"> text_tests = []
 {////////////////////////////////////////////////////////////////////////////
-    using ut::expect;
-    using ut::that;
-    using enum text::Enc;
+using ut::expect;
+using ut::that;
+using enum text::Enc;
 
 
-    ut::test("bitwise utilities") = []
+ut::test("bitwise utilities") = []
+   {
+    using namespace text::details;
+
+    const char OxCA = '\xCA';
+    const char OxFE = '\xFE';
+    const std::uint16_t OxCAFE = 0xCAFE;
+
+    expect( that % combine_chars(OxCA,OxFE) == OxCAFE );
+    expect( that % high_byte_of(OxCAFE) == OxCA );
+    expect( that % low_byte_of(OxCAFE) == OxFE );
+
+    expect( that % combine_chars('\x01','\x02') == 0x0102 );
+    expect( that % high_byte_of(0x0102) == '\x01' );
+    expect( that % low_byte_of(0x0102) == '\x02' );
+
+    const char OxFA = '\xFA';
+    const char OxDE = '\xDE';
+    const char OxBA = '\xBA';
+    const char OxDA = '\xDA';
+    const std::uint32_t OxFADEBADA = 0xFADEBADA;
+
+    expect( that % combine_chars(OxFA,OxDE,OxBA,OxDA) == OxFADEBADA );
+    expect( that % hh_byte_of(OxFADEBADA) == OxFA );
+    expect( that % hl_byte_of(OxFADEBADA) == OxDE );
+    expect( that % lh_byte_of(OxFADEBADA) == OxBA );
+    expect( that % ll_byte_of(OxFADEBADA) == OxDA );
+
+    expect( that % combine_chars('\x01','\x02','\x03','\x04') == 0x01020304u );
+    expect( that % hh_byte_of(0x01020304) == '\x01' );
+    expect( that % hl_byte_of(0x01020304) == '\x02' );
+    expect( that % lh_byte_of(0x01020304) == '\x03' );
+    expect( that % ll_byte_of(0x01020304) == '\x04' );
+   };
+
+
+ut::test("detect_encoding_of") = []
+   {
+    auto test_enc_of = [](const std::string_view bytes, const text::bom_ret_t expected, const char* const msg) noexcept -> void
        {
-        using namespace text::details;
-
-        const char OxCA = '\xCA';
-        const char OxFE = '\xFE';
-        const std::uint16_t OxCAFE = 0xCAFE;
-
-        expect( that % combine_chars(OxCA,OxFE) == OxCAFE );
-        expect( that % high_byte_of(OxCAFE) == OxCA );
-        expect( that % low_byte_of(OxCAFE) == OxFE );
-
-        expect( that % combine_chars('\x01','\x02') == 0x0102 );
-        expect( that % high_byte_of(0x0102) == '\x01' );
-        expect( that % low_byte_of(0x0102) == '\x02' );
-
-        const char OxFA = '\xFA';
-        const char OxDE = '\xDE';
-        const char OxBA = '\xBA';
-        const char OxDA = '\xDA';
-        const std::uint32_t OxFADEBADA = 0xFADEBADA;
-
-        expect( that % combine_chars(OxFA,OxDE,OxBA,OxDA) == OxFADEBADA );
-        expect( that % hh_byte_of(OxFADEBADA) == OxFA );
-        expect( that % hl_byte_of(OxFADEBADA) == OxDE );
-        expect( that % lh_byte_of(OxFADEBADA) == OxBA );
-        expect( that % ll_byte_of(OxFADEBADA) == OxDA );
-
-        expect( that % combine_chars('\x01','\x02','\x03','\x04') == 0x01020304u );
-        expect( that % hh_byte_of(0x01020304) == '\x01' );
-        expect( that % hl_byte_of(0x01020304) == '\x02' );
-        expect( that % lh_byte_of(0x01020304) == '\x03' );
-        expect( that % ll_byte_of(0x01020304) == '\x04' );
+        const text::bom_ret_t retrieved = text::detect_encoding_of(bytes);
+        expect( retrieved.enc==expected.enc and retrieved.bom_size==expected.bom_size ) << msg;
        };
 
+    test_enc_of("\xEF\xBB\xBF blah"sv, {UTF8,3}, "Full utf-8 BOM should be detected\n");
+    test_enc_of("blah blah"sv, {UTF8,0}, "No BOM found should imply utf-8\n");
+    test_enc_of("\xEF\xBB"sv, {UTF8,0}, "Incomplete utf-8 BOM should fall back to utf-8\n");
+    test_enc_of(""sv, {UTF8,0}, "Empty buffer should fall back to utf-8\n");
 
-    ut::test("detect_encoding_of") = []
+    test_enc_of("\xFF\xFE blah"sv, {UTF16LE,2}, "Full utf-16-le BOM should be detected\n");
+    test_enc_of("\xFF blah"sv, {UTF8,0}, "Incomplete utf-16-le BOM should fall back to utf-8\n");
+
+    test_enc_of("\xFE\xFF blah"sv, {UTF16BE,2}, "Full utf-16-be BOM should be detected\n");
+    test_enc_of("\xFE blah"sv, {UTF8,0}, "Incomplete utf-16-be BOM should fall back to utf-8\n");
+
+    test_enc_of("\xFF\xFE\0\0 blah"sv, {UTF32LE,4}, "Full utf-32-le BOM should be detected\n");
+    test_enc_of("\xFF\xFE\0 blah"sv, {UTF16LE,2}, "Incomplete utf-32-le BOM should be interpreted as utf-16-le\n");
+
+    test_enc_of("\0\0\xFE\xFF blah"sv, {UTF32BE,4}, "Full utf-32-be BOM should be detected\n");
+    test_enc_of("\0\0\xFE blah"sv, {UTF8,0}, "Incomplete utf-32-be BOM should fall back to utf-8\n");
+    test_enc_of("\0\xFE\xFF blah"sv, {UTF8,0}, "Invalid utf-32-be BOM should fall back to utf-8\n");
+   };
+
+ut::test("codepoints decode and encode") = []
+   {
+    static_assert( U'🍌'==0x1F34C );
+
+    struct test_case_t final
        {
-        auto test_enc_of = [](const std::string_view bytes, const text::bom_ret_t expected, const char* const msg) noexcept -> void
+        const char32_t code_point;
+        const std::string_view encoded_as_UTF8;
+        const std::string_view encoded_as_UTF16LE;
+        const std::string_view encoded_as_UTF16BE;
+        const std::string_view encoded_as_UTF32LE;
+        const std::string_view encoded_as_UTF32BE;
+
+        constexpr std::string_view encoded_as(const text::Enc enc) const noexcept
            {
-            const text::bom_ret_t retrieved = text::detect_encoding_of(bytes);
-            expect( retrieved.enc==expected.enc and retrieved.bom_size==expected.bom_size ) << msg;
-           };
-
-        test_enc_of("\xEF\xBB\xBF blah"sv, {UTF8,3}, "Full utf-8 BOM should be detected\n");
-        test_enc_of("blah blah"sv, {UTF8,0}, "No BOM found should imply utf-8\n");
-        test_enc_of("\xEF\xBB"sv, {UTF8,0}, "Incomplete utf-8 BOM should fall back to utf-8\n");
-        test_enc_of(""sv, {UTF8,0}, "Empty buffer should fall back to utf-8\n");
-
-        test_enc_of("\xFF\xFE blah"sv, {UTF16LE,2}, "Full utf-16-le BOM should be detected\n");
-        test_enc_of("\xFF blah"sv, {UTF8,0}, "Incomplete utf-16-le BOM should fall back to utf-8\n");
-
-        test_enc_of("\xFE\xFF blah"sv, {UTF16BE,2}, "Full utf-16-be BOM should be detected\n");
-        test_enc_of("\xFE blah"sv, {UTF8,0}, "Incomplete utf-16-be BOM should fall back to utf-8\n");
-
-        test_enc_of("\xFF\xFE\0\0 blah"sv, {UTF32LE,4}, "Full utf-32-le BOM should be detected\n");
-        test_enc_of("\xFF\xFE\0 blah"sv, {UTF16LE,2}, "Incomplete utf-32-le BOM should be interpreted as utf-16-le\n");
-
-        test_enc_of("\0\0\xFE\xFF blah"sv, {UTF32BE,4}, "Full utf-32-be BOM should be detected\n");
-        test_enc_of("\0\0\xFE blah"sv, {UTF8,0}, "Incomplete utf-32-be BOM should fall back to utf-8\n");
-        test_enc_of("\0\xFE\xFF blah"sv, {UTF8,0}, "Invalid utf-32-be BOM should fall back to utf-8\n");
-       };
-
-    ut::test("codepoints decode and encode") = []
-       {
-        static_assert( U'🍌'==0x1F34C );
-
-        struct test_case_t final
-           {
-            const char32_t code_point;
-            const std::string_view encoded_as_UTF8;
-            const std::string_view encoded_as_UTF16LE;
-            const std::string_view encoded_as_UTF16BE;
-            const std::string_view encoded_as_UTF32LE;
-            const std::string_view encoded_as_UTF32BE;
-
-            constexpr std::string_view encoded_as(const text::Enc enc) const noexcept
-               {
-                TEXT_ATTACH_TO_ENC(enc, encoded_as_)
-               }
-           };
-        constexpr std::array<test_case_t,4> test_cases =
-           {{
-             { U'a', "\x61"sv, "\x61\0"sv, "\0\x61"sv, "\x61\0\0\0"sv, "\0\0\0\x61"sv }
-            ,{ U'à', "\xC3\xA0"sv, "\xE0\0"sv, "\0\xE0"sv, "\xE0\0\0\0"sv, "\0\0\0\xE0"sv }
-            ,{ U'⟶', "\xE2\x9F\xB6"sv, "\xF6\x27"sv, "\x27\xF6"sv, "\xF6\x27\0\0"sv, "\0\0\x27\xF6"sv }
-            ,{ U'🍌', "\xF0\x9F\x8D\x8C"sv, "\x3C\xD8\x4C\xDF"sv, "\xD8\x3C\xDF\x4C"sv, "\x4C\xF3\x01\0"sv, "\0\x01\xF3\x4C"sv }
-           }};
-
-        auto test_codepoint = []<text::Enc ENC>(const test_case_t& test_case) constexpr -> void
-           {
-            //ut::log << "Testing " << test_case.encoded_as_UTF8 << " with " << static_cast<int>(std::to_underlying(ENC));
-            std::size_t pos{};
-            expect( text::extract_codepoint<ENC>(test_case.encoded_as(ENC), pos) == test_case.code_point );
-            std::string bytes;
-            text::append_codepoint<ENC>(test_case.code_point, bytes);
-            expect( that % test_case.encoded_as(ENC) == bytes );
-           };
-
-        for(const auto& test_case : test_cases)
-           {
-            ut::test(test_case.encoded_as_UTF8) = [&test_case, &test_codepoint]
-               {
-                test_codepoint.template operator()<UTF8>(test_case);
-                test_codepoint.template operator()<UTF16LE>(test_case);
-                test_codepoint.template operator()<UTF16BE>(test_case);
-                test_codepoint.template operator()<UTF32LE>(test_case);
-                test_codepoint.template operator()<UTF32BE>(test_case);
-               };
+            TEXT_ATTACH_TO_ENC(enc, encoded_as_)
            }
        };
+    constexpr std::array<test_case_t,4> test_cases =
+       {{
+         { U'a', "\x61"sv, "\x61\0"sv, "\0\x61"sv, "\x61\0\0\0"sv, "\0\0\0\x61"sv }
+        ,{ U'à', "\xC3\xA0"sv, "\xE0\0"sv, "\0\xE0"sv, "\xE0\0\0\0"sv, "\0\0\0\xE0"sv }
+        ,{ U'⟶', "\xE2\x9F\xB6"sv, "\xF6\x27"sv, "\x27\xF6"sv, "\xF6\x27\0\0"sv, "\0\0\x27\xF6"sv }
+        ,{ U'🍌', "\xF0\x9F\x8D\x8C"sv, "\x3C\xD8\x4C\xDF"sv, "\xD8\x3C\xDF\x4C"sv, "\x4C\xF3\x01\0"sv, "\0\x01\xF3\x4C"sv }
+       }};
 
-    ut::test("text::bytes_buffer_t") = []
+    auto test_codepoint = []<text::Enc ENC>(const test_case_t& test_case) constexpr -> void
        {
-        text::bytes_buffer_t<text::Enc::UTF16LE> buf("\x61\x00\x62\x00\x63\x00"sv); // u"abc"
-        expect( buf.has_bytes() and buf.has_codepoint() and buf.byte_pos()==0 and buf.extract_codepoint()==U'a' );
-        expect( buf.has_bytes() and buf.has_codepoint() and buf.byte_pos()==2 and buf.extract_codepoint()==U'b' );
-        expect( buf.has_bytes() and buf.has_codepoint() and buf.byte_pos()==4 and buf.extract_codepoint()==U'c' );
-        expect( not buf.has_bytes() and not buf.has_codepoint() and buf.byte_pos()==6 );
+        //ut::log << "Testing " << test_case.encoded_as_UTF8 << " with " << static_cast<int>(std::to_underlying(ENC));
+        std::size_t pos{};
+        expect( text::extract_codepoint<ENC>(test_case.encoded_as(ENC), pos) == test_case.code_point );
+        std::string bytes;
+        text::append_codepoint<ENC>(test_case.code_point, bytes);
+        expect( that % test_case.encoded_as(ENC) == bytes );
        };
 
-    ut::test("text::encode_as<>(bytes)") = []
+    for(const auto& test_case : test_cases)
        {
-        expect( text::encode_as<UTF8>(""sv) == ""sv) << "Implicit utf-8 empty string should be empty\n";
-
-        struct test_case_t final
+        ut::test(test_case.encoded_as_UTF8) = [&test_case, &test_codepoint]
            {
-            const std::string_view str;
-            const std::string_view encoded_as_UTF8;
-            const std::string_view encoded_as_UTF16LE;
-            const std::string_view encoded_as_UTF16BE;
-            const std::string_view encoded_as_UTF32LE;
-            const std::string_view encoded_as_UTF32BE;
-
-            constexpr std::string_view encoded_as(const text::Enc enc) const noexcept
-               {
-                TEXT_ATTACH_TO_ENC(enc, encoded_as_)
-               }
+            test_codepoint.template operator()<UTF8>(test_case);
+            test_codepoint.template operator()<UTF16LE>(test_case);
+            test_codepoint.template operator()<UTF16BE>(test_case);
+            test_codepoint.template operator()<UTF32LE>(test_case);
+            test_codepoint.template operator()<UTF32BE>(test_case);
            };
-        constexpr std::array<test_case_t,2> test_cases =
-           {{
-             { " ab"sv,
-               "\xEF\xBB\xBF ab"sv,
-               "\xFF\xFE\x20\x00\x61\x00\x62\x00"sv,
-               "\xFE\xFF\x00\x20\x00\x61\x00\x62"sv,
-               "\xFF\xFE\x00\x00\x20\x00\x00\x00\x61\x00\x00\x00\x62\x00\x00\x00"sv,
-               "\x00\x00\xFE\xFF\x00\x00\x00\x20\x00\x00\x00\x61\x00\x00\x00\x62"sv }
-            ,{ "è una ⛵ ┌─┐"sv,
-               "\xEF\xBB\xBF\xC3\xA8\x20\x75\x6E\x61\x20\xE2\x9B\xB5\x20\xE2\x94\x8C\xE2\x94\x80\xE2\x94\x90"sv,
-               "\xFF\xFE\xE8\x00\x20\x00\x75\x00\x6E\x00\x61\x00\x20\x00\xF5\x26\x20\x00\x0C\x25\x00\x25\x10\x25"sv,
-               "\xFE\xFF\x00\xE8\x00\x20\x00\x75\x00\x6E\x00\x61\x00\x20\x26\xF5\x00\x20\x25\x0C\x25\x00\x25\x10"sv,
-               "\xFF\xFE\x00\x00\xE8\x00\x00\x00\x20\x00\x00\x00\x75\x00\x00\x00\x6E\x00\x00\x00\x61\x00\x00\x00\x20\x00\x00\x00\xF5\x26\x00\x00\x20\x00\x00\x00\x0C\x25\x00\x00\x00\x25\x00\x00\x10\x25\x00\x00"sv, "\x00\x00\xFE\xFF\x00\x00\x00\xE8\x00\x00\x00\x20\x00\x00\x00\x75\x00\x00\x00\x6E\x00\x00\x00\x61\x00\x00\x00\x20\x00\x00\x26\xF5\x00\x00\x00\x20\x00\x00\x25\x0C\x00\x00\x25\x00\x00\x00\x25\x10"sv }
-           }};
+       }
+   };
 
-        for(const auto& ex : test_cases)
+ut::test("text::bytes_buffer_t") = []
+   {
+    text::bytes_buffer_t<text::Enc::UTF16LE> buf("\x61\x00\x62\x00\x63\x00"sv); // u"abc"
+    expect( buf.has_bytes() and buf.has_codepoint() and buf.byte_pos()==0 and buf.extract_codepoint()==U'a' );
+    expect( buf.has_bytes() and buf.has_codepoint() and buf.byte_pos()==2 and buf.extract_codepoint()==U'b' );
+    expect( buf.has_bytes() and buf.has_codepoint() and buf.byte_pos()==4 and buf.extract_codepoint()==U'c' );
+    expect( not buf.has_bytes() and not buf.has_codepoint() and buf.byte_pos()==6 );
+   };
+
+ut::test("text::encode_as<>(bytes)") = []
+   {
+    expect( text::encode_as<UTF8>(""sv) == ""sv) << "Implicit utf-8 empty string should be empty\n";
+
+    struct test_case_t final
+       {
+        const std::string_view str;
+        const std::string_view encoded_as_UTF8;
+        const std::string_view encoded_as_UTF16LE;
+        const std::string_view encoded_as_UTF16BE;
+        const std::string_view encoded_as_UTF32LE;
+        const std::string_view encoded_as_UTF32BE;
+
+        constexpr std::string_view encoded_as(const text::Enc enc) const noexcept
            {
-            ut::test(ex.encoded_as_UTF8) = [&ex]
-               {
-                expect( text::re_encode<UTF8,UTF8>(ex.encoded_as(UTF8))==ex.encoded_as(UTF8) ) << "utf-8 to utf-8\n";
-                expect( text::re_encode<UTF16LE,UTF16LE>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF16LE) ) << "utf-16le to utf-16le\n";
-
-                expect( text::encode_as<UTF8>(ex.encoded_as(UTF8))==ex.encoded_as(UTF8) ) << "utf-8 to utf-8\n";
-                expect( text::encode_as<UTF16LE>(ex.encoded_as(UTF8))==ex.encoded_as(UTF16LE) ) << "utf-8 to utf-16le\n";
-                expect( text::encode_as<UTF16BE>(ex.encoded_as(UTF8))==ex.encoded_as(UTF16BE) ) << "utf-8 to utf-16be\n";
-                expect( text::encode_as<UTF32LE>(ex.encoded_as(UTF8))==ex.encoded_as(UTF32LE) ) << "utf-8 to utf-32le\n";
-                expect( text::encode_as<UTF32BE>(ex.encoded_as(UTF8))==ex.encoded_as(UTF32BE) ) << "utf-8 to utf-32be\n";
-
-                expect( text::encode_as<UTF8>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF8) ) << "utf-16le to utf-8\n";
-                expect( text::encode_as<UTF16LE>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF16LE) ) << "utf-16le to utf-16le\n";
-                expect( text::encode_as<UTF16BE>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF16BE) ) << "utf-16le to utf-16be\n";
-                expect( text::encode_as<UTF32LE>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF32LE) ) << "utf-16le to utf-32le\n";
-                expect( text::encode_as<UTF32BE>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF32BE) ) << "utf-16le to utf-32be\n";
-
-                expect( text::encode_as<UTF8>(ex.encoded_as(UTF16BE))==ex.encoded_as(UTF8) ) << "utf-16be to utf-8\n";
-                expect( text::encode_as<UTF16LE>(ex.encoded_as(UTF16BE))==ex.encoded_as(UTF16LE) ) << "utf-16be to utf-16le\n";
-                expect( text::encode_as<UTF16BE>(ex.encoded_as(UTF16BE))==ex.encoded_as(UTF16BE) ) << "utf-16be to utf-16be\n";
-                expect( text::encode_as<UTF32LE>(ex.encoded_as(UTF16BE))==ex.encoded_as(UTF32LE) ) << "utf-16be to utf-32le\n";
-                expect( text::encode_as<UTF32BE>(ex.encoded_as(UTF16BE))==ex.encoded_as(UTF32BE) ) << "utf-16be to utf-32be\n";
-
-                expect( text::encode_as<UTF8>(ex.encoded_as(UTF32LE))==ex.encoded_as(UTF8) ) << "utf-32le to utf-8\n";
-                expect( text::encode_as<UTF16LE>(ex.encoded_as(UTF32LE))==ex.encoded_as(UTF16LE) ) << "utf-32le to utf-16le\n";
-                expect( text::encode_as<UTF16BE>(ex.encoded_as(UTF32LE))==ex.encoded_as(UTF16BE) ) << "utf-32le to utf-16be\n";
-                expect( text::encode_as<UTF32LE>(ex.encoded_as(UTF32LE))==ex.encoded_as(UTF32LE) ) << "utf-32le to utf-32le\n";
-                expect( text::encode_as<UTF32BE>(ex.encoded_as(UTF32LE))==ex.encoded_as(UTF32BE) ) << "utf-32le to utf-32be\n";
-
-                expect( text::encode_as<UTF8>(ex.encoded_as(UTF32BE))==ex.encoded_as(UTF8) ) << "utf-32be to utf-8\n";
-                expect( text::encode_as<UTF16LE>(ex.encoded_as(UTF32BE))==ex.encoded_as(UTF16LE) ) << "utf-32be to utf-16le\n";
-                expect( text::encode_as<UTF16BE>(ex.encoded_as(UTF32BE))==ex.encoded_as(UTF16BE) ) << "utf-32be to utf-16be\n";
-                expect( text::encode_as<UTF32LE>(ex.encoded_as(UTF32BE))==ex.encoded_as(UTF32LE) ) << "utf-32be to utf-32le\n";
-                expect( text::encode_as<UTF32BE>(ex.encoded_as(UTF32BE))==ex.encoded_as(UTF32BE) ) << "utf-32be to utf-32be\n";
-               };
+            TEXT_ATTACH_TO_ENC(enc, encoded_as_)
            }
        };
+    constexpr std::array<test_case_t,2> test_cases =
+       {{
+         { " ab"sv,
+           "\xEF\xBB\xBF ab"sv,
+           "\xFF\xFE\x20\x00\x61\x00\x62\x00"sv,
+           "\xFE\xFF\x00\x20\x00\x61\x00\x62"sv,
+           "\xFF\xFE\x00\x00\x20\x00\x00\x00\x61\x00\x00\x00\x62\x00\x00\x00"sv,
+           "\x00\x00\xFE\xFF\x00\x00\x00\x20\x00\x00\x00\x61\x00\x00\x00\x62"sv }
+        ,{ "è una ⛵ ┌─┐"sv,
+           "\xEF\xBB\xBF\xC3\xA8\x20\x75\x6E\x61\x20\xE2\x9B\xB5\x20\xE2\x94\x8C\xE2\x94\x80\xE2\x94\x90"sv,
+           "\xFF\xFE\xE8\x00\x20\x00\x75\x00\x6E\x00\x61\x00\x20\x00\xF5\x26\x20\x00\x0C\x25\x00\x25\x10\x25"sv,
+           "\xFE\xFF\x00\xE8\x00\x20\x00\x75\x00\x6E\x00\x61\x00\x20\x26\xF5\x00\x20\x25\x0C\x25\x00\x25\x10"sv,
+           "\xFF\xFE\x00\x00\xE8\x00\x00\x00\x20\x00\x00\x00\x75\x00\x00\x00\x6E\x00\x00\x00\x61\x00\x00\x00\x20\x00\x00\x00\xF5\x26\x00\x00\x20\x00\x00\x00\x0C\x25\x00\x00\x00\x25\x00\x00\x10\x25\x00\x00"sv, "\x00\x00\xFE\xFF\x00\x00\x00\xE8\x00\x00\x00\x20\x00\x00\x00\x75\x00\x00\x00\x6E\x00\x00\x00\x61\x00\x00\x00\x20\x00\x00\x26\xF5\x00\x00\x00\x20\x00\x00\x25\x0C\x00\x00\x25\x00\x00\x00\x25\x10"sv }
+       }};
 
-    ut::test("text::to_utf8") = []
+    for(const auto& ex : test_cases)
        {
-        expect( text::to_utf8(U""sv)==""sv );
-        expect( text::to_utf8(U"aà⟶♥♫"sv)=="aà⟶♥♫"sv );
-        expect( text::to_utf8(U'⛵')=="⛵"sv );
-       };
+        ut::test(ex.encoded_as_UTF8) = [&ex]
+           {
+            expect( text::re_encode<UTF8,UTF8>(ex.encoded_as(UTF8))==ex.encoded_as(UTF8) ) << "utf-8 to utf-8\n";
+            expect( text::re_encode<UTF16LE,UTF16LE>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF16LE) ) << "utf-16le to utf-16le\n";
 
-    ut::test("text::to_utf32") = []
-       {
-        expect( text::to_utf32(u8""sv)==U""sv );
-        expect( text::to_utf32(u8"aà⟶♥♫"sv)==U"aà⟶♥♫"sv );
-       };
+            expect( text::encode_as<UTF8>(ex.encoded_as(UTF8))==ex.encoded_as(UTF8) ) << "utf-8 to utf-8\n";
+            expect( text::encode_as<UTF16LE>(ex.encoded_as(UTF8))==ex.encoded_as(UTF16LE) ) << "utf-8 to utf-16le\n";
+            expect( text::encode_as<UTF16BE>(ex.encoded_as(UTF8))==ex.encoded_as(UTF16BE) ) << "utf-8 to utf-16be\n";
+            expect( text::encode_as<UTF32LE>(ex.encoded_as(UTF8))==ex.encoded_as(UTF32LE) ) << "utf-8 to utf-32le\n";
+            expect( text::encode_as<UTF32BE>(ex.encoded_as(UTF8))==ex.encoded_as(UTF32BE) ) << "utf-8 to utf-32be\n";
 
-    ut::test("text::encode_as(enc,...)") = []
-       {
-        expect( text::encode_as(UTF8,U""sv)==""sv );
-        expect( text::encode_as(UTF8,U"aà⟶♥♫"sv)=="aà⟶♥♫"sv );
-        expect( text::encode_as(UTF8,U'⛵')=="⛵"sv );
-       };
+            expect( text::encode_as<UTF8>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF8) ) << "utf-16le to utf-8\n";
+            expect( text::encode_as<UTF16LE>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF16LE) ) << "utf-16le to utf-16le\n";
+            expect( text::encode_as<UTF16BE>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF16BE) ) << "utf-16le to utf-16be\n";
+            expect( text::encode_as<UTF32LE>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF32LE) ) << "utf-16le to utf-32le\n";
+            expect( text::encode_as<UTF32BE>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF32BE) ) << "utf-16le to utf-32be\n";
+
+            expect( text::encode_as<UTF8>(ex.encoded_as(UTF16BE))==ex.encoded_as(UTF8) ) << "utf-16be to utf-8\n";
+            expect( text::encode_as<UTF16LE>(ex.encoded_as(UTF16BE))==ex.encoded_as(UTF16LE) ) << "utf-16be to utf-16le\n";
+            expect( text::encode_as<UTF16BE>(ex.encoded_as(UTF16BE))==ex.encoded_as(UTF16BE) ) << "utf-16be to utf-16be\n";
+            expect( text::encode_as<UTF32LE>(ex.encoded_as(UTF16BE))==ex.encoded_as(UTF32LE) ) << "utf-16be to utf-32le\n";
+            expect( text::encode_as<UTF32BE>(ex.encoded_as(UTF16BE))==ex.encoded_as(UTF32BE) ) << "utf-16be to utf-32be\n";
+
+            expect( text::encode_as<UTF8>(ex.encoded_as(UTF32LE))==ex.encoded_as(UTF8) ) << "utf-32le to utf-8\n";
+            expect( text::encode_as<UTF16LE>(ex.encoded_as(UTF32LE))==ex.encoded_as(UTF16LE) ) << "utf-32le to utf-16le\n";
+            expect( text::encode_as<UTF16BE>(ex.encoded_as(UTF32LE))==ex.encoded_as(UTF16BE) ) << "utf-32le to utf-16be\n";
+            expect( text::encode_as<UTF32LE>(ex.encoded_as(UTF32LE))==ex.encoded_as(UTF32LE) ) << "utf-32le to utf-32le\n";
+            expect( text::encode_as<UTF32BE>(ex.encoded_as(UTF32LE))==ex.encoded_as(UTF32BE) ) << "utf-32le to utf-32be\n";
+
+            expect( text::encode_as<UTF8>(ex.encoded_as(UTF32BE))==ex.encoded_as(UTF8) ) << "utf-32be to utf-8\n";
+            expect( text::encode_as<UTF16LE>(ex.encoded_as(UTF32BE))==ex.encoded_as(UTF16LE) ) << "utf-32be to utf-16le\n";
+            expect( text::encode_as<UTF16BE>(ex.encoded_as(UTF32BE))==ex.encoded_as(UTF16BE) ) << "utf-32be to utf-16be\n";
+            expect( text::encode_as<UTF32LE>(ex.encoded_as(UTF32BE))==ex.encoded_as(UTF32LE) ) << "utf-32be to utf-32le\n";
+            expect( text::encode_as<UTF32BE>(ex.encoded_as(UTF32BE))==ex.encoded_as(UTF32BE) ) << "utf-32be to utf-32be\n";
+           };
+       }
+   };
+
+ut::test("text::to_utf8") = []
+   {
+    expect( text::to_utf8(U""sv)==""sv );
+    expect( text::to_utf8(U"aà⟶♥♫"sv)=="aà⟶♥♫"sv );
+    expect( text::to_utf8(U'⛵')=="⛵"sv );
+   };
+
+ut::test("text::to_utf32") = []
+   {
+    expect( text::to_utf32(u8""sv)==U""sv );
+    expect( text::to_utf32(u8"aà⟶♥♫"sv)==U"aà⟶♥♫"sv );
+   };
+
+ut::test("text::encode_as(enc,...)") = []
+   {
+    expect( text::encode_as(UTF8,U""sv)==""sv );
+    expect( text::encode_as(UTF8,U"aà⟶♥♫"sv)=="aà⟶♥♫"sv );
+    expect( text::encode_as(UTF8,U'⛵')=="⛵"sv );
+   };
 
 };///////////////////////////////////////////////////////////////////////////
 #endif // TEST_UNITS ////////////////////////////////////////////////////////

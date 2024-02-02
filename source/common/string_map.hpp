@@ -83,7 +83,7 @@ template<StdBasicString TKEY, typename TVAL> class string_map final
        {
         if( contains(key) )
            {
-            throw std::runtime_error("key already present in string_map");
+            throw std::runtime_error{"key already present in string_map"};
            }
         return append( item_type{std::move(key), std::move(val)} );
        }
@@ -153,7 +153,7 @@ template<StdBasicString TKEY, typename TVAL> class string_map final
         const_iterator it = find(key);
         if( it==end() )
            {
-            throw std::runtime_error("key not found in string_map");
+            throw std::runtime_error{"key not found in string_map"};
            }
         return it->second;
        }
@@ -257,67 +257,67 @@ template<typename TVAL>
 /////////////////////////////////////////////////////////////////////////////
 static ut::suite<"MG::string_map<>"> string_map_tests = []
 {////////////////////////////////////////////////////////////////////////////
-    using ut::expect;
-    using ut::that;
-    using ut::throws;
+using ut::expect;
+using ut::that;
+using ut::throws;
 
-    ut::test("basic operations") = []
-       {
-        MG::string_map<std::string,std::string> v;
-        expect( that % v.is_empty() and v.size()==0u );
+ut::test("basic operations") = []
+   {
+    MG::string_map<std::string,std::string> v;
+    expect( that % v.is_empty() and v.size()==0u );
 
-        // Inserting
-        v.insert_or_assign("key1","val1");
-        expect( that % v.size()==1u and to_string(v)=="key1=val1"s );
+    // Inserting
+    v.insert_or_assign("key1","val1");
+    expect( that % v.size()==1u and to_string(v)=="key1=val1"s );
 
-        v.insert_if_missing("key2","old2");
-        expect( that % v.size()==2u and to_string(v)=="key1=val1,key2=old2"s );
+    v.insert_if_missing("key2","old2");
+    expect( that % v.size()==2u and to_string(v)=="key1=val1,key2=old2"s );
 
-        v.insert_unique("key3","val3");
-        expect( that % v.size()==3u and to_string(v)=="key1=val1,key2=old2,key3=val3"s );
+    v.insert_unique("key3","val3");
+    expect( that % v.size()==3u and to_string(v)=="key1=val1,key2=old2,key3=val3"s );
 
-        v.insert_if_missing("key2","val2");
-        expect( that % v.size()==3u and to_string(v)=="key1=val1,key2=old2,key3=val3"s ) << "shouldn't modify already existing key\n";
+    v.insert_if_missing("key2","val2");
+    expect( that % v.size()==3u and to_string(v)=="key1=val1,key2=old2,key3=val3"s ) << "shouldn't modify already existing key\n";
 
-        // Overwriting
-        v.insert_or_assign("key2","val2");
-        expect( that % v.size()==3u and to_string(v)=="key1=val1,key2=val2,key3=val3"s ) << "should have modified key2\n";
-        expect( throws<std::runtime_error>([v] { ut::mut(v).insert_unique("key1",""); })) << "should throw runtime_error inserting already existing key\n";
+    // Overwriting
+    v.insert_or_assign("key2","val2");
+    expect( that % v.size()==3u and to_string(v)=="key1=val1,key2=val2,key3=val3"s ) << "should have modified key2\n";
+    expect( throws<std::runtime_error>([v] { ut::mut(v).insert_unique("key1",""); })) << "should throw runtime_error inserting already existing key\n";
 
-        // Accessing not existing
-        expect( throws<std::runtime_error>([&v] { [[maybe_unused]] auto s = v["x"]; })) << "should throw runtime_error accessing not existing key\n";
-        expect( not v.value_of("x").has_value() );
-        expect( that % v.value_or("x","def")=="def"s );
+    // Accessing not existing
+    expect( throws<std::runtime_error>([&v] { [[maybe_unused]] auto s = v["x"]; })) << "should throw runtime_error accessing not existing key\n";
+    expect( not v.value_of("x").has_value() );
+    expect( that % v.value_or("x","def")=="def"s );
 
-        // Accessing existing
-        expect( that % v["key1"]=="val1"s and v["key2"]=="val2"s and v["key3"]=="val3"s );
-        expect( that % v.value_of("key3")->get()=="val3"s );
-        expect( that % v.value_or("key3","def")=="val3"s );
+    // Accessing existing
+    expect( that % v["key1"]=="val1"s and v["key2"]=="val2"s and v["key3"]=="val3"s );
+    expect( that % v.value_of("key3")->get()=="val3"s );
+    expect( that % v.value_or("key3","def")=="val3"s );
 
-        // Erasing
-        v.erase("x");
-        expect( that % v.size()==3u and to_string(v)=="key1=val1,key2=val2,key3=val3"s ) << "erasing not existing key does nothing\n";
-        v.erase("key1");
-        expect( that % v.size()==2u and to_string(v)=="key2=val2,key3=val3"s ) << "erasing first key\n";
-        v.clear();
-        expect(that % v.is_empty() and v.size()==0u) << "should be empty after clear\n";
-       };
+    // Erasing
+    v.erase("x");
+    expect( that % v.size()==3u and to_string(v)=="key1=val1,key2=val2,key3=val3"s ) << "erasing not existing key does nothing\n";
+    v.erase("key1");
+    expect( that % v.size()==2u and to_string(v)=="key2=val2,key3=val3"s ) << "erasing first key\n";
+    v.clear();
+    expect(that % v.is_empty() and v.size()==0u) << "should be empty after clear\n";
+   };
 
 
-    ut::test("loop erase") = []
-       {
-        MG::string_map<std::string,int> v;
-        v.insert_unique("1",1);
-        v.insert_unique("2",2);
-        v.insert_unique("3",3);
-        v.insert_unique("4",4);
-        v.insert_unique("5",5);
-        expect( that % to_string(v)=="1=1,2=2,3=3,4=4,5=5"s );
+ut::test("loop erase") = []
+   {
+    MG::string_map<std::string,int> v;
+    v.insert_unique("1",1);
+    v.insert_unique("2",2);
+    v.insert_unique("3",3);
+    v.insert_unique("4",4);
+    v.insert_unique("5",5);
+    expect( that % to_string(v)=="1=1,2=2,3=3,4=4,5=5"s );
 
-        // Erase odd values
-        v.erase_if( [](decltype(v)::const_iterator it) constexpr -> bool { return it->second % 2; } );
-        expect( that % to_string(v)=="2=2,4=4"s );
-       };
+    // Erase odd values
+    v.erase_if( [](decltype(v)::const_iterator it) constexpr -> bool { return it->second % 2; } );
+    expect( that % to_string(v)=="2=2,4=4"s );
+   };
 
 };///////////////////////////////////////////////////////////////////////////
 #endif // TEST_UNITS ////////////////////////////////////////////////////////
