@@ -42,7 +42,7 @@ def is_manual_mode():
 def launch(command_and_args):
     print(f"{GRAY}")
     return_code = subprocess.call(command_and_args)
-    print(f"{END}{command_and_args[0]} returned: {YELLOW}{return_code}{END}")
+    print(f"{END}{command_and_args[0]} returned: {GREEN if return_code==0 else RED}{return_code}{END}")
     return return_code
 
 #----------------------------------------------------------------------------
@@ -364,7 +364,7 @@ def test_update_ppjs(manual_mode):
     with tempfile.TemporaryDirectory() as temp_dir:
         def full_path(fname): return os.path.join(temp_dir, fname)
         libs_dir = os.path.join(temp_dir, lib_subfolder)
-        os.mkdir(libs_dir) 
+        os.mkdir(libs_dir)
         create_text_file(os.path.join(libs_dir,defvar.file_name), defvar.content, defvar.encoding)
         create_text_file(os.path.join(libs_dir,iomap.file_name), iomap.content, iomap.encoding)
         prj_path = full_path(prj.file_name)
@@ -469,7 +469,7 @@ def test_update_plcprj(manual_mode):
     with tempfile.TemporaryDirectory() as temp_dir:
         def full_path(fname): return os.path.join(temp_dir, fname)
         libs_dir = os.path.join(temp_dir, lib_subfolder)
-        os.mkdir(libs_dir) 
+        os.mkdir(libs_dir)
         create_text_file(os.path.join(libs_dir,defvar.file_name), create_plclib_full_content(defvar.file_name, defvar.content), defvar.encoding)
         create_text_file(os.path.join(libs_dir,iomap.file_name), create_plclib_full_content(iomap.file_name, iomap.content), iomap.encoding)
         prj_path = full_path(prj.file_name)

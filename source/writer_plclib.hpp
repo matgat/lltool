@@ -358,22 +358,22 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Macro& macro, const 
 void write_preamble(MG::OutputStreamable auto& f, const plcb::Library& lib, const std::size_t lvl)
 {
     //-----------------------------------------------------------------------
-    const auto write_vargroups_var_list = [&f](const plcb::Variables_Groups& var_groups, const std::string_view tag, const std::string_view var_tag, const std::size_t lvl)
+    const auto write_vargroups_var_list = [&f](const plcb::Variables_Groups& var_groups, const std::string_view tag, const std::string_view var_tag, const std::size_t slvl)
        {
-        f<< ind(lvl) << "<" << tag;
+        f<< ind(slvl) << "<" << tag;
         if( not var_groups.is_empty() )
            {
             f<< ">\n"sv;
             for( const auto& group : var_groups.groups() )
                {
-                f<< ind(lvl+1) << "<group name=\""sv << group.name() << "\" excludeFromBuild=\"FALSE\" excludeFromBuildIfNotDef=\"\" version=\"1.0.0\">\n"sv;
+                f<< ind(slvl+1) << "<group name=\""sv << group.name() << "\" excludeFromBuild=\"FALSE\" excludeFromBuildIfNotDef=\"\" version=\"1.0.0\">\n"sv;
                 for( const auto& var : group.variables() )
                    {
-                    write(f, var, var_tag, lvl+2);
+                    write(f, var, var_tag, slvl+2);
                    }
-                f<< ind(lvl+1) << "</group>\n"sv;
+                f<< ind(slvl+1) << "</group>\n"sv;
                }
-            f<< ind(lvl) << "</"sv << tag <<  ">\n"sv;
+            f<< ind(slvl) << "</"sv << tag <<  ">\n"sv;
            }
         else
            {
@@ -382,15 +382,15 @@ void write_preamble(MG::OutputStreamable auto& f, const plcb::Library& lib, cons
        };
 
     //-----------------------------------------------------------------------
-    const auto write_vargroups_list = [&f](const plcb::Variables_Groups& var_groups, const std::size_t lvl)
+    const auto write_vargroups_list = [&f](const plcb::Variables_Groups& var_groups, const std::size_t slvl)
        {
         for( const auto& group : var_groups.groups() )
            {
             if( group.has_name() )
                {
-                f<< ind(lvl) << "<group name=\""sv << group.name() << "\">\n"sv
-                 << ind(lvl+1) << "<iecDeclaration active=\"FALSE\"/>\n"sv
-                 << ind(lvl) << "</group>\n"sv;
+                f<< ind(slvl) << "<group name=\""sv << group.name() << "\">\n"sv
+                 << ind(slvl+1) << "<iecDeclaration active=\"FALSE\"/>\n"sv
+                 << ind(slvl) << "</group>\n"sv;
                }
            }
        };

@@ -4,6 +4,7 @@
 //  ---------------------------------------------
 //  #include "string_conversions.hpp" // str::to_num<>()
 //  ---------------------------------------------
+#include <stdexcept> // std::runtime_error
 #include <string_view>
 #include <charconv> // std::from_chars
 

@@ -116,30 +116,26 @@ static ut::suite<"ascii_parsing_utils"> ascii_parsing_utils_tests = []
 
 ut::test("ascii::extract<>") = []
    {
-    using res = MG::extracted_t;
+    ut::expect( ascii::extract<int>("42")==MG::extracted_t{42, ""sv} );
+    ut::expect( ascii::extract<int>("42.123")==MG::extracted_t{42, ".123"sv} );
+    ut::expect( ascii::extract<int>("42a")==MG::extracted_t{42, "a"sv} );
+    ut::expect( ascii::extract<double>("42.123mm")==MG::extracted_t{42.123, "mm"sv} );
+    ut::expect( ascii::extract<std::string_view>("42.123mm")==MG::extracted_t{"42"sv, ".123mm"sv} );
 
-    ut::expect( ascii::extract<int>("42")==res{42, ""sv} );
-    ut::expect( ascii::extract<int>("42.123")==res{42, ".123"sv} );
-    ut::expect( ascii::extract<int>("42a")==res{42, "a"sv} );
-    ut::expect( ascii::extract<double>("42.123mm")==res{42.123, "mm"sv} );
-    ut::expect( ascii::extract<std::string_view>("42.123mm")==res{"42"sv, ".123mm"sv} );
-
-    ut::expect( ut::throws([]{ [[maybe_unused]] auto res = ascii::extract<int>(""); }) ) << "should throw\n";
-    ut::expect( ut::throws([]{ [[maybe_unused]] auto res = ascii::extract<int>("aaa"); }) ) << "should throw\n";
-    ut::expect( ut::throws([]{ [[maybe_unused]] auto res = ascii::extract<double>("aaa"); }) ) << "should throw\n";
+    ut::expect( ut::throws([]{ [[maybe_unused]] auto ret = ascii::extract<int>(""); }) ) << "should throw\n";
+    ut::expect( ut::throws([]{ [[maybe_unused]] auto ret = ascii::extract<int>("aaa"); }) ) << "should throw\n";
+    ut::expect( ut::throws([]{ [[maybe_unused]] auto ret = ascii::extract<double>("aaa"); }) ) << "should throw\n";
    };
 
 ut::test("ascii::extract_pair<>") = []
    {
-    using res = MG::extracted_pair_t;
-
-    ut::expect( ascii::extract_pair<int,int>("2,8")==res{2, 8, ""sv} );
-    ut::expect( ascii::extract_pair<double,int>("2.4;42")==res{2.4, 42, ""sv} );
-    ut::expect( ascii::extract_pair<double,int>("2.4;42b")==res{2.4, 42, "b"sv} );
-    ut::expect( ascii::extract_pair<double,int>("1.1;1.1")==res{1.1, 1, ".1"sv} );
-    ut::expect( ascii::extract_pair<int,double>("1.1;1.1")==res{1, 1.0, ";1.1"sv} );
-    ut::expect( ascii::extract_pair<double,std::string_view>("2.4;42b")==res{2.4, "42b"sv, ""sv} );
-    ut::expect( ascii::extract_pair<std::string_view,std::string_view>("2.4;42b")==res{"2"sv, "4"sv, ";42b"sv} );
+    ut::expect( ascii::extract_pair<int,int>("2,8")==MG::extracted_pair_t{2, 8, ""sv} );
+    ut::expect( ascii::extract_pair<double,int>("2.4;42")==MG::extracted_pair_t{2.4, 42, ""sv} );
+    ut::expect( ascii::extract_pair<double,int>("2.4;42b")==MG::extracted_pair_t{2.4, 42, "b"sv} );
+    ut::expect( ascii::extract_pair<double,int>("1.1;1.1")==MG::extracted_pair_t{1.1, 1, ".1"sv} );
+    ut::expect( ascii::extract_pair<int,double>("1.1;1.1")==MG::extracted_pair_t{1, 1.0, ";1.1"sv} );
+    ut::expect( ascii::extract_pair<double,std::string_view>("2.4;42b")==MG::extracted_pair_t{2.4, "42b"sv, ""sv} );
+    ut::expect( ascii::extract_pair<std::string_view,std::string_view>("2.4;42b")==MG::extracted_pair_t{"2"sv, "4"sv, ";42b"sv} );
 
     ut::expect( ut::throws([]{ [[maybe_unused]] auto ret = ascii::extract_pair<int,int>("a,1"); }) ) << "should throw\n";
     ut::expect( ut::throws([]{ [[maybe_unused]] auto ret = ascii::extract_pair<int,int>("1,a"); }) ) << "should throw\n";
