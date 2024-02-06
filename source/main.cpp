@@ -188,13 +188,6 @@ class Arguments final
                    }
                 else if( fs::exists(out_path()) and fs::is_directory(out_path()) )
                    {//...And can't be the directory of an input file
-                    //for( const fs::path& input_file_path : input_files() )
-                    //   {
-                    //    if( fs::equivalent( out_path(), input_file_path.parelambda syntaxnt_path() ) )
-                    //       {
-                    //        throw std::runtime_error{ fmt::format("Output directory \"{}\" can't contain input files", out_path().string()) };
-                    //       }
-                    //   }
                     if( std::ranges::any_of(input_files(), [this](const fs::path& input_file_path){return fs::equivalent(out_path(), input_file_path.parent_path());}) )
                        {
                         throw std::runtime_error{ fmt::format("Output directory \"{}\" can't contain input files", out_path().string()) };

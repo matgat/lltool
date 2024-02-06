@@ -6,7 +6,7 @@
 //  ---------------------------------------------
 #include <stdexcept> // std::runtime_error
 #include "string_map.hpp" // MG::string_map<>
-#include "ascii_simple_parser.hpp" // ascii::simple_parser
+#include "ascii_simple_lexer.hpp" // ascii::simple_lexer
 
 
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -27,7 +27,7 @@ class keyvals final
     // Get from strings like: "key1:val1,key2,key3:val3"
     void assign(const std::string_view input)
        {
-        class parser_t final : public ascii::simple_parser
+        class lexer_t final : public ascii::simple_lexer<char>
         {
          private:
             std::size_t i_key_start = 0;
@@ -36,8 +36,8 @@ class keyvals final
             std::size_t i_val_end = 0;
 
          public:
-            explicit parser_t(const std::string_view buf) noexcept
-              : ascii::simple_parser(buf)
+            explicit lexer_t(const std::string_view buf) noexcept
+              : ascii::simple_lexer<char>(buf)
                {}
 
             [[nodiscard]] bool got_key()
@@ -88,14 +88,14 @@ class keyvals final
 
             [[nodiscard]] std::string_view key() const noexcept { return input.substr(i_key_start, i_key_end-i_key_start); }
             [[nodiscard]] std::string_view val() const noexcept { return input.substr(i_val_start, i_val_end-i_val_start); }
-        } parser (input);
+        } lexer{input};
 
 
-        while( parser.got_key() )
+        while( lexer.got_key() )
            {
             std::optional<std::string> val;
-            if( !parser.val().empty() ) val = std::string{parser.val()};
-            m_map.insert_or_assign( std::string(parser.key()), std::move(val));
+            if( !lexer.val().empty() ) val = std::string{lexer.val()};
+            m_map.insert_or_assign( std::string(lexer.key()), std::move(val));
            }
        }
 

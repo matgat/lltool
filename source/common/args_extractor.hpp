@@ -1,6 +1,6 @@
 ﻿#pragma once
 //  ---------------------------------------------
-//  Until there will be
+//  Waiting for:
 //  int main( std::span<std::string_view> args )
 //  ---------------------------------------------
 //  #include "args_extractor.hpp" // MG::args_extractor

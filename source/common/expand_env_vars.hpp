@@ -10,7 +10,7 @@
 #include <cstdlib> // std::getenv, ::getenv_s()
 
 #include "os-detect.hpp" // MS_WINDOWS, POSIX
-#include "ascii_simple_parser.hpp" // ascii::simple_parser
+#include "ascii_simple_lexer.hpp" // ascii::simple_lexer
 
 
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -62,7 +62,7 @@ template<details::f_resolve_var_t resolve_var =resolve_var_getenv>
     std::string output;
     output.reserve( 2 * input.size() ); // An arbitrary guess
 
-    class parser_t final : public ascii::simple_parser
+    class lexer_t final : public ascii::simple_lexer<char>
     {
      private:
         std::size_t i_chunkstart = 0;
@@ -71,8 +71,8 @@ template<details::f_resolve_var_t resolve_var =resolve_var_getenv>
         std::size_t i_varend = 0;
 
      public:
-        explicit parser_t(const std::string_view buf) noexcept
-          : ascii::simple_parser(buf)
+        explicit lexer_t(const std::string_view buf) noexcept
+          : ascii::simple_lexer<char>(buf)
            {}
 
         [[nodiscard]] bool got_var_name() noexcept
@@ -132,19 +132,19 @@ template<details::f_resolve_var_t resolve_var =resolve_var_getenv>
             i_varend = pos();
             return i_varend>i_varstart;
            }
-    } parser(input);
+    } lexer{input};
 
 
-    while( parser.got_var_name() )
+    while( lexer.got_var_name() )
        {
-        if( const auto val = resolve_var(parser.var_name()) )
+        if( const auto val = resolve_var(lexer.var_name()) )
            {
-            output += parser.chunk_before();
+            output += lexer.chunk_before();
             output += val.value();
-            parser.var_was_substituted();
+            lexer.var_was_substituted();
            }
        }
-    output += parser.remaining_chunk();
+    output += lexer.remaining_chunk();
 
     return output;
 }

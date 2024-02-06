@@ -1,8 +1,10 @@
 #pragma once
 //  ---------------------------------------------
-//  Parse a unicode text buffer
+//  Base class offering facilities to parse a
+//  unicode text buffer supporting variable-length
+//  encodings
 //  ---------------------------------------------
-//  #include "text-parser-base.hpp" // text::ParserBase, parse::*
+//  #include "text_parser_base.hpp" // text::ParserBase, parse::*
 //  ---------------------------------------------
 #include <cassert>
 #include <concepts> // std::predicate
@@ -10,9 +12,10 @@
 
 #include <fmt/format.h> // fmt::format
 
-#include "parser_common.hpp" // parse::error
+#include "parsers_common.hpp" // parse::error
 #include "fnotify_type.hpp" // fnotify_t
-#include "text.hpp" // text::*
+#include "unicode_text.hpp" // utxt::*
+#include "ascii_predicates.hpp" // ascii::is_*
 
 
 
@@ -21,11 +24,10 @@ namespace text
 {
 
 /////////////////////////////////////////////////////////////////////////////
-template<text::Enc ENC>
+template<utxt::Enc ENC>
 class ParserBase
 {
- private:
-    using bytes_buffer_t = text::bytes_buffer_t<ENC>;
+    using bytes_buffer_t = utxt::bytes_buffer_t<ENC>;
 
  public:
     struct context_t final
@@ -54,12 +56,11 @@ class ParserBase
     std::size_t m_line = 1; // Current line number
     std::size_t m_offset = 0; // Index of next extracted codepoint
     std::size_t m_curr_codepoint_byte_offset = 0; // Index of the first byte of the last extracted codepoint
-    char32_t m_curr_codepoint = text::null_codepoint; // Current extracted character
+    char32_t m_curr_codepoint = utxt::codepoint::null; // Current extracted codepoint
     fnotify_t m_on_notify_issue = default_notify;
-    std::string m_file_path; // Just for create_parse_error
+    std::string m_file_path; // Just for create_parse_error()
 
  public:
-    //static const text::Enc INPUT_ENCODING = ENC;
     explicit constexpr ParserBase(const std::string_view bytes) noexcept
       : m_buf{bytes}
        {
@@ -72,7 +73,7 @@ class ParserBase
     [[nodiscard]] constexpr std::size_t curr_offset() const noexcept { return m_offset; }
     [[nodiscard]] constexpr std::size_t curr_byte_offset() const noexcept { return m_buf.byte_pos(); }
     [[nodiscard]] constexpr std::size_t curr_codepoint_byte_offset() const noexcept { return m_curr_codepoint_byte_offset; }
-    [[nodiscard]] constexpr char32_t curr_codepoint() const noexcept { return m_curr_codepoint; }
+
 
     //-----------------------------------------------------------------------
     static constexpr void default_notify(std::string&&) {} // { fmt::print(fmt::runtime(msg)); }
@@ -109,25 +110,28 @@ class ParserBase
             if( ascii::is_endline(m_curr_codepoint) ) ++m_line;
             m_curr_codepoint = m_buf.extract_codepoint();
             ++m_offset;
-            //notify_issue(fmt::format("'{}'"sv, text::to_utf8(curr_codepoint())));
+            //notify_issue(fmt::format("'{}'"sv, utxt::to_utf8(curr_codepoint())));
             return true;
            }
         else if( m_buf.has_bytes() )
            {// Truncated codepoint!
-            m_curr_codepoint = text::err_codepoint;
+            m_curr_codepoint = utxt::codepoint::invalid;
             m_buf.set_as_depleted();
             notify_issue("! Truncated codepoint"sv);
             return true;
            }
-        m_curr_codepoint = text::null_codepoint;
+        m_curr_codepoint = utxt::codepoint::null;
         return false;
        }
-
+    [[nodiscard]] constexpr char32_t curr_codepoint() const noexcept
+       {
+        return m_curr_codepoint;
+       }
     //-----------------------------------------------------------------------
     // Querying current codepoint
     [[nodiscard]] constexpr bool has_codepoint() const noexcept
        {
-        return m_curr_codepoint!=text::null_codepoint;
+        return m_curr_codepoint!=utxt::codepoint::null;
        }
     [[nodiscard]] constexpr bool got(const char32_t cp) const noexcept
        {
@@ -153,6 +157,25 @@ class ParserBase
        {
         return ascii::is_punct(m_curr_codepoint);
        }
+    template<std::predicate<const char32_t> CodepointPredicate =decltype(ascii::is_always_false<char32_t>)>
+    [[nodiscard]] constexpr bool got(CodepointPredicate is) const noexcept
+       {
+        return is(curr_codepoint());
+       }
+
+    //-----------------------------------------------------------------------
+    template<std::predicate<const char32_t> CodepointPredicate =decltype(ascii::is_always_false<char32_t>)>
+    constexpr void skip_while(CodepointPredicate is) noexcept
+       {
+        while( is(curr_codepoint()) and get_next() );
+       }
+
+    //-----------------------------------------------------------------------
+    template<std::predicate<const char32_t> CodepointPredicate =decltype(ascii::is_always_false<char32_t>)>
+    constexpr void skip_until(CodepointPredicate is) noexcept
+       {
+        while( is(curr_codepoint()) and get_next() );
+       }
 
     //-----------------------------------------------------------------------
     // Skip spaces except new line
@@ -176,13 +199,13 @@ class ParserBase
        }
 
     //-----------------------------------------------------------------------
-    // Line should end: nothing more than spaces allowed
+    // Called when line is supposed to end: nothing more than spaces allowed
     constexpr void skip_endline()
        {
         skip_blanks();
         if( not eat_endline() )
            {
-            throw create_parse_error( fmt::format("Unexpected content '{}' at line end"sv, text::to_utf8(curr_codepoint())) );
+            throw create_parse_error( fmt::format("Unexpected content '{}' at line end"sv, utxt::to_utf8(curr_codepoint())) );
            }
        }
 
@@ -196,7 +219,6 @@ class ParserBase
            }
         return false;
        }
-
 
     //-----------------------------------------------------------------------
     [[nodiscard]] constexpr bool eat(const char32_t cp) noexcept
@@ -218,7 +240,7 @@ class ParserBase
         static constexpr ustr_arr_t ustr_arr{cp1, cp2, cpn...};
         static constexpr std::u32string_view ustr(ustr_arr.data(), ustr_arr.size());
         static_assert( not ustr.contains(U'\n') ); // Otherwise should handle line counter
-        static constexpr std::string bytes_to_eat = text::encode_as<ENC>(ustr);
+        static constexpr std::string bytes_to_eat = utxt::encode_as<ENC>(ustr);
         if( m_buf.get_current_view().starts_with(bytes_to_eat) )
            {
             m_buf.advance_of( bytes_to_eat.size() );
@@ -253,18 +275,32 @@ class ParserBase
         return false;
        }
 
+    //template<std::predicate<const char32_t> CodepointPredicate =decltype(ascii::is_always_false<char32_t>)>
+    //[[nodiscard]] constexpr std::string_view get_bytes_while(CodepointPredicate is) noexcept
+    //   {
+    //    const std::size_t i_start = curr_offset();
+    //    while( is(curr_codepoint()) and get_next() );
+    //    return m_buf.get_view_between(i_start, curr_offset());
+    //   }
+
+    //template<std::predicate<const char32_t> CodepointPredicate =decltype(ascii::is_always_false<char32_t>)>
+    //[[nodiscard]] constexpr std::string_view get_bytes_until(CodepointPredicate is) noexcept
+    //   {
+    //    const std::size_t i_start = curr_offset();
+    //    while( not is(curr_codepoint()) and get_next() );
+    //    return m_buf.get_view_between(i_start, curr_offset());
+    //   }
 
     //-----------------------------------------------------------------------
-    //const auto bytes = parser.collect_bytes_until(ascii::is_any_of<U'=',U':'>, ascii::is_endline<char32_t>);
+    //const auto bytes = parser.get_bytes_until(ascii::is_any_of<U'=',U':'>, ascii::is_endline<char32_t>);
     template<std::predicate<const char32_t> CodepointPredicate =decltype(ascii::is_always_false<char32_t>)>
-    [[nodiscard]] constexpr std::string_view collect_bytes_until(CodepointPredicate is_end, CodepointPredicate is_unexpected =ascii::is_always_false<char32_t>)
+    [[nodiscard]] constexpr std::string_view get_bytes_until(CodepointPredicate is_end, CodepointPredicate is_unexpected =ascii::is_always_false<char32_t>)
        {
         const auto start = save_context();
         do {
             if( is_end(curr_codepoint()) ) [[unlikely]]
                {
-                std::string_view collected = m_buf.get_view_between(start.curr_codepoint_byte_offset, m_curr_codepoint_byte_offset);
-                return collected;
+                return m_buf.get_view_between(start.curr_codepoint_byte_offset, m_curr_codepoint_byte_offset);
                }
             else if( is_unexpected(curr_codepoint()) ) [[unlikely]]
                {
@@ -274,23 +310,22 @@ class ParserBase
         while( get_next() ); [[likely]]
 
         restore_context( start ); // Strong guarantee
-        throw create_parse_error( has_codepoint() ? fmt::format("Unexpected character '{}'"sv, text::to_utf8(curr_codepoint()))
+        throw create_parse_error( has_codepoint() ? fmt::format("Unexpected character '{}'"sv, utxt::to_utf8(curr_codepoint()))
                                                   : "Unexpected end (termination not found)"s );
        }
     template<std::predicate<const char32_t> CodepointPredicate =decltype(ascii::is_always_false<char32_t>)>
-    [[nodiscard]] constexpr std::string_view collect_bytes_until_and_skip(CodepointPredicate is_end, CodepointPredicate is_unexpected =ascii::is_always_false<char32_t>)
+    [[nodiscard]] constexpr std::string_view get_bytes_until_and_skip(CodepointPredicate is_end, CodepointPredicate is_unexpected =ascii::is_always_false<char32_t>)
        {
-        std::string_view sv = collect_bytes_until(is_end, is_unexpected);
+        std::string_view sv = get_bytes_until(is_end, is_unexpected);
         [[maybe_unused]] const bool has_next = get_next(); // Skip termination codepoint
         return sv;
        }
 
 
-
     //-----------------------------------------------------------------------
-    //const auto bytes = parser.collect_bytes_until<U'*',U'/'>();
+    //const auto bytes = parser.get_bytes_until<U'*',U'/'>();
     template<char32_t end_seq1, char32_t end_seq2, char32_t... end_seqtail>
-    [[nodiscard]] constexpr std::string_view collect_bytes_until()
+    [[nodiscard]] constexpr std::string_view get_bytes_until()
        {
         using end_block_arr_t = std::array<char32_t, 2+sizeof...(end_seqtail)>;
         static constexpr end_block_arr_t end_block_arr{end_seq1, end_seq2, end_seqtail...};
@@ -322,7 +357,7 @@ class ParserBase
                 // If it's the last of end_block...
                 if( ++i>=end_block.size() )
                    {// ...I'm done
-                    //notify_issue( fmt::format("matched! cp:{} collected:{}", text::to_utf8(curr_codepoint()), m_buf.get_slice_between(start.curr_codepoint_byte_offset, content_end_byte_pos)) );
+                    //notify_issue( fmt::format("matched! cp:{} collected:{}", utxt::to_utf8(curr_codepoint()), m_buf.get_slice_between(start.curr_codepoint_byte_offset, content_end_byte_pos)) );
                     [[maybe_unused]] const bool has_next = get_next(); // Skip last end_block codepoint
                     return m_buf.get_view_between(start.curr_codepoint_byte_offset, content_end_byte_pos);
                    }
@@ -343,19 +378,19 @@ class ParserBase
                    }
                 while( i>0 );
                }
-            //notify_issue( fmt::format("cp:{} collected:{} matched:{}", text::to_utf8(curr_codepoint()), m_buf.get_slice_between(start.curr_codepoint_byte_offset, content_end_byte_pos), text::to_utf8(end_block.substr(0, i))) );
+            //notify_issue( fmt::format("cp:{} collected:{} matched:{}", utxt::to_utf8(curr_codepoint()), m_buf.get_slice_between(start.curr_codepoint_byte_offset, content_end_byte_pos), utxt::to_utf8(end_block.substr(0, i))) );
            }
         while( get_next() ); [[likely]]
 
         restore_context( start ); // Strong guarantee
-        throw create_parse_error( fmt::format("Should be closed by {}"sv, text::to_utf8(end_block)) );
+        throw create_parse_error( fmt::format("Should be closed by {}"sv, utxt::to_utf8(end_block)) );
        }
 
     //-----------------------------------------------------------------------
     template<char32_t end_codepoint>
-    [[nodiscard]] constexpr std::string_view collect_bytes_until()
+    [[nodiscard]] constexpr std::string_view get_bytes_until()
        {
-        return collect_bytes_until_and_skip(ascii::is<end_codepoint>, ascii::is_always_false<char32_t>);
+        return get_bytes_until_and_skip(ascii::is<end_codepoint>, ascii::is_always_false<char32_t>);
        }
 
 
@@ -363,8 +398,8 @@ class ParserBase
     template<std::predicate<const char32_t> CodepointPredicate =decltype(ascii::is_always_false<char32_t>)>
     [[nodiscard]] constexpr std::u32string collect_until(CodepointPredicate is_end, CodepointPredicate is_unexpected =ascii::is_always_false<char32_t>)
        {
-        const std::string_view bytes = collect_bytes_until(is_end, is_unexpected);
-        return text::to_utf32<ENC>(bytes);
+        const std::string_view bytes = get_bytes_until(is_end, is_unexpected);
+        return utxt::to_utf32<ENC>(bytes);
        }
     template<std::predicate<const char32_t> CodepointPredicate =decltype(ascii::is_always_false<char32_t>)>
     [[nodiscard]] constexpr std::u32string collect_until_and_skip(CodepointPredicate is_end, CodepointPredicate is_unexpected =ascii::is_always_false<char32_t>)
@@ -385,8 +420,8 @@ class ParserBase
     template<char32_t end_seq1, char32_t end_seq2, char32_t... end_seqtail>
     [[nodiscard]] constexpr std::u32string collect_until()
        {
-        const std::string_view bytes = collect_bytes_until<end_seq1, end_seq2, end_seqtail...>();
-        return text::to_utf32<ENC>(bytes);
+        const std::string_view bytes = get_bytes_until<end_seq1, end_seq2, end_seqtail...>();
+        return utxt::to_utf32<ENC>(bytes);
        }
 
 
@@ -396,7 +431,7 @@ class ParserBase
        {
         if( not got_digit() )
            {
-            throw create_parse_error( fmt::format("Invalid char '{}' in index"sv, text::to_utf8(curr_codepoint())) );
+            throw create_parse_error( fmt::format("Invalid char '{}' in index"sv, utxt::to_utf8(curr_codepoint())) );
            }
 
         std::size_t result = (curr_codepoint()-U'0');
@@ -418,12 +453,12 @@ class ParserBase
 
 /////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
-static ut::suite<"text::ParserBase"> ParserBase_tests = []
+static ut::suite<"text::ParserBase"> text_parser_base_tests = []
 {////////////////////////////////////////////////////////////////////////////
 using ut::expect;
 using ut::that;
 using ut::throws;
-using enum text::Enc;
+using enum utxt::Enc;
 
 auto notify_sink = [](const std::string_view msg) -> void { ut::log << "\033[33m" "parser: " "\033[0m" << msg; };
 
@@ -431,7 +466,7 @@ ut::test("empty") = []
    {
     text::ParserBase<UTF8> parser{""sv};
 
-    expect( not parser.has_codepoint() and parser.curr_codepoint()==text::null_codepoint );
+    expect( not parser.has_codepoint() and parser.curr_codepoint()==utxt::codepoint::null );
    };
 
 
@@ -444,7 +479,7 @@ ut::test("simple utf-8") = []
     expect( parser.get_next() and parser.got(U' ') );
     expect( parser.get_next() and parser.got(U'±') );
     expect( parser.get_next() and parser.got(U'∆') );
-    expect( not parser.get_next() and parser.got(text::null_codepoint) );
+    expect( not parser.get_next() and parser.got(utxt::codepoint::null) );
    };
 
 
@@ -457,7 +492,7 @@ ut::test("simple utf-16le") = []
     expect( parser.get_next() and parser.got(U' ') );
     expect( parser.get_next() and parser.got(U'±') );
     expect( parser.get_next() and parser.got(U'∆') );
-    expect( not parser.get_next() and parser.got(text::null_codepoint) );
+    expect( not parser.get_next() and parser.got(utxt::codepoint::null) );
    };
 
 ut::test("context and eat") = []
@@ -550,19 +585,19 @@ ut::test("parse utilities") = [&notify_sink]
     expect( parser.eat(U'\n') and parser.curr_line()==2u );
 
     expect( parser.eat(U'<') and parser.curr_line()==2u );
-    expect( throws<parse::error>([&parser] { [[maybe_unused]] auto n = parser.collect_bytes_until<U'☺'>(); }) ) << "missing closing character should throw\n";
-    expect( parser.collect_bytes_until<U'>'>()=="tag"sv and parser.curr_line()==2u and parser.got(U'a') );
+    expect( throws<parse::error>([&parser] { [[maybe_unused]] auto sv = parser.get_bytes_until<U'☺'>(); }) ) << "missing closing character should throw\n";
+    expect( parser.get_bytes_until<U'>'>()=="tag"sv and parser.curr_line()==2u and parser.got(U'a') );
     expect( parser.eat(U"a=\"") );
-    expect( throws<parse::error>([&parser] { [[maybe_unused]] auto n = parser.collect_until_and_skip(ascii::is<U'*'>, ascii::is_endline<char32_t>); }) ) << "missing closing character in same line should throw\n";
+    expect( throws<parse::error>([&parser] { [[maybe_unused]] auto sv = parser.collect_until_and_skip(ascii::is<U'*'>, ascii::is_endline<char32_t>); }) ) << "missing closing character in same line should throw\n";
     expect( parser.collect_until_and_skip(ascii::is<U'\"'>, ascii::is_endline<char32_t>)==U""sv and parser.got(U' ') );
 
     parser.skip_blanks();
     expect( parser.eat(U"b=\"") );
     expect( parser.collect_until(ascii::is<U'\"'>, ascii::is_endline<char32_t>)==U"str"sv and parser.eat(U'\"') and parser.eat(U"</"sv) );
-    expect( parser.collect_bytes_until<U'>'>()=="tag"sv and parser.eat_endline() );
+    expect( parser.get_bytes_until<U'>'>()=="tag"sv and parser.eat_endline() );
 
     expect( parser.eat(U"/*") and parser.curr_line()==3u );
-    expect( parser.collect_bytes_until<U'*',U'/'>()=="block\ncomment"sv );
+    expect( parser.get_bytes_until<U'*',U'/'>()=="block\ncomment"sv );
     expect( parser.eat(U"end") );
 
     expect( parser.collect_until<U'<',U'!',U'-',U'-'>()==U"\nblah "sv and parser.got(U'a') );
@@ -573,14 +608,14 @@ ut::test("end block edge case 1") = [&notify_sink]
    {
     text::ParserBase<UTF8> parser{ "****/a"sv };
     parser.set_on_notify_issue(notify_sink);
-    expect( parser.collect_bytes_until<U'*',U'/'>()=="***"sv and parser.got(U'a') );
+    expect( parser.get_bytes_until<U'*',U'/'>()=="***"sv and parser.got(U'a') );
    };
 
 ut::test("end block edge case 2") = [&notify_sink]
    {
     text::ParserBase<UTF8> parser{ "----->a"sv };
     parser.set_on_notify_issue(notify_sink);
-    expect( parser.collect_bytes_until<U'-',U'-',U'>'>()=="---"sv and parser.got(U'a') );
+    expect( parser.get_bytes_until<U'-',U'-',U'>'>()=="---"sv and parser.got(U'a') );
    };
 
 ut::test("numbers") = [&notify_sink]
@@ -599,7 +634,7 @@ ut::test("numbers") = [&notify_sink]
     parser.skip_line();
 
     expect( parser.eat(U'b') and parser.eat(U'=') and parser.curr_line()==2 );
-    expect( throws<parse::error>([&parser] { [[maybe_unused]] auto n = parser.extract_index(); }) ) << "invalid index should throw\n";
+    expect( throws<parse::error>([&parser] { [[maybe_unused]] auto i = parser.extract_index(); }) ) << "invalid index should throw\n";
     expect( parser.eat(U'h') );
     expect( that % parser.extract_index()==1u );
     expect( parser.eat_endline() and parser.curr_line()==3u );

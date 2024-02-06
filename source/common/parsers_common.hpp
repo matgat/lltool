@@ -2,10 +2,10 @@
 //  ---------------------------------------------
 //  Common definitions used by parsers
 //  ---------------------------------------------
-//  #include "parser_common.hpp" // parse::error, parse::flags
+//  #include "parsers_common.hpp" // parse::error
 //  ---------------------------------------------
 #include <cstdint> // std::uint8_t
-#include <stdexcept> // std::exception, std::runtime_error
+#include <stdexcept> // std::exception
 #include <string>
 #include <string_view>
 
@@ -39,7 +39,7 @@ class error final : public std::exception
 
 
 /////////////////////////////////////////////////////////////////////////////
-// parse_function(..., const parse::flags flags =parse::flag::NONE)
+// function(..., const parse::flags flags =parse::flag::NONE)
 // if( flags & parse::flag::SKIP_STOPPER ) ...
 //using flags = std::uint8_t;
 //namespace flag

@@ -1,6 +1,8 @@
 ﻿#pragma once
 //  ---------------------------------------------
-//  Encoding aware text utilities
+//  Some facilities to deal with unicode text
+//  ---------------------------------------------
+//  #include "unicode_text.hpp" // utxt::*
 //  ---------------------------------------------
 #include <cassert>
 #include <cstdint> // std::uint8_t, std::uint16_t, ...
@@ -8,11 +10,9 @@
 #include <string>
 #include <string_view>
 
-#include "ascii_predicates.hpp" // ascii::is_*
-
 
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-namespace text
+namespace utxt
 {
 
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -83,32 +83,14 @@ enum class Enc : std::uint8_t
     UTF32BE
    };
 
-#define TEXT_DISPATCH_TO_ENC(E,L,...)\
-    switch(E)\
-       {using enum text::Enc;\
-        case UTF8: return L UTF8 __VA_ARGS__;\
-        case UTF16LE: return L UTF16LE __VA_ARGS__;\
-        case UTF16BE: return L UTF16BE __VA_ARGS__;\
-        case UTF32LE: return L UTF32LE __VA_ARGS__;\
-        case UTF32BE: return L UTF32BE __VA_ARGS__;\
-       }\
-    std::unreachable();
-    //throw std::runtime_error{ fmt::format("Unhandled encoding: {}"sv, std::to_underlying(E)) };
 
-#define TEXT_ATTACH_TO_ENC(E,L)\
-    switch(E)\
-       {using enum text::Enc;\
-        case UTF8: return L##UTF8;\
-        case UTF16LE: return L##UTF16LE;\
-        case UTF16BE: return L##UTF16BE;\
-        case UTF32LE: return L##UTF32LE;\
-        case UTF32BE: return L##UTF32BE;\
-       }\
-    std::unreachable();
+namespace codepoint
+{
+    inline static constexpr char32_t invalid = U'�'; // replacement character '\u{FFFD}'
+    inline static constexpr char32_t null = U'\0';
+    //inline static constexpr char32_t bom = U'\uFEFF'; // Zero Width No-Break Space (BOM)
+}
 
-const char32_t err_codepoint = U'�'; // replacement character '\u{FFFD}'
-const char32_t null_codepoint = 0;
-//const char32_t bom = '\uFEFF'; // Zero Width No-Break Space (BOM)
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -128,18 +110,18 @@ namespace flag
 
 
 //---------------------------------------------------------------------------
-// auto [enc, bom_size] = text::detect_encoding_of(bytes);
+// auto [enc, bom_size] = utxt::detect_encoding_of(bytes);
 struct bom_ret_t final { Enc enc; std::uint8_t bom_size; };
 bom_ret_t constexpr detect_encoding_of(const std::string_view bytes)
-   {//      +--------------+-------------+-------+
-    //      |  Encoding    |   Bytes     | Chars |
-    //      |--------------|-------------|-------|
-    //      | UTF-8        | EF BB BF    | ï»¿   |
-    //      | UTF-16 (LE)  | FF FE       | ÿþ    |
-    //      | UTF-16 (BE)  | FE FF       | þÿ    |
-    //      | UTF-32 (LE)  | FF FE 00 00 | ÿþ..  |
-    //      | UTF-32 (BE)  | 00 00 FE FF | ..þÿ  |
-    //      +--------------+-------------+-------+
+   {// +-----------+-------------+
+    // | Encoding  |   Bytes     |
+    // |-----------|-------------|
+    // | utf-8     | EF BB BF    |
+    // | utf-16-be | FE FF       |
+    // | utf-16-le | FF FE       |
+    // | utf-32-be | 00 00 FE FF |
+    // | utf-32-le | FF FE 00 00 |
+    // +-----------+-------------+
     using enum Enc;
     if( bytes.size()>2 ) [[likely]]
        {
@@ -225,7 +207,7 @@ template<> constexpr char32_t extract_codepoint<Enc::UTF8>(const std::string_vie
 
     // Invalid utf-8 character
     ++pos;
-    return err_codepoint;
+    return codepoint::invalid;
 }
 
 //---------------------------------------------------------------------------
@@ -257,14 +239,14 @@ template<bool LE> constexpr char32_t extract_next_codepoint_from_utf16(const std
 
     if( codeunit1>=0xDC00 or (pos+1)>=bytes.size() ) [[unlikely]]
        {// Not a first surrogate!
-        return err_codepoint;
+        return codepoint::invalid;
        }
 
     // Here expecting the second codeunit
     const std::uint16_t codeunit2 = get_code_unit(bytes, pos);
     if( codeunit2<0xDC00 or codeunit2>=0xE000 ) [[unlikely]]
        {// Not a second surrogate!
-        return err_codepoint;
+        return codepoint::invalid;
        }
 
     // Ok, I have the two valid codeunits
@@ -471,24 +453,51 @@ template<Enc ENC> class bytes_buffer_t final
     [[nodiscard]] constexpr char32_t extract_codepoint() noexcept
        {
         assert( has_codepoint() );
-        const char32_t next_codepoint = text::extract_codepoint<ENC>(m_byte_buf, m_current_byte_offset);
+        const char32_t next_codepoint = utxt::extract_codepoint<ENC>(m_byte_buf, m_current_byte_offset);
         assert( m_current_byte_offset<=m_byte_buf.size() );
         return next_codepoint;
        }
 };
 
 
+// To instantiate the right template at runtime, so ugly...
+#define TEXT_DISPATCH_TO_ENC(E,L,...)\
+    switch(E)\
+       {using enum utxt::Enc;\
+        case UTF8: return L UTF8 __VA_ARGS__;\
+        case UTF16LE: return L UTF16LE __VA_ARGS__;\
+        case UTF16BE: return L UTF16BE __VA_ARGS__;\
+        case UTF32LE: return L UTF32LE __VA_ARGS__;\
+        case UTF32BE: return L UTF32BE __VA_ARGS__;\
+       }\
+    std::unreachable();
+    //throw std::runtime_error{ fmt::format("Unhandled encoding: {}"sv, std::to_underlying(E)) };
+
+#define TEXT_ATTACH_TO_ENC(E,L)\
+    switch(E)\
+       {using enum utxt::Enc;\
+        case UTF8: return L##UTF8;\
+        case UTF16LE: return L##UTF16LE;\
+        case UTF16BE: return L##UTF16BE;\
+        case UTF32LE: return L##UTF32LE;\
+        case UTF32BE: return L##UTF32BE;\
+       }\
+    std::unreachable();
+
+
+
+/// Re-encode bytes
 
 //---------------------------------------------------------------------------
 // Re-encode a byte buffer from INENC to OUTENC
-// const std::string out_bytes = text::re_encode<UTF16LE,UTF8>(in_bytes);
-template<text::Enc INENC,text::Enc OUTENC>
-constexpr std::string re_encode(const std::string_view in_bytes)
+// const std::string out_bytes = utxt::reencode<UTF16LE,UTF8>(in_bytes);
+template<utxt::Enc INENC,utxt::Enc OUTENC>
+constexpr std::string reencode(const std::string_view in_bytes)
 {
     std::string out_bytes;
 
     // utf-32 occupa in genere più bytes
-    using enum text::Enc;
+    using enum utxt::Enc;
     if constexpr( INENC==UTF8 and (OUTENC==UTF32BE or OUTENC==UTF32LE) ) // cppcheck-suppress redundantCondition
        {
         out_bytes.reserve( 4 * in_bytes.size() );
@@ -506,7 +515,7 @@ constexpr std::string re_encode(const std::string_view in_bytes)
         out_bytes.reserve( in_bytes.size() );
        }
 
-    text::bytes_buffer_t<INENC> bytes_buf(in_bytes);
+    utxt::bytes_buffer_t<INENC> bytes_buf(in_bytes);
     while( bytes_buf.has_codepoint() )
        {
         append_codepoint<OUTENC>(bytes_buf.extract_codepoint(), out_bytes);
@@ -515,16 +524,15 @@ constexpr std::string re_encode(const std::string_view in_bytes)
     // Detect truncated
     if( bytes_buf.has_bytes() )
        {// Truncated codepoint!
-        append_codepoint<OUTENC>(err_codepoint, out_bytes);
+        append_codepoint<OUTENC>(codepoint::invalid, out_bytes);
        }
 
     return out_bytes;
 }
 
-
 //---------------------------------------------------------------------------
-// const std::string out_bytes = text::encode_as<text::Enc::UTF8>(in_bytes);
-template<text::Enc OUTENC>
+// const std::string out_bytes = utxt::encode_as<utxt::Enc::UTF8>(in_bytes);
+template<utxt::Enc OUTENC>
 [[nodiscard]] constexpr std::string encode_as(std::string_view in_bytes, const flags_t flags =flag::NONE)
 {
     const auto [in_enc, bom_size] = detect_encoding_of(in_bytes);
@@ -532,22 +540,24 @@ template<text::Enc OUTENC>
        {
         in_bytes.remove_prefix(bom_size);
        }
-    TEXT_DISPATCH_TO_ENC(in_enc, re_encode<, ,OUTENC>(in_bytes))
+    TEXT_DISPATCH_TO_ENC(in_enc, reencode<, ,OUTENC>(in_bytes))
 }
+
 //---------------------------------------------------------------------------
-// const std::string out_bytes = text::encode_as(text::Enc::UTF8,in_bytes);
-[[nodiscard]] constexpr std::string encode_as(const text::Enc out_enc, std::string_view in_bytes, const flags_t flags =flag::NONE)
+// const std::string out_bytes = utxt::encode_as(utxt::Enc::UTF8,in_bytes);
+[[nodiscard]] constexpr std::string encode_as(const utxt::Enc out_enc, std::string_view in_bytes, const flags_t flags =flag::NONE)
 {
     TEXT_DISPATCH_TO_ENC(out_enc, encode_as<, >(in_bytes,flags))
 }
 
 
 
+/// Re-encode bytes if necessary
 
 //---------------------------------------------------------------------------
 // Re-encode a byte buffer from INENC to OUTENC only if are different
-template<text::Enc INENC,text::Enc OUTENC>
-constexpr std::string_view re_encode_if_necessary(const std::string_view in_bytes, std::string& reencoded_buf)
+template<utxt::Enc INENC,utxt::Enc OUTENC>
+constexpr std::string_view reencode_if_necessary(const std::string_view in_bytes, std::string& reencoded_buf)
 {
     if constexpr( INENC==OUTENC )
        {
@@ -555,15 +565,15 @@ constexpr std::string_view re_encode_if_necessary(const std::string_view in_byte
        }
     else
        {
-        reencoded_buf = re_encode<INENC,OUTENC>(in_bytes);
+        reencoded_buf = reencode<INENC,OUTENC>(in_bytes);
         return reencoded_buf;
        }
 }
 
 //---------------------------------------------------------------------------
 // std::string reencoded_buf;
-// const std::string_view out_bytes = text::encode_if_necessary_as<text::Enc::UTF8>(in_bytes, reencoded_buf);
-template<text::Enc OUTENC>
+// const std::string_view out_bytes = utxt::encode_if_necessary_as<utxt::Enc::UTF8>(in_bytes, reencoded_buf);
+template<utxt::Enc OUTENC>
 [[nodiscard]] constexpr std::string_view encode_if_necessary_as(std::string_view in_bytes, std::string& reencoded_buf, const flags_t flags =flag::NONE)
 {
     const auto [in_enc, bom_size] = detect_encoding_of(in_bytes);
@@ -571,27 +581,29 @@ template<text::Enc OUTENC>
        {
         in_bytes.remove_prefix(bom_size);
        }
-    TEXT_DISPATCH_TO_ENC(in_enc, re_encode_if_necessary<, ,OUTENC>(in_bytes, reencoded_buf))
+    TEXT_DISPATCH_TO_ENC(in_enc, reencode_if_necessary<, ,OUTENC>(in_bytes, reencoded_buf))
 }
+
 //---------------------------------------------------------------------------
 // std::string reencoded_buf;
-// const std::string_view out_bytes = text::encode_if_necessary_as(text::Enc::UTF8, in_bytes, reencoded_buf);
-[[nodiscard]] constexpr std::string_view encode_if_necessary_as(const text::Enc out_enc, std::string_view in_bytes, std::string& reencoded_buf, const flags_t flags =flag::NONE)
+// const std::string_view out_bytes = utxt::encode_if_necessary_as(utxt::Enc::UTF8, in_bytes, reencoded_buf);
+[[nodiscard]] constexpr std::string_view encode_if_necessary_as(const utxt::Enc out_enc, std::string_view in_bytes, std::string& reencoded_buf, const flags_t flags =flag::NONE)
 {
     TEXT_DISPATCH_TO_ENC(out_enc, encode_if_necessary_as<, >(in_bytes, reencoded_buf, flags))
 }
 
 
 
+/// [Decode bytes to utf-32 string]
 
 //-----------------------------------------------------------------------
-template<text::Enc INENC>
+template<utxt::Enc INENC>
 [[nodiscard]] constexpr std::u32string to_utf32(const std::string_view bytes)
 {
     std::u32string u32str;
     u32str.reserve( bytes.size() );
 
-    text::bytes_buffer_t<INENC> bytes_buf(bytes);
+    utxt::bytes_buffer_t<INENC> bytes_buf(bytes);
     while( bytes_buf.has_codepoint() )
        {
         u32str.push_back( bytes_buf.extract_codepoint() );
@@ -600,7 +612,7 @@ template<text::Enc INENC>
     // Detect truncated
     if( bytes_buf.has_bytes() )
        {// Truncated codepoint!
-        u32str.push_back(err_codepoint);
+        u32str.push_back(codepoint::invalid);
        }
 
     return u32str;
@@ -608,15 +620,18 @@ template<text::Enc INENC>
 
 [[nodiscard]] /*constexpr*/ std::u32string to_utf32(const std::u8string_view utf8str)
 {
-    return to_utf32<text::Enc::UTF8>( std::string_view(reinterpret_cast<const char*>(utf8str.data()), utf8str.size()) );
+    return to_utf32<utxt::Enc::UTF8>( std::string_view(reinterpret_cast<const char*>(utf8str.data()), utf8str.size()) );
 }
 
 
+
+/// [Encode utf-32 to bytes]
+
 //---------------------------------------------------------------------------
 // Encode a char32_t sequence to OUTENC
-// const std::string out_bytes = text::encode_as<UTF16LE>(U"abc");
+// const std::string out_bytes = utxt::encode_as<UTF16LE>(U"abc");
 //-----------------------------------------------------------------------
-template<text::Enc OUTENC>
+template<utxt::Enc OUTENC>
 [[nodiscard]] constexpr std::string encode_as(const std::u32string_view u32str)
 {
     std::string out_bytes;
@@ -631,8 +646,9 @@ template<text::Enc OUTENC>
 
     return out_bytes;
 }
+
 //-----------------------------------------------------------------------
-template<text::Enc OUTENC>
+template<utxt::Enc OUTENC>
 [[nodiscard]] constexpr std::string encode_as(const char32_t codepoint)
 {
     std::string out_bytes;
@@ -641,6 +657,23 @@ template<text::Enc OUTENC>
     return out_bytes;
 }
 
+//---------------------------------------------------------------------------
+// const std::string out_bytes = utxt::encode_as(enc,U"str");
+//template<typename T>
+//concept a_basic_string = std::same_as<T, std::basic_string<typename T::value_type, typename T::traits_type, typename T::allocator_type>>;
+[[nodiscard]] constexpr std::string encode_as(const utxt::Enc enc, const std::u32string_view u32str)
+{
+    TEXT_DISPATCH_TO_ENC(enc, encode_as<, >(u32str))
+}
+//---------------------------------------------------------------------------
+[[nodiscard]] constexpr std::string encode_as(const utxt::Enc enc, const char32_t codepoint)
+{
+    TEXT_DISPATCH_TO_ENC(enc, encode_as<, >(codepoint))
+}
+
+
+
+/// [Encode utf-32 to utf-8 bytes]
 
 //-----------------------------------------------------------------------
 [[nodiscard]] constexpr std::string to_utf8(const std::u32string_view u32str)
@@ -653,21 +686,6 @@ template<text::Enc OUTENC>
     return encode_as<Enc::UTF8>(codepoint);
 }
 
-//---------------------------------------------------------------------------
-// const std::string out_bytes = text::encode_as(enc,U"str");
-//template<typename T>
-//concept a_basic_string = std::same_as<T, std::basic_string<typename T::value_type, typename T::traits_type, typename T::allocator_type>>;
-[[nodiscard]] constexpr std::string encode_as(const text::Enc enc, const std::u32string_view u32str)
-{
-    TEXT_DISPATCH_TO_ENC(enc, encode_as<, >(u32str))
-}
-//---------------------------------------------------------------------------
-[[nodiscard]] constexpr std::string encode_as(const text::Enc enc, const char32_t codepoint)
-{
-    TEXT_DISPATCH_TO_ENC(enc, encode_as<, >(codepoint))
-}
-
-
 }//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 
@@ -677,16 +695,17 @@ template<text::Enc OUTENC>
 /////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
 #include <array>
-static ut::suite<"text::"> text_tests = []
+using namespace std::literals; // "..."sv
+static ut::suite<"utxt::"> text_tests = []
 {////////////////////////////////////////////////////////////////////////////
 using ut::expect;
 using ut::that;
-using enum text::Enc;
+using enum utxt::Enc;
 
 
 ut::test("bitwise utilities") = []
    {
-    using namespace text::details;
+    using namespace utxt::details;
 
     const char OxCA = '\xCA';
     const char OxFE = '\xFE';
@@ -722,9 +741,9 @@ ut::test("bitwise utilities") = []
 
 ut::test("detect_encoding_of") = []
    {
-    auto test_enc_of = [](const std::string_view bytes, const text::bom_ret_t expected, const char* const msg) noexcept -> void
+    auto test_enc_of = [](const std::string_view bytes, const utxt::bom_ret_t expected, const char* const msg) noexcept -> void
        {
-        const text::bom_ret_t retrieved = text::detect_encoding_of(bytes);
+        const utxt::bom_ret_t retrieved = utxt::detect_encoding_of(bytes);
         expect( retrieved.enc==expected.enc and retrieved.bom_size==expected.bom_size ) << msg;
        };
 
@@ -760,7 +779,7 @@ ut::test("codepoints decode and encode") = []
         const std::string_view encoded_as_UTF32LE;
         const std::string_view encoded_as_UTF32BE;
 
-        constexpr std::string_view encoded_as(const text::Enc enc) const noexcept
+        constexpr std::string_view encoded_as(const utxt::Enc enc) const noexcept
            {
             TEXT_ATTACH_TO_ENC(enc, encoded_as_)
            }
@@ -773,13 +792,13 @@ ut::test("codepoints decode and encode") = []
         ,{ U'🍌', "\xF0\x9F\x8D\x8C"sv, "\x3C\xD8\x4C\xDF"sv, "\xD8\x3C\xDF\x4C"sv, "\x4C\xF3\x01\0"sv, "\0\x01\xF3\x4C"sv }
        }};
 
-    auto test_codepoint = []<text::Enc ENC>(const test_case_t& test_case) constexpr -> void
+    auto test_codepoint = []<utxt::Enc ENC>(const test_case_t& test_case) constexpr -> void
        {
         //ut::log << "Testing " << test_case.encoded_as_UTF8 << " with " << static_cast<int>(std::to_underlying(ENC));
         std::size_t pos{};
-        expect( text::extract_codepoint<ENC>(test_case.encoded_as(ENC), pos) == test_case.code_point );
+        expect( utxt::extract_codepoint<ENC>(test_case.encoded_as(ENC), pos) == test_case.code_point );
         std::string bytes;
-        text::append_codepoint<ENC>(test_case.code_point, bytes);
+        utxt::append_codepoint<ENC>(test_case.code_point, bytes);
         expect( that % test_case.encoded_as(ENC) == bytes );
        };
 
@@ -796,18 +815,18 @@ ut::test("codepoints decode and encode") = []
        }
    };
 
-ut::test("text::bytes_buffer_t") = []
+ut::test("utxt::bytes_buffer_t") = []
    {
-    text::bytes_buffer_t<text::Enc::UTF16LE> buf("\x61\x00\x62\x00\x63\x00"sv); // u"abc"
+    utxt::bytes_buffer_t<utxt::Enc::UTF16LE> buf("\x61\x00\x62\x00\x63\x00"sv); // u"abc"
     expect( buf.has_bytes() and buf.has_codepoint() and buf.byte_pos()==0 and buf.extract_codepoint()==U'a' );
     expect( buf.has_bytes() and buf.has_codepoint() and buf.byte_pos()==2 and buf.extract_codepoint()==U'b' );
     expect( buf.has_bytes() and buf.has_codepoint() and buf.byte_pos()==4 and buf.extract_codepoint()==U'c' );
     expect( not buf.has_bytes() and not buf.has_codepoint() and buf.byte_pos()==6 );
    };
 
-ut::test("text::encode_as<>(bytes)") = []
+ut::test("utxt::encode_as<>(bytes)") = []
    {
-    expect( text::encode_as<UTF8>(""sv) == ""sv) << "Implicit utf-8 empty string should be empty\n";
+    expect( utxt::encode_as<UTF8>(""sv) == ""sv) << "Implicit utf-8 empty string should be empty\n";
 
     struct test_case_t final
        {
@@ -818,7 +837,7 @@ ut::test("text::encode_as<>(bytes)") = []
         const std::string_view encoded_as_UTF32LE;
         const std::string_view encoded_as_UTF32BE;
 
-        constexpr std::string_view encoded_as(const text::Enc enc) const noexcept
+        constexpr std::string_view encoded_as(const utxt::Enc enc) const noexcept
            {
             TEXT_ATTACH_TO_ENC(enc, encoded_as_)
            }
@@ -842,60 +861,60 @@ ut::test("text::encode_as<>(bytes)") = []
        {
         ut::test(ex.encoded_as_UTF8) = [&ex]
            {
-            expect( text::re_encode<UTF8,UTF8>(ex.encoded_as(UTF8))==ex.encoded_as(UTF8) ) << "utf-8 to utf-8\n";
-            expect( text::re_encode<UTF16LE,UTF16LE>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF16LE) ) << "utf-16le to utf-16le\n";
+            expect( utxt::reencode<UTF8,UTF8>(ex.encoded_as(UTF8))==ex.encoded_as(UTF8) ) << "utf-8 to utf-8\n";
+            expect( utxt::reencode<UTF16LE,UTF16LE>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF16LE) ) << "utf-16le to utf-16le\n";
 
-            expect( text::encode_as<UTF8>(ex.encoded_as(UTF8))==ex.encoded_as(UTF8) ) << "utf-8 to utf-8\n";
-            expect( text::encode_as<UTF16LE>(ex.encoded_as(UTF8))==ex.encoded_as(UTF16LE) ) << "utf-8 to utf-16le\n";
-            expect( text::encode_as<UTF16BE>(ex.encoded_as(UTF8))==ex.encoded_as(UTF16BE) ) << "utf-8 to utf-16be\n";
-            expect( text::encode_as<UTF32LE>(ex.encoded_as(UTF8))==ex.encoded_as(UTF32LE) ) << "utf-8 to utf-32le\n";
-            expect( text::encode_as<UTF32BE>(ex.encoded_as(UTF8))==ex.encoded_as(UTF32BE) ) << "utf-8 to utf-32be\n";
+            expect( utxt::encode_as<UTF8>(ex.encoded_as(UTF8))==ex.encoded_as(UTF8) ) << "utf-8 to utf-8\n";
+            expect( utxt::encode_as<UTF16LE>(ex.encoded_as(UTF8))==ex.encoded_as(UTF16LE) ) << "utf-8 to utf-16le\n";
+            expect( utxt::encode_as<UTF16BE>(ex.encoded_as(UTF8))==ex.encoded_as(UTF16BE) ) << "utf-8 to utf-16be\n";
+            expect( utxt::encode_as<UTF32LE>(ex.encoded_as(UTF8))==ex.encoded_as(UTF32LE) ) << "utf-8 to utf-32le\n";
+            expect( utxt::encode_as<UTF32BE>(ex.encoded_as(UTF8))==ex.encoded_as(UTF32BE) ) << "utf-8 to utf-32be\n";
 
-            expect( text::encode_as<UTF8>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF8) ) << "utf-16le to utf-8\n";
-            expect( text::encode_as<UTF16LE>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF16LE) ) << "utf-16le to utf-16le\n";
-            expect( text::encode_as<UTF16BE>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF16BE) ) << "utf-16le to utf-16be\n";
-            expect( text::encode_as<UTF32LE>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF32LE) ) << "utf-16le to utf-32le\n";
-            expect( text::encode_as<UTF32BE>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF32BE) ) << "utf-16le to utf-32be\n";
+            expect( utxt::encode_as<UTF8>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF8) ) << "utf-16le to utf-8\n";
+            expect( utxt::encode_as<UTF16LE>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF16LE) ) << "utf-16le to utf-16le\n";
+            expect( utxt::encode_as<UTF16BE>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF16BE) ) << "utf-16le to utf-16be\n";
+            expect( utxt::encode_as<UTF32LE>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF32LE) ) << "utf-16le to utf-32le\n";
+            expect( utxt::encode_as<UTF32BE>(ex.encoded_as(UTF16LE))==ex.encoded_as(UTF32BE) ) << "utf-16le to utf-32be\n";
 
-            expect( text::encode_as<UTF8>(ex.encoded_as(UTF16BE))==ex.encoded_as(UTF8) ) << "utf-16be to utf-8\n";
-            expect( text::encode_as<UTF16LE>(ex.encoded_as(UTF16BE))==ex.encoded_as(UTF16LE) ) << "utf-16be to utf-16le\n";
-            expect( text::encode_as<UTF16BE>(ex.encoded_as(UTF16BE))==ex.encoded_as(UTF16BE) ) << "utf-16be to utf-16be\n";
-            expect( text::encode_as<UTF32LE>(ex.encoded_as(UTF16BE))==ex.encoded_as(UTF32LE) ) << "utf-16be to utf-32le\n";
-            expect( text::encode_as<UTF32BE>(ex.encoded_as(UTF16BE))==ex.encoded_as(UTF32BE) ) << "utf-16be to utf-32be\n";
+            expect( utxt::encode_as<UTF8>(ex.encoded_as(UTF16BE))==ex.encoded_as(UTF8) ) << "utf-16be to utf-8\n";
+            expect( utxt::encode_as<UTF16LE>(ex.encoded_as(UTF16BE))==ex.encoded_as(UTF16LE) ) << "utf-16be to utf-16le\n";
+            expect( utxt::encode_as<UTF16BE>(ex.encoded_as(UTF16BE))==ex.encoded_as(UTF16BE) ) << "utf-16be to utf-16be\n";
+            expect( utxt::encode_as<UTF32LE>(ex.encoded_as(UTF16BE))==ex.encoded_as(UTF32LE) ) << "utf-16be to utf-32le\n";
+            expect( utxt::encode_as<UTF32BE>(ex.encoded_as(UTF16BE))==ex.encoded_as(UTF32BE) ) << "utf-16be to utf-32be\n";
 
-            expect( text::encode_as<UTF8>(ex.encoded_as(UTF32LE))==ex.encoded_as(UTF8) ) << "utf-32le to utf-8\n";
-            expect( text::encode_as<UTF16LE>(ex.encoded_as(UTF32LE))==ex.encoded_as(UTF16LE) ) << "utf-32le to utf-16le\n";
-            expect( text::encode_as<UTF16BE>(ex.encoded_as(UTF32LE))==ex.encoded_as(UTF16BE) ) << "utf-32le to utf-16be\n";
-            expect( text::encode_as<UTF32LE>(ex.encoded_as(UTF32LE))==ex.encoded_as(UTF32LE) ) << "utf-32le to utf-32le\n";
-            expect( text::encode_as<UTF32BE>(ex.encoded_as(UTF32LE))==ex.encoded_as(UTF32BE) ) << "utf-32le to utf-32be\n";
+            expect( utxt::encode_as<UTF8>(ex.encoded_as(UTF32LE))==ex.encoded_as(UTF8) ) << "utf-32le to utf-8\n";
+            expect( utxt::encode_as<UTF16LE>(ex.encoded_as(UTF32LE))==ex.encoded_as(UTF16LE) ) << "utf-32le to utf-16le\n";
+            expect( utxt::encode_as<UTF16BE>(ex.encoded_as(UTF32LE))==ex.encoded_as(UTF16BE) ) << "utf-32le to utf-16be\n";
+            expect( utxt::encode_as<UTF32LE>(ex.encoded_as(UTF32LE))==ex.encoded_as(UTF32LE) ) << "utf-32le to utf-32le\n";
+            expect( utxt::encode_as<UTF32BE>(ex.encoded_as(UTF32LE))==ex.encoded_as(UTF32BE) ) << "utf-32le to utf-32be\n";
 
-            expect( text::encode_as<UTF8>(ex.encoded_as(UTF32BE))==ex.encoded_as(UTF8) ) << "utf-32be to utf-8\n";
-            expect( text::encode_as<UTF16LE>(ex.encoded_as(UTF32BE))==ex.encoded_as(UTF16LE) ) << "utf-32be to utf-16le\n";
-            expect( text::encode_as<UTF16BE>(ex.encoded_as(UTF32BE))==ex.encoded_as(UTF16BE) ) << "utf-32be to utf-16be\n";
-            expect( text::encode_as<UTF32LE>(ex.encoded_as(UTF32BE))==ex.encoded_as(UTF32LE) ) << "utf-32be to utf-32le\n";
-            expect( text::encode_as<UTF32BE>(ex.encoded_as(UTF32BE))==ex.encoded_as(UTF32BE) ) << "utf-32be to utf-32be\n";
+            expect( utxt::encode_as<UTF8>(ex.encoded_as(UTF32BE))==ex.encoded_as(UTF8) ) << "utf-32be to utf-8\n";
+            expect( utxt::encode_as<UTF16LE>(ex.encoded_as(UTF32BE))==ex.encoded_as(UTF16LE) ) << "utf-32be to utf-16le\n";
+            expect( utxt::encode_as<UTF16BE>(ex.encoded_as(UTF32BE))==ex.encoded_as(UTF16BE) ) << "utf-32be to utf-16be\n";
+            expect( utxt::encode_as<UTF32LE>(ex.encoded_as(UTF32BE))==ex.encoded_as(UTF32LE) ) << "utf-32be to utf-32le\n";
+            expect( utxt::encode_as<UTF32BE>(ex.encoded_as(UTF32BE))==ex.encoded_as(UTF32BE) ) << "utf-32be to utf-32be\n";
            };
        }
    };
 
-ut::test("text::to_utf8") = []
+ut::test("utxt::to_utf8") = []
    {
-    expect( text::to_utf8(U""sv)==""sv );
-    expect( text::to_utf8(U"aà⟶♥♫"sv)=="aà⟶♥♫"sv );
-    expect( text::to_utf8(U'⛵')=="⛵"sv );
+    expect( utxt::to_utf8(U""sv)==""sv );
+    expect( utxt::to_utf8(U"aà⟶♥♫"sv)=="aà⟶♥♫"sv );
+    expect( utxt::to_utf8(U'⛵')=="⛵"sv );
    };
 
-ut::test("text::to_utf32") = []
+ut::test("utxt::to_utf32") = []
    {
-    expect( text::to_utf32(u8""sv)==U""sv );
-    expect( text::to_utf32(u8"aà⟶♥♫"sv)==U"aà⟶♥♫"sv );
+    expect( utxt::to_utf32(u8""sv)==U""sv );
+    expect( utxt::to_utf32(u8"aà⟶♥♫"sv)==U"aà⟶♥♫"sv );
    };
 
-ut::test("text::encode_as(enc,...)") = []
+ut::test("utxt::encode_as(enc,...)") = []
    {
-    expect( text::encode_as(UTF8,U""sv)==""sv );
-    expect( text::encode_as(UTF8,U"aà⟶♥♫"sv)=="aà⟶♥♫"sv );
-    expect( text::encode_as(UTF8,U'⛵')=="⛵"sv );
+    expect( utxt::encode_as(UTF8,U""sv)==""sv );
+    expect( utxt::encode_as(UTF8,U"aà⟶♥♫"sv)=="aà⟶♥♫"sv );
+    expect( utxt::encode_as(UTF8,U'⛵')=="⛵"sv );
    };
 
 };///////////////////////////////////////////////////////////////////////////

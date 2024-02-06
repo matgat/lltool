@@ -8,7 +8,7 @@ namespace ut = boost::ut;
 
 #include "ascii_parsing_utils.hpp" // ascii::extract_pair<>()
 #include "ascii_predicates.hpp" // ascii::is_*
-#include "ascii_simple_parser.hpp" // ascii::simple_parser
+#include "ascii_simple_lexer.hpp" // ascii::simple_lexer
 #include "expand_env_vars.hpp" // sys::expand_env_vars()
 #include "file_globbing.hpp" // MG::file_glob()
 #include "file_write.hpp" // sys::file_write()
@@ -22,12 +22,14 @@ namespace ut = boost::ut;
 #include "string_utilities.hpp" // str::*
 #include "system_base.hpp" // sys::*
 #include "system_process.hpp" // sys::*
-#include "text-parser-base.hpp" // text::ParserBase
-#include "text-parser-xml.hpp" // text::xml::Parser
-#include "text.hpp" // text::*
 #include "timestamp.hpp" // MG::get_human_readable_timestamp()
 #include "vectmap.hpp" // MG::vectmap<>
+#include "unicode_text.hpp" // utxt::*
+#include "text_parser_base.hpp" // text::ParserBase
+#include "text_parser_xml.hpp" // text::xml::Parser
+#include "plain_parser_base.hpp" // plain::ParserBase
 
+#include "sipro.hpp" // sipro::*
 #include "project_updater.hpp" // ll::update_project_libraries()
 #include "libraries_converter.hpp" // ll::convert_libraries()
 #include "writer_pll.hpp" // pll::write_lib()

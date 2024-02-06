@@ -1,6 +1,7 @@
 ﻿#pragma once
 //  ---------------------------------------------
-//  Basic system facilities
+//  System facilities to launch processes
+//  ---------------------------------------------
 //  #include "system_process.hpp" // sys::*
 //  ---------------------------------------------
 #include <concepts> // std::convertible_to

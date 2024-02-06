@@ -18,8 +18,8 @@ namespace str //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 {
 
 //---------------------------------------------------------------------------
-//template<std::convertible_to<std::string_view>... Args>
-//[[nodiscard]] constexpr std::string concat(Args&&... args, const char delim)
+//template<std::same_as<std::string_view>... Args>
+//[[nodiscard]] constexpr std::string concat(Args... args, const char delim)
 //{
 //    std::string s;
 //    const std::size_t totsiz = sizeof...(args) + (std::size(args) + ...);
@@ -72,6 +72,37 @@ namespace str //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 //}
 
 
+//---------------------------------------------------------------------------
+// Represent not printable characters
+[[nodiscard]] constexpr std::string escape(const char ch) noexcept
+   {
+    std::string s(1,ch);
+    switch( ch )
+       {
+        case '\n': s = "\\n"; break;
+        case '\r': s = "\\r"; break;
+        case '\t': s = "\\t"; break;
+        //case '\f': s = "\\f"; break;
+        //case '\v': s = "\\v"; break;
+        //case '\a': s = "\\a"; break;
+        //case '\b': s = "\\b"; break;
+        case '\0': s = "\\0"; break;
+       }
+    return s;
+   }
+//---------------------------------------------------------------------------
+[[nodiscard]] constexpr std::string escape(const std::string_view sv) noexcept
+   {
+    std::string s;
+    s.reserve( sv.size() );
+    for(const char ch : sv)
+       {
+        s += escape(ch);
+       }
+    return s;
+   }
+
+
 }//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 
@@ -95,6 +126,14 @@ ut::test("str::tolower()") = []
     ut::expect( ut::that % str::tolower("A")=="a"sv );
     ut::expect( ut::that % str::tolower("1")=="1"sv );
     ut::expect( ut::that % str::tolower("")==""sv );
+   };
+
+ut::test("str::escape()") = []
+   {
+    ut::expect( ut::that % str::escape("1\n2\t3\0"sv)=="1\\n2\\t3\\0"sv );
+    ut::expect( ut::that % str::escape("\r"sv)=="\\r"sv );
+    ut::expect( ut::that % str::escape("a"sv)=="a"sv );
+    ut::expect( ut::that % str::escape(""sv)==""sv );
    };
 
 };///////////////////////////////////////////////////////////////////////////

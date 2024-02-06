@@ -15,7 +15,8 @@
 
 #include "filesystem_utilities.hpp" // fs::*, fsu::*
 #include "memory_mapped_file.hpp" // sys::memory_mapped_file
-#include "text-parser-xml.hpp" // text::xml::Parser
+#include "unicode_text.hpp" // utxt::*
+#include "text_parser_xml.hpp" // text::xml::Parser
 #include "file_write.hpp" // sys::file_write()
 
 using namespace std::literals; // "..."sv
@@ -65,7 +66,7 @@ using libs_t = std::vector<lib_t>;
 
 
 //---------------------------------------------------------------------------
-template<text::Enc ENC>
+template<utxt::Enc ENC>
 [[nodiscard]] libs_t collect_linked_libs(const std::string_view bytes, std::string&& file_path, fnotify_t const& notify_issue)
 {
     libs_t libs;
@@ -99,7 +100,7 @@ template<text::Enc ENC>
                     return;
                    }
                }
-            throw parser.create_parse_error( fmt::format("Invalid project (<{}> not found)"sv, text::to_utf8(tag_name)), 1 );
+            throw parser.create_parse_error( fmt::format("Invalid project (<{}> not found)"sv, utxt::to_utf8(tag_name)), 1 );
            }
 
         void seek_close_tag(const std::u32string_view tag_name)
@@ -112,12 +113,12 @@ template<text::Enc ENC>
                    }
                 else if( parser.curr_event().is_open_tag(tag_name) )
                    {
-                    throw parser.create_parse_error( fmt::format("Unexpected nested <{}>"sv, text::to_utf8(tag_name)) );
+                    throw parser.create_parse_error( fmt::format("Unexpected nested <{}>"sv, utxt::to_utf8(tag_name)) );
                    }
                }
             while( parser.next_event() );
 
-            throw parser.create_parse_error( fmt::format("Unclosed <{}>"sv, text::to_utf8(tag_name)), start_line );
+            throw parser.create_parse_error( fmt::format("Unclosed <{}>"sv, utxt::to_utf8(tag_name)), start_line );
            }
 
         std::optional<lib_t> check_and_collect_lib_data() noexcept
@@ -151,19 +152,19 @@ template<text::Enc ENC>
             fs::path lib_path = fs::absolute(fs::path{name_value}, ec); // Uses fs::current_path()
             if( ec )
                {
-                parser.notify_issue( fmt::format("Skipping broken linked library (name=\"{}\" in line {}): {}"sv, text::to_utf8(name_value), parser.curr_line(), ec.message()) );
+                parser.notify_issue( fmt::format("Skipping broken linked library (name=\"{}\" in line {}): {}"sv, utxt::to_utf8(name_value), parser.curr_line(), ec.message()) );
                 return lib_data;
                }
             if( not fs::exists(lib_path) )
                {
-                parser.notify_issue( fmt::format("Skipping broken linked library (name=\"{}\" path=\"{}\" in line {})"sv, text::to_utf8(name_value), lib_path.string(), parser.curr_line()) );
+                parser.notify_issue( fmt::format("Skipping broken linked library (name=\"{}\" path=\"{}\" in line {})"sv, utxt::to_utf8(name_value), lib_path.string(), parser.curr_line()) );
                 return lib_data;
                }
 
             const library_type lib_type = recognize_library_type(name_value);
             if( lib_type==library_type::unknown )
                {
-                parser.notify_issue( fmt::format("Unrecognized library (name=\"{}\" in line {})"sv, text::to_utf8(name_value), parser.curr_line()) );
+                parser.notify_issue( fmt::format("Unrecognized library (name=\"{}\" in line {})"sv, utxt::to_utf8(name_value), parser.curr_line()) );
                }
 
             lib_data.emplace( std::move(lib_path), lib_type );
@@ -216,14 +217,14 @@ template<text::Enc ENC>
     return libs;
 }
 //---------------------------------------------------------------------------
-[[nodiscard]] libs_t collect_linked_libs(const std::string_view bytes, const text::Enc bytes_enc, std::string&& file_path, fnotify_t const& notify_issue)
+[[nodiscard]] libs_t collect_linked_libs(const std::string_view bytes, const utxt::Enc bytes_enc, std::string&& file_path, fnotify_t const& notify_issue)
 {
     TEXT_DISPATCH_TO_ENC(bytes_enc, collect_linked_libs<, >(bytes, std::move(file_path), notify_issue))
 }
 
 //---------------------------------------------------------------------------
 // Parse original project detecting contained libs
-[[nodiscard]] libs_t parse_project_file( const fs::path& project_file_path, const std::string_view project_file_bytes, text::Enc project_bytes_enc, fnotify_t const& notify_issue )
+[[nodiscard]] libs_t parse_project_file( const fs::path& project_file_path, const std::string_view project_file_bytes, utxt::Enc project_bytes_enc, fnotify_t const& notify_issue )
 {
     // Temporarily switch current path to properly resolve libraries paths relative to project file
     fsu::CurrentPathLocalChanger curr_path_changed( project_file_path.parent_path() );
@@ -233,7 +234,7 @@ template<text::Enc ENC>
 
 
 //---------------------------------------------------------------------------
-template<text::Enc ENC>
+template<utxt::Enc ENC>
 [[nodiscard]] std::string_view get_plclib_content(const std::string_view plclib_bytes, std::string&& file_path)
 {
     text::xml::Parser<ENC> parser{plclib_bytes};
@@ -243,7 +244,7 @@ template<text::Enc ENC>
     while( parser.next_event() and not parser.curr_event().is_open_tag(library_tag_name) );
     if( not parser.curr_event() )
        {
-        throw parser.create_parse_error( fmt::format("Invalid plclib (<{}> not found)"sv, text::to_utf8(library_tag_name)), 1 );
+        throw parser.create_parse_error( fmt::format("Invalid plclib (<{}> not found)"sv, utxt::to_utf8(library_tag_name)), 1 );
        }
     const auto start_line = parser.curr_line();
     parser.next_event();
@@ -257,13 +258,13 @@ template<text::Enc ENC>
            }
         else if( parser.curr_event().is_open_tag(library_tag_name) )
            {
-            throw parser.create_parse_error( fmt::format("Invalid plclib (unexpected nested <{}>)"sv, text::to_utf8(library_tag_name)) );
+            throw parser.create_parse_error( fmt::format("Invalid plclib (unexpected nested <{}>)"sv, utxt::to_utf8(library_tag_name)) );
            }
        }
     while( parser.next_event() );
     if( not parser.curr_event() )
        {
-        throw parser.create_parse_error( fmt::format("Invalid plclib (unclosed <{}>)"sv, text::to_utf8(library_tag_name)), start_line );
+        throw parser.create_parse_error( fmt::format("Invalid plclib (unclosed <{}>)"sv, utxt::to_utf8(library_tag_name)), start_line );
        }
 
     return plclib_bytes.substr(chunk_start, parser.curr_event().start_byte_offset()-chunk_start);
@@ -271,14 +272,14 @@ template<text::Enc ENC>
 //---------------------------------------------------------------------------
 [[nodiscard]] std::string_view get_plclib_content(const std::string_view plclib_bytes, std::string&& file_path)
 {
-    const auto [plclib_bytes_enc, bom_size] = text::detect_encoding_of(plclib_bytes);
+    const auto [plclib_bytes_enc, bom_size] = utxt::detect_encoding_of(plclib_bytes);
 
     TEXT_DISPATCH_TO_ENC(plclib_bytes_enc, get_plclib_content<, >(plclib_bytes, std::move(file_path)))
 }
 
 
 //---------------------------------------------------------------------------
-template<text::Enc out_enc>
+template<utxt::Enc out_enc>
 void insert_library(const lib_t& lib, sys::file_write& out_file)
 {
     const sys::memory_mapped_file lib_file_mapped{ lib.path.string().c_str() };
@@ -287,26 +288,26 @@ void insert_library(const lib_t& lib, sys::file_write& out_file)
     if( lib.type==library_type::plclib )
        {// Insert the content of <lib> tag
         const std::string_view content_to_insert = get_plclib_content( lib_file_mapped.as_string_view(), lib.path.string() );
-        out_file << text::encode_if_necessary_as<out_enc>(content_to_insert, reencoded_buf);
+        out_file << utxt::encode_if_necessary_as<out_enc>(content_to_insert, reencoded_buf);
        }
     else
        {// Insert the file content (excluding BOM) in a CDATA section
-        out_file << text::encode_as<out_enc>(U"<![CDATA["sv);
+        out_file << utxt::encode_as<out_enc>(U"<![CDATA["sv);
 
-        out_file << text::encode_if_necessary_as<out_enc>(lib_file_mapped.as_string_view(), reencoded_buf, text::flag::SKIP_BOM);
+        out_file << utxt::encode_if_necessary_as<out_enc>(lib_file_mapped.as_string_view(), reencoded_buf, utxt::flag::SKIP_BOM);
 
-        out_file << text::encode_as<out_enc>(U"]]>"sv);
+        out_file << utxt::encode_as<out_enc>(U"]]>"sv);
        }
 }
 //---------------------------------------------------------------------------
-void insert_library(const lib_t& lib, sys::file_write& out_file, const text::Enc original_bytes_enc)
+void insert_library(const lib_t& lib, sys::file_write& out_file, const utxt::Enc original_bytes_enc)
 {
     TEXT_DISPATCH_TO_ENC(original_bytes_enc, insert_library<, >(lib, out_file))
 }
 
 
 //---------------------------------------------------------------------------
-void write_project_file(const fs::path& output_file_path, const std::string_view original_bytes, const text::Enc original_bytes_enc, const libs_t& libs)
+void write_project_file(const fs::path& output_file_path, const std::string_view original_bytes, const utxt::Enc original_bytes_enc, const libs_t& libs)
 {
     sys::file_write out_file{ output_file_path.string().c_str() };
     out_file.set_buffer_size(4_MB);
@@ -338,7 +339,7 @@ void parse_and_rewrite_project( const fs::path& project_file_path, const fs::pat
         throw std::runtime_error{"No data to parse (empty file?)"};
        }
 
-    const auto [project_bytes_enc, bom_size] = text::detect_encoding_of(project_file_bytes);
+    const auto [project_bytes_enc, bom_size] = utxt::detect_encoding_of(project_file_bytes);
 
     const libs_t libs = parse_project_file(project_file_path, project_file_bytes, project_bytes_enc, notify_issue);
 
