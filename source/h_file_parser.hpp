@@ -51,11 +51,11 @@ void export_constant(const h::Define& def, std::vector<plcb::Variable>& consts)
 
 //---------------------------------------------------------------------------
 // Parse a Sipro header file
-void h_parse(std::string&& file_path, const std::string_view buf, plcb::Library& lib, fnotify_t const& notify_issue)
+void h_parse(const std::string& file_path, const std::string_view buf, plcb::Library& lib, fnotify_t const& notify_issue)
 {
     h::Parser parser(file_path, buf, issues, fussy);
     parser.set_on_notify_issue(notify_issue);
-    parser.set_file_path( std::move(file_path) );
+    parser.set_file_path( file_path );
 
     // Prepare the library containers for header data
     auto& vars = lib.global_variables().groups().emplace_back();
@@ -63,55 +63,45 @@ void h_parse(std::string&& file_path, const std::string_view buf, plcb::Library&
     auto& consts = lib.global_constants().groups().emplace_back();
     consts.set_name("Header_Constants");
 
-    try{
-        while( const h::Define def = parser.next_define() )
+    while( const h::Define def = parser.next_define() )
+       {
+        //DLOG1("h::Define - label=\"{}\" value=\"{}\" comment=\"{}\" predecl=\"{}\"\n", def.label(), def.value(), str::iso_latin1_to_utf8(def.comment()), def.comment_predecl())
+
+        // Must export these:
+        //
+        // Sipro registers
+        // vnName     vn1782  // descr
+        //             ? Sipro register
+        //
+        // Numeric constants
+        // LABEL     123       // [INT] Descr
+        //            ? Value       ? IEC61131-3 type
+
+        // Check if it's a Sipro register
+        if( const sipro::Register reg(def.value());
+            reg.is_valid() )
            {
-            //DLOG1("h::Define - label=\"{}\" value=\"{}\" comment=\"{}\" predecl=\"{}\"\n", def.label(), def.value(), str::iso_latin1_to_utf8(def.comment()), def.comment_predecl())
+            export_register(reg, def, vars.mutable_variables());
+           }
 
-            // Must export these:
-            //
-            // Sipro registers
-            // vnName     vn1782  // descr
-            //             ? Sipro register
-            //
-            // Numeric constants
-            // LABEL     123       // [INT] Descr
-            //            ? Value       ? IEC61131-3 type
-
-            // Check if it's a Sipro register
-            if( const sipro::Register reg(def.value());
-                reg.is_valid() )
+        // Check if it's a numeric constant to be exported
+        else if( def.value_is_number() )
+           {
+            // Must be exported to PLC?
+            if( plc::is_num_type(def.comment_predecl()) )
                {
-                export_register(reg, def, vars.mutable_variables());
+                export_constant(def, consts.mutable_variables());
                }
-
-            // Check if it's a numeric constant to be exported
-            else if( def.value_is_number() )
-               {
-                // Must be exported to PLC?
-                if( plc::is_num_type(def.comment_predecl()) )
-                   {
-                    export_constant(def, consts.mutable_variables());
-                   }
-                //else
-                //   {
-                //    issues.push_back(fmt::format("{} value not exported: {}={} ({})", def.comment_predecl(), def.label(), def.value()));
-                //   }
-               }
-
-            //else if( superfussy )
+            //else
             //   {
-            //    issues.push_back(fmt::format("h::Define not exported: {}={}"sv, def.label(), def.value()));
+            //    issues.push_back(fmt::format("{} value not exported: {}={} ({})", def.comment_predecl(), def.label(), def.value()));
             //   }
            }
-       }
-    catch(parse_error&)
-       {
-        throw;
-       }
-    catch(std::exception& e)
-       {
-        throw parser.create_parse_error(e.what());
+
+        //else if( superfussy )
+        //   {
+        //    issues.push_back(fmt::format("h::Define not exported: {}={}"sv, def.label(), def.value()));
+        //   }
        }
 
     if( vars.variables().empty() and consts.variables().empty() )

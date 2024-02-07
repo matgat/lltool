@@ -5,8 +5,10 @@
 //  ---------------------------------------------
 //  #include "h_parser.hpp" // h::Parser
 //  ---------------------------------------------
+#include <charconv> // std::from_chars
 
 #include "plain_parser_base.hpp" // plain::ParserBase
+#include "string_utilities.hpp" // str::trim_right()
 
 
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -25,10 +27,10 @@ class Define final
     std::string_view m_comment_predecl;
 
  public:
-    [[nodiscard]] operator bool() const noexcept { return !m_value.empty(); }
+    [[nodiscard]] constexpr operator bool() const noexcept { return !m_value.empty(); }
 
-    [[nodiscard]] std::string_view label() const noexcept { return m_label; }
-    void set_label(const std::string_view sv)
+    [[nodiscard]] constexpr std::string_view label() const noexcept { return m_label; }
+    constexpr void set_label(const std::string_view sv)
        {
         if( sv.empty() )
            {
@@ -37,8 +39,8 @@ class Define final
         m_label = sv;
        }
 
-    [[nodiscard]] std::string_view value() const noexcept { return m_value; }
-    void set_value(const std::string_view sv)
+    [[nodiscard]] constexpr std::string_view value() const noexcept { return m_value; }
+    constexpr void set_value(const std::string_view sv)
        {
         if( sv.empty() )
            {
@@ -47,7 +49,7 @@ class Define final
         m_value = sv;
        }
 
-    [[nodiscard]] bool value_is_number() const noexcept
+    [[nodiscard]] constexpr bool value_is_number() const noexcept
        {
         double result;
         const auto i_end = m_value.data() + m_value.size();
@@ -55,22 +57,20 @@ class Define final
         return ec==std::errc() and i==i_end;
        }
 
-    [[nodiscard]] bool has_comment() const noexcept { return !m_comment.empty(); }
-    [[nodiscard]] std::string_view comment() const noexcept { return m_comment; }
-    void set_comment(const std::string_view sv) noexcept { m_comment = sv; }
+    [[nodiscard]] constexpr bool has_comment() const noexcept { return !m_comment.empty(); }
+    [[nodiscard]] constexpr std::string_view comment() const noexcept { return m_comment; }
+    constexpr void set_comment(const std::string_view sv) noexcept { m_comment = sv; }
 
-    [[nodiscard]] bool has_comment_predecl() const noexcept { return !m_comment_predecl.empty(); }
-    [[nodiscard]] std::string_view comment_predecl() const noexcept { return m_comment_predecl; }
-    void set_comment_predecl(const std::string_view sv) noexcept { m_comment_predecl = sv; }
-
-
+    [[nodiscard]] constexpr bool has_comment_predecl() const noexcept { return !m_comment_predecl.empty(); }
+    [[nodiscard]] constexpr std::string_view comment_predecl() const noexcept { return m_comment_predecl; }
+    constexpr void set_comment_predecl(const std::string_view sv) noexcept { m_comment_predecl = sv; }
 };
 
 
 
 /////////////////////////////////////////////////////////////////////////////
-class Parser final : public plain::ParserBase
-{
+class Parser final : public plain::ParserBase<char>
+{         using inherited = plain::ParserBase<char>;
  public:
     Parser(const std::string_view buf)
       : plain::ParserBase(buf)
@@ -85,8 +85,8 @@ class Parser final : public plain::ParserBase
             while( true )
                {
                 inherited::skip_blanks();
-                if( i>=siz )
-                   {// No more data!
+                if( not inherited::has_codepoint() )
+                   {// No more data
                     break;
                    }
                 else if( eat_line_comment_start() )
@@ -97,8 +97,9 @@ class Parser final : public plain::ParserBase
                    {
                     skip_block_comment();
                    }
-                else if( inherited::eat_line_end() )
-                   {// An empty line
+                else if( inherited::got_endline() )
+                   {
+                    inherited::get_next();
                    }
                 else if( inherited::eat_token("#define"sv) )
                    {
@@ -107,7 +108,7 @@ class Parser final : public plain::ParserBase
                    }
                 else
                    {
-                    notify_error("Unexpected content: {}", str::escape(inherited::get_rest_of_line()));
+                    throw create_parse_error( fmt::format("Unexpected content: {}", str::escape(inherited::get_rest_of_line())) );
                    }
                }
            }
@@ -128,48 +129,77 @@ class Parser final : public plain::ParserBase
     //-----------------------------------------------------------------------
     [[nodiscard]] bool eat_line_comment_start() noexcept
        {
-        if( i<(siz-1) and buf[i]=='/' and buf[i+1]=='/' )
-           {
-            i += 2; // Skip "//"
-            return true;
-           }
-        return false;
+        return inherited::eat("//"sv);
        }
-
 
     //-----------------------------------------------------------------------
     [[nodiscard]] bool eat_block_comment_start() noexcept
        {
-        if( i<(siz-1) and buf[i]=='/' and buf[i+1]=='*' )
-           {
-            i += 2; // Skip "/*"
-            return true;
-           }
-        return false;
+        return inherited::eat("/*"sv);
        }
-
 
     //-----------------------------------------------------------------------
     void skip_block_comment()
        {
-        const std::size_t line_start = line; // Store current line
-        const std::size_t i_start = i; // Store current position
-        while( i<i_last )
-           {
-            if( buf[i]=='*' and buf[i+1]=='/' )
-               {
-                i += 2; // Skip "*/"
-                return;
-               }
-            else if( buf[i]=='\n' )
-               {
-                ++line;
-               }
-            ++i;
-           }
-        throw create_parse_error("Unclosed block comment", line_start, i_start);
+        [[maybe_unused]] auto cmt = inherited::get_until<'*','/'>();
        }
 
+    //-----------------------------------------------------------------------
+    void collect_define_comment( Define& def )
+       {// [INT] Descr
+        inherited::skip_blanks();
+        const std::size_t i_start = inherited::curr_offset(); // Start of overall comment string
+
+        // Detect possible pre-declaration in square brackets like: // [xxx] comment
+        if( inherited::got('[') )
+           {
+            inherited::get_next();
+            inherited::skip_blanks();
+            const std::size_t i_pre_start = inherited::curr_offset(); // Start of pre-declaration
+            std::size_t i_pre_end = i_pre_start; // One-past-end of pre-declaration
+            while( true )
+               {
+                if( not inherited::has_codepoint() or inherited::got_endline() )
+                   {
+                    notify_issue( fmt::format("Unclosed initial \'[\' in the comment of define {}", def.label()) );
+                    def.set_comment( str::trim_right(inherited::get_view_between(i_start, i_pre_end)) );
+                    break;
+                   }
+                else if( inherited::got(']') )
+                   {
+                    def.set_comment_predecl( str::trim_right(inherited::get_view_between(i_pre_start, i_pre_end)) );
+                    inherited::get_next();
+                    break;
+                   }
+                else
+                   {
+                    inherited::get_next();
+                   }
+               }
+            inherited::skip_blanks();
+           }
+
+        // Collect the remaining comment text
+        if( not def.has_comment() and i<siz and buf[i]!='\n' )
+           {
+            const std::size_t i_txt_start = i; // Start of comment text
+            std::size_t i_txt_end = i; // One-past-end of comment text
+            do {
+                if( buf[i]=='\n' )
+                   {// Line finished
+                    break;
+                   }
+                else
+                   {
+                    if( not is_blank(buf[i]) ) i_txt_end = ++i;
+                    else ++i;
+                   }
+               }
+            while( i<siz );
+
+            def.set_comment( inherited::get_view_between(i_txt_start, i_txt_end) );
+           }
+       }
 
     //-----------------------------------------------------------------------
     void collect_define( Define& def )
@@ -180,80 +210,32 @@ class Parser final : public plain::ParserBase
 
         // [Label]
         inherited::skip_blanks();
-        def.set_label( collect_identifier() );
+        def.set_label( inherited::get_identifier() );
+
         // [Value]
         inherited::skip_blanks();
-        def.set_value( collect_token() );
+        def.set_value( inherited::get_until_space_or_end() );
+
         // [Comment]
         inherited::skip_blanks();
-        if( eat_line_comment_start() and i<siz )
+        if( eat_line_comment_start() )
            {
-            inherited::skip_blanks();
-            const std::size_t i_start = i; // Start of overall comment string
-
-            // Detect possible pre-declarator in square brackets like: // [xxx] comment
-            if( i<siz and buf[i]=='[' )
-               {
-                ++i; // Skip '['
-                inherited::skip_blanks();
-                const std::size_t i_pre_start = i; // Start of pre-declaration
-                std::size_t i_pre_end = i; // One-past-end of pre-declaration
-                while( true )
-                   {
-                    if( i>=siz or buf[i]=='\n' )
-                       {
-                        notify_error("Unclosed initial \'[\' in the comment of define {}", def.label());
-                        def.set_comment( std::string_view(buf+i_start, i_pre_end-i_start) );
-                        break;
-                       }
-                    else if( buf[i]==']' )
-                       {
-                        def.set_comment_predecl( std::string_view(buf+i_pre_start, i_pre_end-i_pre_start) );
-                        ++i; // Skip ']'
-                        break;
-                       }
-                    else
-                       {
-                        if( not is_blank(buf[i]) ) i_pre_end = ++i;
-                        else ++i;
-                       }
-                   }
-                inherited::skip_blanks();
-               }
-
-            // Collect the remaining comment text
-            if( not def.has_comment() and i<siz and buf[i]!='\n' )
-               {
-                const std::size_t i_txt_start = i; // Start of comment text
-                std::size_t i_txt_end = i; // One-past-end of comment text
-                do {
-                    if( buf[i]=='\n' )
-                       {// Line finished
-                        break;
-                       }
-                    else
-                       {
-                        if( not is_blank(buf[i]) ) i_txt_end = ++i;
-                        else ++i;
-                       }
-                   }
-                while( i<siz );
-
-                def.set_comment( std::string_view(buf+i_txt_start, i_txt_end-i_txt_start) );
-               }
+            collect_define_comment( def );
            }
-        //else if(fussy)
+        //else
         //   {
-        //    notify_error("Define {} hasn't a comment", def.label());
+        //    notify_issue( fmt::format("Define {} hasn't a comment", def.label()) );
         //   }
 
         // Expecting a line end here
-        if( not inherited::eat_line_end() )
+        if( inherited::got_endline() )
            {
-            notify_error("Unexpected content after define {}: {}", def.label(), str::escape(inherited::get_rest_of_line()));
+            inherited::get_next();
            }
-
-        //DLOG2("  [*] Collected define: label=\"{}\" value=\"{}\" comment=\"{}\"\n", def.label(), def.value(), def.comment())
+        else
+           {
+            throw create_parse_error( fmt::format("Unexpected content after define {}: {}", def.label(), str::escape(inherited::get_rest_of_line())) );
+           }
        }
 };
 

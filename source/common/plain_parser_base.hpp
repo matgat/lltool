@@ -90,9 +90,9 @@ class ParserBase
         //fmt::print("  ! {}\n"sv, msg);
         m_on_notify_issue( fmt::format("{} (line {} offset {})"sv, msg, m_line, m_offset) );
        }
-    constexpr void set_file_path(std::string&& pth)
+    constexpr void set_file_path(const std::string& pth)
        {
-        std::swap(m_file_path, pth);
+        m_file_path = pth;
        }
      [[nodiscard]] parse::error create_parse_error(std::string&& msg) const noexcept
        {
@@ -229,6 +229,7 @@ class ParserBase
 
         return get_view_between(start.offset, curr_offset());
        }
+    //-----------------------------------------------------------------------
     template<std::predicate<const Char> CodepointPredicate =decltype(ascii::is_always_false<Char>)>
     [[nodiscard]] constexpr string_view get_until_and_skip(CodepointPredicate is_end, CodepointPredicate is_unexpected =ascii::is_always_false<Char>)
        {
@@ -236,11 +237,80 @@ class ParserBase
         get_next(); // Skip termination codepoint
         return sv;
        }
+    //-----------------------------------------------------------------------
+    template<Char end_codepoint>
+    [[nodiscard]] constexpr string_view get_until()
+       {
+        return get_until_and_skip(ascii::is<end_codepoint>, ascii::is_always_false<Char>);
+       }
+
+    //-----------------------------------------------------------------------
+    //const auto bytes = parser.get_bytes_until<'*','/'>();
+    template<Char end_seq1, Char end_seq2, Char... end_seqtail>
+    [[nodiscard]] constexpr string_view get_until()
+       {
+        using end_block_arr_t = std::array<Char, 2+sizeof...(end_seqtail)>;
+        static constexpr end_block_arr_t end_block_arr{end_seq1, end_seq2, end_seqtail...};
+        constexpr string_view end_block(end_block_arr.data(), end_block_arr.size());
+        using preceding_match_t = std::array<bool, end_block_arr.size()-1u>;
+        static constexpr preceding_match_t preceding_match = [](const end_block_arr_t& end_blk) constexpr
+           {
+            preceding_match_t a;
+            a[0] = true;
+            for(std::size_t i=1; i<a.size(); ++i)
+               {
+                a[i] = a[i-1] and end_blk[i-1]==end_blk[i];
+               }
+            return a;
+           }(end_block_arr);
+
+
+        const auto start = save_context();
+        std::size_t content_end_offset = start.offset;
+        std::size_t i = 0; // Matching codepoint index
+        do {
+            if( got(end_block[i]) )
+               {// Matches a codepoint in end_block
+                // If it's the first of end_block...
+                if( i==0 )
+                   {// ...Store the offset of the possible end of collected content
+                    content_end_offset = m_offset;
+                   }
+                // If it's the last of end_block...
+                if( ++i>=end_block.size() )
+                   {// ...I'm done
+                    get_next(); // Skip last end_block codepoint
+                    return get_view_between(start.offset, content_end_offset);
+                   }
+               }
+            else if( i>0 )
+               {// Last didn't match and there was a partial match
+                // Check what of the partial match can be salvaged
+                do {
+                    if( got(end_block[--i]) )
+                       {// Last matches a codepoint in end block
+                        if( preceding_match[i] )
+                           {
+                            content_end_offset = m_offset - i;
+                            ++i;
+                            break;
+                           }
+                       }
+                   }
+                while( i>0 );
+               }
+           }
+        while( get_next() ); [[likely]]
+
+        restore_context( start ); // Strong guarantee
+        throw create_parse_error(fmt::format("Unclosed content (\"{}\" not found)",str::escape(end_block)), start.line);
+       }
 
     constexpr void skip_blanks() noexcept { skip_while(ascii::is_blank<Char>); }
     constexpr void skip_any_space() noexcept { skip_while(ascii::is_space<Char>); }
     constexpr void skip_line() noexcept { skip_until(ascii::is_endline<Char>); get_next(); }
     [[nodiscard]] constexpr string_view get_rest_of_line() noexcept { return get_until_and_skip(ascii::is_any_of<Char('\n'),'\0'>); }
+    [[nodiscard]] constexpr string_view get_until_space_or_end() noexcept { return get_until_and_skip(ascii::is_space_or_any_of<Char('\0')>); }
     [[nodiscard]] constexpr string_view get_alphabetic() noexcept { return get_while(ascii::is_alpha<Char>); }
     [[nodiscard]] constexpr string_view get_alnums() noexcept { return get_while(ascii::is_alnum<Char>); }
     [[nodiscard]] constexpr string_view get_identifier() noexcept { return get_while(ascii::is_ident<Char>); }
@@ -252,23 +322,15 @@ class ParserBase
     constexpr void skip_endline()
        {
         skip_blanks();
-        if( not eat_endline() )
+        if( got_endline() )
+           {
+            get_next();
+           }
+        else
            {
             throw create_parse_error( fmt::format("Unexpected content '{}' at line end"sv, str::escape(get_rest_of_line())) );
            }
        }
-
-    //-----------------------------------------------------------------------
-    [[maybe_unused]] constexpr bool eat_endline() noexcept
-       {
-        if( got_endline() )
-           {
-            get_next();
-            return true;
-           }
-        return false;
-       }
-
 
     //-----------------------------------------------------------------------
     [[nodiscard]] constexpr bool eat(const Char cp) noexcept
@@ -779,13 +841,24 @@ ut::test("getting primitives") = []
     ut::expect( ut::that % parser.get_while(ascii::is_alnum)=="val"sv );
     ut::expect( ut::that % parser.curr_codepoint()==' ' and parser.get_next() );
 
-    ut::expect( ut::that % parser.get_until(ascii::is<':'>)=="k2"sv );
-    ut::expect( ut::that % parser.curr_codepoint()==':' and parser.get_next() );
+    ut::expect( ut::that % parser.get_until<':'>()=="k2"sv );
     ut::expect( ut::that % parser.get_until_and_skip(ascii::is_space)=="v2"sv );
     ut::expect( ut::that % parser.curr_codepoint()=='a' );
 
     ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto sv = parser.get_until(ascii::is<';'>); }) ) << "should complain for termination not found\n";
     ut::expect( ut::that % parser.get_until(ascii::is_any_of<'\0',';'>)=="a3==b3"sv );
+   };
+
+ut::test("getting block") = []
+   {
+    plain::ParserBase<char> parser{"**abc**\n**def***///ghi/*\n**lmn***/"sv};
+
+    ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto sv = parser.get_until<'*','@'>(); }) ) << "should complain for termination not found\n";
+    ut::expect( ut::that % parser.get_until<'*','/'>()=="**abc**\n**def**"sv );
+    ut::expect( ut::that % parser.curr_line()==2 );
+    ut::expect( ut::that % parser.get_until<'*','/'>()=="//ghi/*\n**lmn**"sv );
+    ut::expect( ut::that % parser.curr_line()==3 );
+    ut::expect( not parser.has_codepoint() );
    };
 
 ut::test("getting functions") = []
@@ -811,11 +884,11 @@ ut::test("end line functions") = []
 
     ut::expect( ut::that % parser.curr_codepoint()=='2' ) << "previous line was collected\n";
     ut::expect( ut::that % parser.curr_line()==2 );
-    ut::expect( not parser.eat_endline() );
+    ut::expect( not parser.got_endline() );
     ut::expect( parser.get_next() );
-    ut::expect( not parser.eat_endline() ) << "there are still spaces here\n";
+    ut::expect( not parser.got_endline() ) << "there are still spaces here\n";
     parser.skip_blanks();
-    ut::expect( parser.eat_endline() );
+    ut::expect( parser.got_endline() and parser.get_next() );
 
     ut::expect( ut::that % parser.curr_codepoint()=='3' );
     ut::expect( ut::that % parser.curr_line()==3 );
@@ -874,7 +947,9 @@ ut::test("get_until_newline_token()") = []
 
     ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto n = parser.get_until_newline_token("xxx"sv); }) ) << "should complain for unclosed content\n";
     ut::expect( ut::that % parser.get_until_newline_token("end"sv) == "start\n123\nendnot\n  "sv );
+    ut::expect( ut::that % parser.curr_line()==4 );
     ut::expect( ut::that % parser.get_until_newline_token("end"sv) == " start2\nnot end\n"sv );
+    ut::expect( ut::that % parser.curr_line()==6 );
     ut::expect( not parser.has_codepoint() );
    };
 
@@ -887,7 +962,7 @@ ut::test("parsing numbers") = []
 
     ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto n = parser.extract_index(); }) ) << "index has no sign\n";
     ut::expect( ut::that % parser.extract_integer() == -10'300 );
-    
+
     parser.skip_blanks();
     ut::expect( ut::that % parser.extract_float() == 2.3E-2 );
 

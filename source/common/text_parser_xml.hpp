@@ -135,7 +135,7 @@ class ParserEvent final
 /////////////////////////////////////////////////////////////////////////////
 template<utxt::Enc ENC>
 class Parser final : public text::ParserBase<ENC>
-{
+{         using inherited = text::ParserBase<ENC>;
  private:
     ParserEvent m_event; // Current event
     bool m_must_emit_tag_close_event = false; // To signal a deferred tag close
@@ -156,7 +156,6 @@ class Parser final : public text::ParserBase<ENC>
        } m_Options;
 
  public:
-    using inherited = text::ParserBase<ENC>;
     explicit constexpr Parser(const std::string_view bytes) noexcept
       : text::ParserBase<ENC>{bytes}
        {}

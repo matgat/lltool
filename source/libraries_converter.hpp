@@ -14,7 +14,8 @@
 #include "memory_mapped_file.hpp" // sys::memory_mapped_file
 #include "keyvals.hpp" // MG::keyvals
 #include "plc_library.hpp" // plcb::Library
-//#include "fast-parser-h.hpp" // h::Parser
+//#include "h_file_parser.hpp" // sipro::h_parse()
+//#include "pll_file_parser.hpp" // ll::pll_parse()
 #include "file_write.hpp" // sys::file_write()
 #include "writer_pll.hpp" // pll::write_lib()
 #include "writer_plclib.hpp" // plclib::write_lib()
@@ -24,17 +25,17 @@ using namespace std::literals; // "..."sv
 
 
 // stubs
-    namespace pll
+    namespace ll
     {
-    void parse([[maybe_unused]] const std::string_view input_bytes, [[maybe_unused]] plcb::Library& lib, [[maybe_unused]] fnotify_t const& notify_issue)
+    void pll_parse([[maybe_unused]] const std::string& pth, [[maybe_unused]] const std::string_view input_bytes, [[maybe_unused]] plcb::Library& lib, [[maybe_unused]] fnotify_t const& notify_issue)
     {
         throw std::runtime_error{"pll::parse() not yet ready"};
     }
     }
 
-    namespace h
+    namespace sipro
     {
-    void parse([[maybe_unused]] const std::string_view input_bytes, [[maybe_unused]] plcb::Library& lib, [[maybe_unused]] fnotify_t const& notify_issue)
+    void h_parse([[maybe_unused]] const std::string& pth, [[maybe_unused]] const std::string_view input_bytes, [[maybe_unused]] plcb::Library& lib, [[maybe_unused]] fnotify_t const& notify_issue)
     {
         throw std::runtime_error{"h::parse() not yet ready"};
     }
@@ -209,11 +210,11 @@ void parse_library(plcb::Library& lib, const std::string& input_file_fullpath, c
     switch( input_file_type )
        {
         case file_type::pll:
-            pll::parse(input_file_bytes, lib, notify_issue);
+            ll::pll_parse(input_file_fullpath, input_file_bytes, lib, notify_issue);
             break;
 
         case file_type::h:
-            h::parse(input_file_bytes, lib, notify_issue);
+            sipro::h_parse(input_file_fullpath, input_file_bytes, lib, notify_issue);
             break;
 
         default:

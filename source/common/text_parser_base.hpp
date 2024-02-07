@@ -201,21 +201,14 @@ class ParserBase
     constexpr void skip_endline()
        {
         skip_blanks();
-        if( not eat_endline() )
-           {
-            throw create_parse_error( fmt::format("Unexpected content '{}' at line end"sv, utxt::to_utf8(curr_codepoint())) );
-           }
-       }
-
-    //-----------------------------------------------------------------------
-    [[maybe_unused]] constexpr bool eat_endline() noexcept
-       {
         if( got_endline() )
            {
             get_next();
-            return true;
            }
-        return false;
+        else
+           {
+            throw create_parse_error( fmt::format("Unexpected content '{}' at line end"sv, utxt::to_utf8(curr_codepoint())) );
+           }
        }
 
     //-----------------------------------------------------------------------
@@ -314,6 +307,7 @@ class ParserBase
 
         return m_buf.get_view_between(start.curr_codepoint_byte_offset, m_curr_codepoint_byte_offset);
        }
+    //-----------------------------------------------------------------------
     template<std::predicate<const char32_t> CodepointPredicate =decltype(ascii::is_always_false<char32_t>)>
     [[nodiscard]] constexpr std::string_view get_bytes_until_and_skip(CodepointPredicate is_end, CodepointPredicate is_unexpected =ascii::is_always_false<char32_t>)
        {
@@ -321,7 +315,12 @@ class ParserBase
         get_next(); // Skip termination codepoint
         return sv;
        }
-
+    //-----------------------------------------------------------------------
+    template<char32_t end_codepoint>
+    [[nodiscard]] constexpr std::string_view get_bytes_until()
+       {
+        return get_bytes_until_and_skip(ascii::is<end_codepoint>, ascii::is_always_false<char32_t>);
+       }
 
     //-----------------------------------------------------------------------
     //const auto bytes = parser.get_bytes_until<U'*',U'/'>();
@@ -384,14 +383,7 @@ class ParserBase
         while( get_next() ); [[likely]]
 
         restore_context( start ); // Strong guarantee
-        throw create_parse_error( fmt::format("Should be closed by {}"sv, utxt::to_utf8(end_block)) );
-       }
-
-    //-----------------------------------------------------------------------
-    template<char32_t end_codepoint>
-    [[nodiscard]] constexpr std::string_view get_bytes_until()
-       {
-        return get_bytes_until_and_skip(ascii::is<end_codepoint>, ascii::is_always_false<char32_t>);
+        throw create_parse_error(fmt::format("Unclosed content (\"{}\" not found)",utxt::to_utf8(end_block)), start.line);
        }
 
 
@@ -549,12 +541,12 @@ ut::test("eating spaces") = []
     parser.skip_any_space();
     expect( not parser.got_endline() and parser.got(U'1') and parser.curr_line()==1 );
     expect( parser.get_next() and parser.got_endline() and parser.curr_line()==1 );
-    expect( parser.eat_endline() and parser.curr_line()==2 );
+    expect( parser.get_next() and parser.curr_line()==2 );
 
     expect( parser.got(U'2') );
     expect( parser.get_next() and parser.got_blank() );
     parser.skip_blanks();
-    expect( parser.eat_endline() and parser.curr_line()==3 );
+    expect( parser.got_endline() and parser.get_next() and parser.curr_line()==3 );
 
     expect( parser.got(U'3') and parser.curr_line()==3 and parser.get_next() );
     parser.skip_any_space();
@@ -606,7 +598,7 @@ ut::test("parse utilities") = [&notify_sink]
     parser.skip_blanks();
     expect( parser.eat(U"b=\"") );
     expect( parser.collect_until(ascii::is<U'\"'>, ascii::is_endline<char32_t>)==U"str"sv and parser.eat(U'\"') and parser.eat(U"</"sv) );
-    expect( parser.get_bytes_until<U'>'>()=="tag"sv and parser.eat_endline() );
+    expect( parser.get_bytes_until<U'>'>()=="tag"sv and parser.got_endline() and parser.get_next() );
 
     expect( parser.eat(U"/*") and parser.curr_line()==3u );
     expect( parser.get_bytes_until<U'*',U'/'>()=="block\ncomment"sv );
@@ -649,7 +641,7 @@ ut::test("numbers") = [&notify_sink]
     expect( throws<parse::error>([&parser] { [[maybe_unused]] auto i = parser.extract_index(); }) ) << "invalid index should throw\n";
     expect( parser.eat(U'h') );
     expect( that % parser.extract_index()==1u );
-    expect( parser.eat_endline() and parser.curr_line()==3u );
+    expect( parser.got_endline() and parser.get_next() and parser.curr_line()==3u );
 
     expect( parser.eat(U'c') and parser.eat(U'=') );
     expect( that % parser.extract_index()==12u );

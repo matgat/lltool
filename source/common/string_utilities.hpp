@@ -73,19 +73,19 @@ namespace str //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 
 //-----------------------------------------------------------------------
-//[[nodiscard]] std::string_view trim_right(std::string_view sv)
-//{
-//    if( const std::size_t last_non_space = sv.find_last_not_of(" \t\r"sv);
-//        last_non_space!=std::string_view::npos )
-//       {
-//        sv.remove_suffix(sv.size() - last_non_space - 1u);
-//       }
-//    else
-//       {
-//        sv = {};
-//       }
-//    return sv;
-//}
+[[nodiscard]] std::string_view trim_right(std::string_view sv)
+{
+    if( const std::size_t last_non_space = sv.find_last_not_of(" \t\r"sv);
+        last_non_space!=std::string_view::npos )
+       {
+        sv.remove_suffix(sv.size() - last_non_space - 1u);
+       }
+    else
+       {
+        sv = {};
+       }
+    return sv;
+}
 
 
 //---------------------------------------------------------------------------
@@ -144,15 +144,15 @@ ut::test("str::tolower()") = []
     ut::expect( ut::that % str::tolower("")==""sv );
    };
 
-//ut::test("str::trim_right()") = []
-//   {
-//    ut::expect( ut::that % str::trim_right(" abc \t \r"sv)==" abc"sv );
-//    ut::expect( ut::that % str::trim_right(" abc"sv)==" abc"sv );
-//    ut::expect( ut::that % str::trim_right("\t \r"sv)==""sv );
-//    ut::expect( ut::that % str::trim_right(" "sv)==""sv );
-//    ut::expect( ut::that % str::trim_right("a"sv)=="a"sv );
-//    ut::expect( ut::that % str::trim_right(""sv)==""sv );
-//   };
+ut::test("str::trim_right()") = []
+   {
+    ut::expect( ut::that % str::trim_right(" abc \t \r"sv)==" abc"sv );
+    ut::expect( ut::that % str::trim_right(" abc"sv)==" abc"sv );
+    ut::expect( ut::that % str::trim_right("\t \r"sv)==""sv );
+    ut::expect( ut::that % str::trim_right(" "sv)==""sv );
+    ut::expect( ut::that % str::trim_right("a"sv)=="a"sv );
+    ut::expect( ut::that % str::trim_right(""sv)==""sv );
+   };
 
 ut::test("str::escape()") = []
    {

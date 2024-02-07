@@ -16,8 +16,8 @@ namespace ll
 
 
 /////////////////////////////////////////////////////////////////////////////
-class PllParser final : public plain::ParserBase
-{
+class PllParser final : public plain::ParserBase<char>
+{            using inherited = plain::ParserBase<char>;
  public:
     PllParser(const std::string_view buf)
       : plain::ParserBase(buf)
@@ -29,12 +29,13 @@ class PllParser final : public plain::ParserBase
         while( true )
            {
             inherited::skip_blanks();
-            if( i>=siz )
+            if( not inherited::has_codepoint() )
                {// No more data!
                 break;
                }
-            else if( inherited::eat_line_end() )
+            else if( inherited::got_endline() )
                {// Skip empty line
+                inherited::get_next();
                 continue;
                }
             else if( eat_block_comment_start() )
@@ -93,12 +94,13 @@ class PllParser final : public plain::ParserBase
     void collect_next(plcb::Library& lib)
        {
         inherited::skip_blanks();
-        if( i>=siz )
+        if( not inherited::has_codepoint() )
            {// No more data!
             return;
            }
-        else if( inherited::eat_line_end() )
+        else if( inherited::got_endline() )
            {
+            inherited::get_next();
             return;
            }
         else if( eat_block_comment_start() )
@@ -145,10 +147,11 @@ class PllParser final : public plain::ParserBase
                }
             else if( inherited::eat_token("RETAIN"sv) )
                {
-                notify_error("RETAIN variables not supported");
+                throw create_parse_error("RETAIN variables not supported");
                }
-            else if( inherited::eat_line_end() )
+            else if( inherited::got_endline() )
                {
+                inherited::get_next();
                 collect_global_vars( lib.global_variables().groups() );
                }
             else
@@ -158,7 +161,7 @@ class PllParser final : public plain::ParserBase
            }
         else
            {
-            notify_error("Unexpected content: {}", str::escape(inherited::get_rest_of_line()));
+            throw create_parse_error("Unexpected content: {}", str::escape(inherited::get_rest_of_line()));
            }
        }
 
@@ -168,43 +171,23 @@ class PllParser final : public plain::ParserBase
     //-----------------------------------------------------------------------
     [[nodiscard]] bool eat_block_comment_start() noexcept
        {
-        if( i<(siz-1) and buf[i]=='(' and buf[i+1]=='*' )
-           {
-            i += 2; // Skip "(*"
-            return true;
-           }
-        return false;
+        return inherited::eat("(*"sv);
        }
 
 
     //-----------------------------------------------------------------------
     void inherited::skip_block_comment()
        {
-        const std::size_t line_start = line; // Store current line
-        const std::size_t i_start = i; // Store current position
-        while( i<i_last )
-           {
-            if( buf[i]=='*' and buf[i+1]==')' )
-               {
-                i += 2; // Skip "*)"
-                return;
-               }
-            else if( buf[i]=='\n' )
-               {
-                ++line;
-               }
-            ++i;
-           }
-        throw create_parse_error("Unclosed block comment", line_start, i_start);
+        [[maybe_unused]] auto cmt = inherited::get_until<'*',')'>();
        }
 
 
     //-----------------------------------------------------------------------
     [[nodiscard]] bool eat_directive_start() noexcept
        {// { DE:"some string" }
-        if( i<siz and buf[i]=='{' )
+        if( inherited::got('{') )
            {
-            ++i;
+            inherited::get_next();
             return true;
            }
         return false;
@@ -216,20 +199,19 @@ class PllParser final : public plain::ParserBase
        {// { DE:"some string" }
         // { CODE:ST }
 
-        // Contract: already checked if( i>=siz or buf[i]!='{' ) { return; }
+        // Contract: '{' already eaten
 
-        //++i; // Skip '{'
         inherited::skip_blanks();
         plcb::Directive dir;
         dir.set_key( inherited::get_identifier() );
         inherited::skip_blanks();
-        if( i>=siz or !inherited::eat(':') )
+        if( not inherited::eat(':') )
            {
             throw create_parse_error(fmt::format("Missing \':\' after directive {}", dir.key()));
            }
         inherited::skip_blanks();
 
-        if( i>=siz )
+        if( not inherited::has_codepoint() )
            {
             throw create_parse_error(fmt::format("Truncated directive {}", dir.key()));
            }
@@ -239,25 +221,25 @@ class PllParser final : public plain::ParserBase
             const std::size_t i_start = i;
             while( i<siz and buf[i]!='\"' )
                {
-                if( buf[i]=='\n' )
+                if( inherited::get_endline() )
                    {
                     throw create_parse_error(fmt::format("Unclosed directive {} value (\'\"\' expected)", dir.key()));
                    }
-                else if( buf[i]=='<' or buf[i]=='>' )
+                else if( inherited::got<'<','>'>() )
                    {
-                    throw create_parse_error(fmt::format("Invalid character \'{}\' in directive {} value", buf[i], dir.key()));
+                    throw create_parse_error(fmt::format("Invalid character \'{}\' in directive {} value", inherited::curr_codepoint(), dir.key()));
                    }
-                ++i;
+                inherited::get_next();
                }
             dir.set_value( std::string_view(buf+i_start, i-i_start) );
-            ++i; // Skip the second '\"'
+            inherited::get_next(); // Skip the second '\"'
            }
         else
            {
             dir.set_value( inherited::get_identifier() );
            }
         inherited::skip_blanks();
-        if( i>=siz or !inherited::eat('}') )
+        if( not inherited::eat('}') )
            {
             throw create_parse_error(fmt::format("Unclosed directive {} after {}", dir.key(), dir.value()));
            }
@@ -284,7 +266,7 @@ class PllParser final : public plain::ParserBase
                }
             else
                {
-                notify_error("Unexpected directive \"{}\" in struct \"{}\"", dir.key(), strct.name());
+                throw create_parse_error("Unexpected directive \"{}\" in struct \"{}\"", dir.key(), strct.name());
                }
            }
 
@@ -295,8 +277,9 @@ class PllParser final : public plain::ParserBase
                {
                 break;
                }
-            else if( inherited::eat_line_end() )
+            else if( inherited::got_endline() )
                {// Nella lista membri ammetto righe vuote
+                inherited::get_next();
                 continue;
                }
             else if( eat_block_comment_start() )
@@ -354,7 +337,7 @@ class PllParser final : public plain::ParserBase
                }
             else
                {
-                notify_error("Unexpected directive \"{}\" in enum element \"{}\"", dir.key(), elem.name());
+                throw create_parse_error("Unexpected directive \"{}\" in enum element \"{}\"", dir.key(), elem.name());
                }
            }
 
@@ -374,8 +357,12 @@ class PllParser final : public plain::ParserBase
         // Name already collected, ": (" already skipped
         // Possible description
         inherited::skip_blanks();
-        inherited::eat_line_end(); // Possibile interruzione di linea
-        inherited::skip_blanks();
+        // Possibile interruzione di linea
+        if( inherited::got_endline() )
+           {
+            inherited::get_next();
+            inherited::skip_blanks();
+           }
         if( eat_directive_start() )
            {
             const plcb::Directive dir = collect_directive();
@@ -385,7 +372,7 @@ class PllParser final : public plain::ParserBase
                }
             else
                {
-                notify_error("Unexpected directive \"{}\" in enum \"{}\"", dir.key(), en.name());
+                throw create_parse_error("Unexpected directive \"{}\" in enum \"{}\"", dir.key(), en.name());
                }
            }
 
@@ -422,7 +409,7 @@ class PllParser final : public plain::ParserBase
 
         // [Min and Max]
         inherited::skip_blanks();
-        if( i>=siz or !inherited::eat('(') )
+        if( not inherited::eat('(') )
            {
             throw create_parse_error(fmt::format("Expected \"(min..max)\" in subrange \"{}\"", subr.name()));
            }
@@ -436,13 +423,13 @@ class PllParser final : public plain::ParserBase
         inherited::skip_blanks();
         const auto max_val = extract_integer();
         inherited::skip_blanks();
-        if( i>=siz or !inherited::eat(')') )
+        if( not inherited::eat(')') )
            {
             throw create_parse_error(fmt::format("Expected \')\' in subrange \"{}\"", subr.name()));
            }
 
         inherited::skip_blanks();
-        if( i>=siz or !inherited::eat(';') )
+        if( not inherited::eat(';') )
            {
             throw create_parse_error(fmt::format("Expected \';\' in subrange \"{}\"", subr.name()));
            }
@@ -459,7 +446,7 @@ class PllParser final : public plain::ParserBase
                }
             else
                {
-                notify_error("Unexpected directive \"{}\" in subrange \"{}\" declaration", dir.key(), subr.name());
+                throw create_parse_error("Unexpected directive \"{}\" in subrange \"{}\" declaration", dir.key(), subr.name());
                }
            }
 
@@ -480,7 +467,7 @@ class PllParser final : public plain::ParserBase
         inherited::skip_blanks();
         var.set_name( inherited::get_identifier() );
         inherited::skip_blanks();
-        if( i<siz and buf[i]==',' )
+        if( inherited::got(',') )
            {
             throw create_parse_error(fmt::format("Multiple names not supported in declaration of variable \"{}\"", var.name()));
            }
@@ -489,15 +476,17 @@ class PllParser final : public plain::ParserBase
         if( inherited::eat_token("AT"sv) )
            {// Specified a location address %<type><typevar><index>.<subindex>
             inherited::skip_blanks();
-            if( i>=siz or !inherited::eat('%') )
+            if( not inherited::eat('%') )
                {
                 throw create_parse_error(fmt::format("Expected \'%\' in variable \"{}\" address", var.name()));
                }
             // Here expecting something like: MB300.6000
-            var.address().set_type( buf[i] ); i+=1; // In the Sipro/LogicLab world the address type is always 'M'
-            var.address().set_typevar( buf[i] ); i+=1;
+            var.address().set_type( inherited::curr_codepoint() ); // In the Sipro/LogicLab world the address type is always 'M'
+            inherited::get_next();
+            var.address().set_typevar( inherited::curr_codepoint() );
+            inherited::get_next();
             var.address().set_index( static_cast<std::uint16_t>(extract_index()) );
-            if( i>=siz or !inherited::eat('.') )
+            if( not inherited::eat('.') )
                {
                 throw create_parse_error(fmt::format("Expected \'.\' in variable \"{}\" address", var.name()));
                }
@@ -506,7 +495,7 @@ class PllParser final : public plain::ParserBase
            }
 
         // [Name/Type separator]
-        if( i>=siz or !inherited::eat(':') )
+        if( not inherited::eat(':') )
            {
             throw create_parse_error(fmt::format("Expected \':\' before variable \"{}\" type", var.name()));
            }
@@ -527,7 +516,7 @@ class PllParser final : public plain::ParserBase
            {// Specifying an array ex. ARRAY[ 0..999 ] OF BOOL;
             // Get array size
             inherited::skip_blanks();
-            if( i>=siz or !inherited::eat('[') )
+            if( not inherited::eat('[') )
                {
                 throw create_parse_error(fmt::format("Expected \'[\' in array variable \"{}\"", var.name()));
                }
@@ -542,12 +531,12 @@ class PllParser final : public plain::ParserBase
             inherited::skip_blanks();
             const std::size_t idx_last = extract_index();
             inherited::skip_blanks();
-            if( i<siz and buf[i]==',' )
+            if( inherited::got(',') )
                {
                 throw create_parse_error(fmt::format("Multidimensional arrays not yet supported in variable \"{}\"", var.name()));
                }
             // TODO: Collect array dimensions (multidimensional: dim0, dim1, dim2)
-            if( i>=siz or !inherited::eat(']') )
+            if( not inherited::eat(']') )
                {
                 throw create_parse_error(fmt::format("Expected \']\' in array variable \"{}\"", var.name()));
                }
@@ -564,7 +553,7 @@ class PllParser final : public plain::ParserBase
         var.set_type( inherited::get_identifier() );
         inherited::skip_blanks();
         // Now I expect an array decl '[', a value ':' or simply an end ';'
-        if( i>=siz  )
+        if( not inherited::has_codepoint()  )
            {
             throw create_parse_error(fmt::format("Truncated definition of variable \"{}\"", var.name()));
            }
@@ -577,7 +566,7 @@ class PllParser final : public plain::ParserBase
                 throw create_parse_error(fmt::format("Invalid length ({}) of variable \"{}\"", len, var.name()));
                }
             inherited::skip_blanks();
-            if( i>=siz or !inherited::eat(']') )
+            if( not inherited::eat(']') )
                {
                 throw create_parse_error(fmt::format("Expected \']\' in variable length \"{}\"", var.name()));
                }
@@ -586,18 +575,18 @@ class PllParser final : public plain::ParserBase
            }
 
         // [Value]
-        if( i>=siz  )
+        if( not inherited::has_codepoint()  )
            {
             throw create_parse_error(fmt::format("Truncated definition of variable \"{}\"", var.name()));
            }
         else if( inherited::eat(':') )
            {
-            if( i>=siz or !inherited::eat('=') )
+            if( not inherited::eat('=') )
                {
                 throw create_parse_error(fmt::format("Unexpected colon in variable \"{}\" type", var.name()));
                }
             inherited::skip_blanks();
-            if( i<siz and buf[i]=='[' )
+            if( inherited::got('[') )
                {
                 throw create_parse_error(fmt::format("Array initialization not yet supported in variable \"{}\"", var.name()));
                }
@@ -613,17 +602,17 @@ class PllParser final : public plain::ParserBase
                     //DBGLOG("    [*] Collected var value \"{}\"\n", var.name())
                     break;
                    }
-                else if( buf[i]=='\n' )
+                else if( inherited::get_endline() )
                    {
                     throw create_parse_error(fmt::format("Unclosed variable \"{}\" value {} (\';\' expected)", var.name(), std::string_view(buf+i_start, i-i_start)));
                    }
-                else if( buf[i]==':' or buf[i]=='=' or buf[i]=='<' or buf[i]=='>' or buf[i]=='\"' )
+                else if( inherited::got<':','=','<','>','\"'>() )
                    {
-                    throw create_parse_error(fmt::format("Invalid character \'{}\' in variable \"{}\" value {}", buf[i], var.name(), std::string_view(buf+i_start, i-i_start)));
+                    throw create_parse_error(fmt::format("Invalid character \'{}\' in variable \"{}\" value {}", inherited::curr_codepoint(), var.name(), std::string_view(buf+i_start, i-i_start)));
                    }
                 else
                    {// Collecting value
-                    if( not is_blank(buf[i]) ) i_end = ++i;
+                    if( not inherited::got_blank() ) i_end = ++i;
                     else ++i;
                    }
                }
@@ -643,7 +632,7 @@ class PllParser final : public plain::ParserBase
                }
             else
                {
-                notify_error("Unexpected directive \"{}\" in variable \"{}\" declaration", dir.key(), var.name());
+                throw create_parse_error("Unexpected directive \"{}\" in variable \"{}\" declaration", dir.key(), var.name());
                }
            }
 
@@ -682,8 +671,9 @@ class PllParser final : public plain::ParserBase
                {
                 break;
                }
-            else if( inherited::eat_line_end() )
+            else if( inherited::got_endline() )
                {// Sono ammesse righe vuote
+                inherited::get_next();
                 continue;
                }
             else if( eat_block_comment_start() )
@@ -710,12 +700,13 @@ class PllParser final : public plain::ParserBase
         while( i<siz )
            {
             inherited::skip_blanks();
-            if( i>=siz )
+            if( not inherited::has_codepoint() )
                {
                 throw create_parse_error(fmt::format("{} not closed by {}", start_tag, end_tag));
                }
-            else if( inherited::eat_line_end() )
+            else if( inherited::got_endline() )
                {// Sono ammesse righe vuote
+                inherited::get_next();
                 continue;
                }
             else
@@ -727,7 +718,7 @@ class PllParser final : public plain::ParserBase
                        {// Is a description
                         if( not pou.descr().empty() )
                            {
-                            notify_error("{} has already a description: {}", start_tag, pou.descr());
+                            throw create_parse_error("{} has already a description: {}", start_tag, pou.descr());
                            }
                         pou.set_descr( dir.value() );
                         //DBGLOG("    {} description: {}\n", start_tag, dir.value())
@@ -739,7 +730,7 @@ class PllParser final : public plain::ParserBase
                        }
                     else
                        {
-                        notify_error("Unexpected directive \"{}\" in {} of {}", dir.key(), start_tag, pou.name());
+                        throw create_parse_error("Unexpected directive \"{}\" in {} of {}", dir.key(), start_tag, pou.name());
                        }
                    }
                 else if( inherited::eat_token("VAR_INPUT"sv) )
@@ -773,10 +764,11 @@ class PllParser final : public plain::ParserBase
                        }
                     //else if( inherited::eat_token("RETAIN"sv) )
                     //   {
-                    //    notify_error("RETAIN variables not supported");
+                    //    throw create_parse_error("RETAIN variables not supported");
                     //   }
-                    else if( inherited::eat_line_end() )
+                    else if( inherited::got_endline() )
                        {
+                        inherited::get_next();
                         collect_var_block( pou.local_vars() );
                        }
                     else
@@ -786,12 +778,12 @@ class PllParser final : public plain::ParserBase
                    }
                 else if( inherited::eat_token(end_tag) )
                    {
-                    notify_error("Truncated {} of {}", start_tag, pou.name());
+                    throw create_parse_error("Truncated {} of {}", start_tag, pou.name());
                     break;
                    }
                 else
                    {
-                    notify_error("Unexpected content in {} of {} header: {}", start_tag, pou.name(), str::escape(inherited::get_rest_of_line()));
+                    throw create_parse_error("Unexpected content in {} of {} header: {}", start_tag, pou.name(), str::escape(inherited::get_rest_of_line()));
                    }
                }
            }
@@ -869,7 +861,7 @@ class PllParser final : public plain::ParserBase
         inherited::skip_blanks();
         par.set_name( inherited::get_identifier() );
         inherited::skip_blanks();
-        if( i>=siz or !inherited::eat(';') )
+        if( not inherited::eat(';') )
            {
             throw create_parse_error("Missing \';\' after macro parameter");
            }
@@ -883,7 +875,7 @@ class PllParser final : public plain::ParserBase
                }
             else
                {
-                notify_error("Unexpected directive \"{}\" in macro parameter", dir.key());
+                throw create_parse_error("Unexpected directive \"{}\" in macro parameter", dir.key());
                }
            }
 
@@ -904,8 +896,9 @@ class PllParser final : public plain::ParserBase
                {
                 break;
                }
-            else if( inherited::eat_line_end() )
+            else if( inherited::got_endline() )
                {// Sono ammesse righe vuote
+                inherited::get_next();
                 continue;
                }
             else if( eat_block_comment_start() )
@@ -914,7 +907,7 @@ class PllParser final : public plain::ParserBase
                }
             else if( inherited::eat_token("END_MACRO"sv) )
                {
-                notify_error("Truncated params in macro");
+                throw create_parse_error("Truncated params in macro");
                 break;
                }
             else
@@ -932,12 +925,13 @@ class PllParser final : public plain::ParserBase
         while( i<siz )
            {
             inherited::skip_blanks();
-            if( i>=siz )
+            if( not inherited::has_codepoint() )
                {
                 throw create_parse_error("MACRO not closed by END_MACRO");
                }
-            else if( inherited::eat_line_end() )
+            else if( inherited::got_endline() )
                {// Sono ammesse righe vuote
+                inherited::get_next();
                 continue;
                }
             else
@@ -949,7 +943,7 @@ class PllParser final : public plain::ParserBase
                        {// Is a description
                         if( not macro.descr().empty() )
                            {
-                            notify_error("Macro {} has already a description: {}", macro.name(), macro.descr());
+                            throw create_parse_error("Macro {} has already a description: {}", macro.name(), macro.descr());
                            }
                         macro.set_descr( dir.value() );
                         //DBGLOG("    Macro description: {}\n", dir.value())
@@ -961,26 +955,26 @@ class PllParser final : public plain::ParserBase
                        }
                     else
                        {
-                        notify_error("Unexpected directive \"{}\" in macro {} header", dir.key(), macro.name());
+                        throw create_parse_error("Unexpected directive \"{}\" in macro {} header", dir.key(), macro.name());
                        }
                    }
                 else if( inherited::eat_token("PAR_MACRO"sv) )
                    {
                     if( not macro.parameters().empty() )
                        {
-                        notify_error("Multiple groups of macro parameters");
+                        throw create_parse_error("Multiple groups of macro parameters");
                        }
                     check_if_line_ended_after("PAR_MACRO of {}"sv, macro.name());
                     collect_macro_parameters( macro.parameters() );
                    }
                 else if( inherited::eat_token("END_MACRO"sv) )
                    {
-                    notify_error("Truncated macro");
+                    throw create_parse_error("Truncated macro");
                     break;
                    }
                 else
                    {
-                    notify_error("Unexpected content in header of macro {}: {}", macro.name(), str::escape(inherited::get_rest_of_line()));
+                    throw create_parse_error("Unexpected content in header of macro {}: {}", macro.name(), str::escape(inherited::get_rest_of_line()));
                    }
                }
            }
@@ -1034,12 +1028,13 @@ class PllParser final : public plain::ParserBase
         while( i<siz )
            {
             inherited::skip_blanks();
-            if( i>=siz )
+            if( not inherited::has_codepoint() )
                {
                 throw create_parse_error("VAR_GLOBAL not closed by END_VAR");
                }
-            else if( inherited::eat_line_end() )
+            else if( inherited::got_endline() )
                {// Nella lista variabili sono ammesse righe vuote
+                inherited::get_next();
                }
             else if( eat_block_comment_start() )
                {// Nella lista variabili sono ammesse righe di commento
@@ -1052,14 +1047,14 @@ class PllParser final : public plain::ParserBase
                    {// È la descrizione di un gruppo di variabili
                     if( dir.value().find(' ')!=std::string::npos )
                        {
-                        notify_error("Avoid spaces in var group name \"{}\"", dir.value());
+                        notify_issue("Avoid spaces in var group name \"{}\"", dir.value());
                        }
                     vgroups.emplace_back();
                     vgroups.back().set_name( dir.value() );
                    }
                 else
                    {
-                    notify_error("Unexpected directive \"{}\" in global vars", dir.key());
+                    throw create_parse_error("Unexpected directive \"{}\" in global vars", dir.key());
                    }
                }
             else if( inherited::eat_token("END_VAR"sv) )
@@ -1094,12 +1089,13 @@ class PllParser final : public plain::ParserBase
         while( i<siz )
            {
             inherited::skip_blanks();
-            if( i>=siz )
+            if( not inherited::has_codepoint() )
                {
                 throw create_parse_error("TYPE not closed by END_TYPE");
                }
-            else if( inherited::eat_line_end() )
+            else if( inherited::got_endline() )
                {
+                inherited::get_next();
                 continue;
                }
             else if( inherited::eat_token("END_TYPE"sv) )
@@ -1112,20 +1108,20 @@ class PllParser final : public plain::ParserBase
                 //DBGLOG("Found typename {} in line {}\n", type_name, line)
                 if( type_name.empty() )
                    {
-                    notify_error("type name not found");
+                    throw create_parse_error("type name not found");
                     inherited::skip_line();
                    }
                 else
                    {
                     // Expected a colon after the name
                     inherited::skip_blanks();
-                    if( i>=siz or !inherited::eat(':') )
+                    if( not inherited::eat(':') )
                        {
                         throw create_parse_error(fmt::format("Missing \':\' after type name \"{}\"", type_name));
                        }
                     // Check what it is (struct, typedef, enum, subrange)
                     inherited::skip_blanks();
-                    if( i>=siz )
+                    if( not inherited::has_codepoint() )
                        {
                         continue;
                        }
@@ -1177,11 +1173,11 @@ class PllParser final : public plain::ParserBase
 
 //---------------------------------------------------------------------------
 // Parse pll file
-void pll_parse(std::string&& file_path, const std::string_view buf, plcb::Library& lib, fnotify_t const& notify_issue)
+void pll_parse(const std::string& file_path, const std::string_view buf, plcb::Library& lib, fnotify_t const& notify_issue)
 {
     PllParser parser(file_path, buf, issues, fussy);
     parser.set_on_notify_issue(notify_issue);
-    parser.set_file_path( std::move(file_path) );
+    parser.set_file_path( file_path );
 
     try{
         parser.check_heading_comment(lib);
