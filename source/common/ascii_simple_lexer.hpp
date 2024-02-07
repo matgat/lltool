@@ -49,8 +49,8 @@ class simple_lexer
     [[nodiscard]] constexpr bool got_punct() const noexcept { return i<input.size() and ascii::is_punct(input[i]); }
     [[nodiscard]] constexpr bool got_ident() const noexcept { return i<input.size() and ascii::is_ident(input[i]); }
 
-    //template<Chr... CHS> [[nodiscard]] constexpr bool got_any_of() { return i<input.size() and ((input[i]==CHS) or ...); }
-    //template<Chr... CHS> [[nodiscard]] constexpr bool got_none_of() { return i<input.size() and ((input[i]!=CHS) and ...); }
+    //template<Chr... CHS> [[nodiscard]] constexpr bool got_any_of() noexcept { return i<input.size() and ((input[i]==CHS) or ...); }
+    //template<Chr... CHS> [[nodiscard]] constexpr bool got_none_of() noexcept { return i<input.size() and ((input[i]!=CHS) and ...); }
 
     [[maybe_unused]] constexpr bool eat(const Chr ch) noexcept { if(got(ch)){get_next(); return true;} return false; }
 

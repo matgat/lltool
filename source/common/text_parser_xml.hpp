@@ -1,14 +1,10 @@
 #pragma once
 //  ---------------------------------------------
-//  Parse xml format (in unicode text buffer)
-//  Uses ascii::* predicates, good enough because
-//  xml markup is composed by ascii characters
+//  Parse xml format (unicode text buffer)
 //  ---------------------------------------------
-//  #include "text-parser-xml.hpp" // text::xml::Parser
+//  #include "text_parser_xml.hpp" // text::xml::Parser
 //  ---------------------------------------------
-#include <algorithm> // std::min
-
-#include "text-parser-base.hpp" // text::ParserBase, parse::*
+#include "text_parser_base.hpp" // text::ParserBase, parse::*
 #include "string_map.hpp" // MG::string_map<>
 
 
@@ -137,7 +133,7 @@ class ParserEvent final
 
 
 /////////////////////////////////////////////////////////////////////////////
-template<text::Enc ENC>
+template<utxt::Enc ENC>
 class Parser final : public text::ParserBase<ENC>
 {
  private:
@@ -195,8 +191,8 @@ class Parser final : public text::ParserBase<ENC>
                        }
                     else
                        {
-                        [[maybe_unused]] const auto text = inherited::collect_bytes_until(ascii::is<U'<'>);
-                        m_event.set_as_text(); // Trim right?
+                        [[maybe_unused]] const auto text = inherited::get_bytes_until(ascii::is<U'<'>); // Trim right?
+                        m_event.set_as_text();
                        }
                    }
                 else
@@ -232,7 +228,7 @@ class Parser final : public text::ParserBase<ENC>
                    }
                 else
                    {
-                    [[maybe_unused]] const auto text = inherited::template collect_bytes_until<U'-',U'-',U'>'>();
+                    [[maybe_unused]] const auto text = inherited::template get_bytes_until<U'-',U'-',U'>'>();
                     m_event.set_as_comment();
                    }
                }
@@ -246,7 +242,7 @@ class Parser final : public text::ParserBase<ENC>
                        }
                     else
                        {
-                        [[maybe_unused]] const auto text = inherited::template collect_bytes_until<U']',U']',U'>'>();
+                        [[maybe_unused]] const auto text = inherited::template get_bytes_until<U']',U']',U'>'>();
                         m_event.set_as_text();
                        }
                    }
@@ -268,7 +264,7 @@ class Parser final : public text::ParserBase<ENC>
         else if( inherited::eat(U'?') )
            {// A processing instruction ex. <?xml version="1.0" encoding="utf-8"?>
             //m_event.set_as_proc_instr( inherited::template collect_until(U"?>") );
-            [[maybe_unused]] const auto text = inherited::template collect_bytes_until<U'?',U'>'>();
+            [[maybe_unused]] const auto text = inherited::template get_bytes_until<U'?',U'>'>();
             m_event.set_as_proc_instr(U""s);
            }
         else if( inherited::eat(U'/') )
@@ -292,7 +288,7 @@ class Parser final : public text::ParserBase<ENC>
                    {
                     if( m_event.attributes().contains(namval.first) )
                        {
-                        throw inherited::create_parse_error( fmt::format("Duplicated attribute `{}`", text::to_utf8(namval.first)) );
+                        throw inherited::create_parse_error( fmt::format("Duplicated attribute `{}`", utxt::to_utf8(namval.first)) );
                        }
                     m_event.attributes().append( std::move(namval) );
                     namval = collect_attribute();
@@ -308,7 +304,7 @@ class Parser final : public text::ParserBase<ENC>
                 // Expect >
                 if( not inherited::eat(U'>') )
                    {
-                    throw inherited::create_parse_error( fmt::format("Tag `{}` must be closed with >", text::to_utf8(m_event.value())) );
+                    throw inherited::create_parse_error( fmt::format("Tag `{}` must be closed with >", utxt::to_utf8(m_event.value())) );
                    }
                }
            }
@@ -403,21 +399,21 @@ class Parser final : public text::ParserBase<ENC>
     auto it = attrs.begin();
     if( it!=attrs.end() )
        {
-        s += text::to_utf8(it->first);
+        s += utxt::to_utf8(it->first);
         if( it->second.has_value() )
            {
             s += '=';
-            s += text::to_utf8(it->second.value());
+            s += utxt::to_utf8(it->second.value());
            }
 
         while( ++it!=attrs.end() )
            {
             s += ',';
-            s += text::to_utf8(it->first);
+            s += utxt::to_utf8(it->first);
             if( it->second.has_value() )
                {
                 s += '=';
-                s += text::to_utf8(it->second.value());
+                s += utxt::to_utf8(it->second.value());
                }
            }
        }
@@ -427,28 +423,28 @@ class Parser final : public text::ParserBase<ENC>
 [[nodiscard]] constexpr std::string to_string(text::xml::ParserEvent const& ev)
    {
     if( ev.is_open_tag() )
-        return fmt::format("open tag: {} ({})", text::to_utf8(ev.value()), to_string(ev.attributes()));
+        return fmt::format("open tag: {} ({})", utxt::to_utf8(ev.value()), to_string(ev.attributes()));
 
     else if( ev.is_close_tag() )
-        return fmt::format("close tag: {}", text::to_utf8(ev.value()));
+        return fmt::format("close tag: {}", utxt::to_utf8(ev.value()));
 
     else if( ev.is_comment() )
-        return fmt::format("comment: {}", text::to_utf8(ev.value()));
+        return fmt::format("comment: {}", utxt::to_utf8(ev.value()));
 
     else if( ev.is_text() )
-        return fmt::format("text: {}", text::to_utf8(ev.value()));
+        return fmt::format("text: {}", utxt::to_utf8(ev.value()));
 
     else if( ev.is_proc_instr() )
-        return fmt::format("proc-instr: {}", text::to_utf8(ev.value()));
+        return fmt::format("proc-instr: {}", utxt::to_utf8(ev.value()));
 
     else if( ev.is_special_block() )
-        return fmt::format("spec-block: {}", text::to_utf8(ev.value()));
+        return fmt::format("spec-block: {}", utxt::to_utf8(ev.value()));
 
     return "(none)";
    }
 
 /////////////////////////////////////////////////////////////////////////////
-static ut::suite<"text::xml::Parser"> XmlParser_tests = []
+static ut::suite<"text::xml::Parser"> text_parser_xml_tests = []
 {
 using ut::expect;
 using ut::that;
@@ -510,7 +506,7 @@ ut::test("generic xml") = [&notify_sink]
         "    </child>\n"
         "</root>\n";
 
-    text::xml::Parser<text::Enc::UTF8> parser{buf};
+    text::xml::Parser<utxt::Enc::UTF8> parser{buf};
     parser.options().set_collect_comment_text(true);
     parser.options().set_collect_text_sections(true);
     parser.set_on_notify_issue(notify_sink);
@@ -560,7 +556,7 @@ ut::test("generic xml") = [&notify_sink]
 ut::test("unclosed comment") = [&notify_sink]
    {
     const std::string_view buf = "<!--\n\n\n\n";
-    text::xml::Parser<text::Enc::UTF8> parser{buf};
+    text::xml::Parser<utxt::Enc::UTF8> parser{buf};
     parser.set_on_notify_issue(notify_sink);
     expect( throws<parse::error>([&parser] { [[maybe_unused]] auto ev = parser.next_event(); }) ) << "unclosed comment should throw\n";
    };
@@ -599,7 +595,7 @@ ut::test("interface.xml sample") = [&notify_sink]
         "</group> <!-- statistics -->\n"
         "\n"
         "</interface>\n";
-    text::xml::Parser<text::Enc::UTF8> parser{buf};
+    text::xml::Parser<utxt::Enc::UTF8> parser{buf};
     parser.set_on_notify_issue(notify_sink);
     std::size_t n_event = 0u;
     try{

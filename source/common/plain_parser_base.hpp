@@ -24,14 +24,8 @@
 namespace plain
 {
 
-template<typename T> concept CharLike = std::same_as<T, char> or
-                                        std::same_as<T, unsigned char> or
-                                        std::same_as<T, char8_t> or
-                                        //std::same_as<T, char16_t> or
-                                        std::same_as<T, char32_t>;
-
 /////////////////////////////////////////////////////////////////////////////
-template<CharLike Char =char>
+template<ascii::CharLike Char =char>
 class ParserBase
 {
     using string_view = std::basic_string_view<Char>;
@@ -47,11 +41,11 @@ class ParserBase
        {
         return { m_line, m_offset, m_curr_codepoint };
        }
-    constexpr void restore_context(const context_t context) noexcept
+    constexpr void restore_context(const context_t& context) noexcept
        {
         m_line = context.line;
         m_offset = context.offset;
-        m_curr_codepoint = curr_codepoint;
+        m_curr_codepoint = context.curr_codepoint;
        }
 
  private:
@@ -115,7 +109,7 @@ class ParserBase
 
     //-----------------------------------------------------------------------
     // Extract next codepoint from buffer
-    [[nodiscard]] constexpr bool get_next() noexcept
+    [[maybe_unused]] constexpr bool get_next() noexcept
        {
         if( ascii::is_endline(m_curr_codepoint) ) ++m_line;
         if( ++m_offset<m_buf.size() ) [[likely]]
@@ -123,7 +117,7 @@ class ParserBase
             m_curr_codepoint = m_buf[m_offset];
             return true;
            }
-        m_curr_codepoint = '\0';
+        m_curr_codepoint = static_cast<Char>('\0');
         m_offset = m_buf.size();
         return false;
        }
@@ -161,6 +155,18 @@ class ParserBase
        {
         return ascii::is_punct(curr_codepoint());
        }
+    //-----------------------------------------------------------------------
+    [[nodiscard]] bool constexpr got(const string_view sv) noexcept
+       {
+        return sv==get_view_of_next(sv.length());
+       }
+    //-----------------------------------------------------------------------
+    template<Char CH1, Char... CHS>
+    [[nodiscard]] constexpr bool got_any_of() noexcept
+       {
+        return ascii::is_any_of<CH1, CHS ...>(curr_codepoint());
+       }
+    //-----------------------------------------------------------------------
     template<std::predicate<const Char> CodepointPredicate =decltype(ascii::is_always_false<Char>)>
     [[nodiscard]] constexpr bool got(CodepointPredicate is) const noexcept
        {
@@ -189,10 +195,52 @@ class ParserBase
         return get_view_between(i_start, curr_offset());
        }
 
+    //-----------------------------------------------------------------------
+    //const auto bytes = parser.get_until(ascii::is_any_of<'=',':'>, ascii::is_endline);
+    template<std::predicate<const Char> CodepointPredicate =decltype(ascii::is_always_false<Char>)>
+    [[nodiscard]] constexpr string_view get_until(CodepointPredicate is_end, CodepointPredicate is_unexpected =ascii::is_always_false<Char>)
+       {
+        const auto start = save_context();
+        do {
+            if( is_end(curr_codepoint()) ) [[unlikely]]
+               {
+                break;
+               }
+            else if( is_unexpected(curr_codepoint()) ) [[unlikely]]
+               {
+                const Char offending_codepoint = curr_codepoint();
+                restore_context( start ); // Strong guarantee
+                throw create_parse_error( fmt::format("Unexpected character '{}'"sv, str::escape(offending_codepoint)) );
+               }
+            else if( not get_next() ) [[unlikely]]
+               {// No more data
+                if( is_end(curr_codepoint()) )
+                   {// End predicate tolerates end of data
+                    break;
+                   }
+                else
+                   {
+                    restore_context( start ); // Strong guarantee
+                    throw create_parse_error( "Unexpected end (termination not found)" );
+                   }
+               }
+           }
+        while( true );
+
+        return get_view_between(start.offset, curr_offset());
+       }
+    template<std::predicate<const Char> CodepointPredicate =decltype(ascii::is_always_false<Char>)>
+    [[nodiscard]] constexpr string_view get_until_and_skip(CodepointPredicate is_end, CodepointPredicate is_unexpected =ascii::is_always_false<Char>)
+       {
+        string_view sv = get_until(is_end, is_unexpected);
+        get_next(); // Skip termination codepoint
+        return sv;
+       }
+
     constexpr void skip_blanks() noexcept { skip_while(ascii::is_blank<Char>); }
     constexpr void skip_any_space() noexcept { skip_while(ascii::is_space<Char>); }
-    constexpr void skip_line() noexcept { skip_until(ascii::is_endline<Char>); }
-    [[nodiscard]] constexpr string_view get_rest_of_line() noexcept { return get_until(ascii::is_endline<Char>); }
+    constexpr void skip_line() noexcept { skip_until(ascii::is_endline<Char>); get_next(); }
+    [[nodiscard]] constexpr string_view get_rest_of_line() noexcept { return get_until_and_skip(ascii::is_any_of<Char('\n'),'\0'>); }
     [[nodiscard]] constexpr string_view get_alphabetic() noexcept { return get_while(ascii::is_alpha<Char>); }
     [[nodiscard]] constexpr string_view get_alnums() noexcept { return get_while(ascii::is_alnum<Char>); }
     [[nodiscard]] constexpr string_view get_identifier() noexcept { return get_while(ascii::is_ident<Char>); }
@@ -215,7 +263,7 @@ class ParserBase
        {
         if( got_endline() )
            {
-            [[maybe_unused]] const bool has_next = get_next();
+            get_next();
             return true;
            }
         return false;
@@ -223,23 +271,23 @@ class ParserBase
 
 
     //-----------------------------------------------------------------------
-    [[nodiscard]] bool eat(const Char cp) noexcept
+    [[nodiscard]] constexpr bool eat(const Char cp) noexcept
        {
         if( got(cp) )
            {
-            [[maybe_unused]] const bool has_next = get_next();
+            get_next();
             return true;
            }
         return false;
        }
 
     //-----------------------------------------------------------------------
-    [[nodiscard]] bool eat(const string_view sv) noexcept
+    [[nodiscard]] constexpr bool eat(const string_view sv) noexcept
        {
         assert( not sv.contains('\n') );
         if( sv==get_view_of_next(sv.length()) )
            {
-            m_offset += sv.length();
+            advance_of( sv.length() );
             return true;
            }
         return false;
@@ -253,9 +301,9 @@ class ParserBase
            {
             // It's a token if next char is not identifier
             const std::size_t i_next = m_offset + sv.length();
-            if(i_next>=m_buf.size() or not ascii::is_ident(m_buf[i_next]) )
+            if( i_next>=m_buf.size() or not ascii::is_ident(m_buf[i_next]) )
                {
-                m_offset = i_next;
+                advance_of( sv.length() );
                 return true;
                }
            }
@@ -263,90 +311,25 @@ class ParserBase
        }
 
     //-----------------------------------------------------------------------
-    [[nodiscard]] bool got(const string_view sv) noexcept
-       {
-        return sv==get_view_of_next(sv.length());
-       }
-
-    //-----------------------------------------------------------------------
-    //const auto bytes = parser.get_until(ascii::is_any_of<'=',':'>, ascii::is_endline);
-    template<std::predicate<const Char> CodepointPredicate =decltype(ascii::is_always_false<Char>)>
-    [[nodiscard]] constexpr string_view get_until(CodepointPredicate is_end, CodepointPredicate is_unexpected =ascii::is_always_false<Char>)
+    [[nodiscard]] constexpr string_view get_until_newline_token(const string_view tok)
        {
         const auto start = save_context();
         do {
-            if( is_end(curr_codepoint()) ) [[unlikely]]
+            if( got_endline() )
                {
-                return get_view_between(start.curr_offset, curr_offset());
-               }
-            else if( is_unexpected(curr_codepoint()) ) [[unlikely]]
-               {
-                break;
+                get_next();
+                skip_blanks();
+                const std::size_t candidate_end = curr_offset();
+                if( eat_token(tok) )
+                   {
+                    return get_view_between(start.offset, candidate_end);
+                   }
                }
            }
-        while( get_next() ); [[likely]]
-
+        while( get_next() );
         restore_context( start ); // Strong guarantee
-        throw create_parse_error( has_codepoint() ? fmt::format("Unexpected character '{}'"sv, str::escape(curr_codepoint()))
-                                                  : "Unexpected end (termination not found)"s );
+        throw create_parse_error(fmt::format("Unclosed content (\"{}\" not found)",tok), start.line);
        }
-    template<std::predicate<const Char> CodepointPredicate =decltype(ascii::is_always_false<Char>)>
-    [[nodiscard]] constexpr string_view get_until_and_skip(CodepointPredicate is_end, CodepointPredicate is_unexpected =ascii::is_always_false<Char>)
-       {
-        string_view sv = get_until(is_end, is_unexpected);
-        [[maybe_unused]] const bool has_next = get_next(); // Skip termination codepoint
-        return sv;
-       }
-
-    //-----------------------------------------------------------------------
-    //[[nodiscard]] string_view collect_until_char_trimmed(const char ch)
-    //   {
-    //    const std::size_t line_start = line; // Store current line...
-    //    const std::size_t i_start = i;       // ...and position
-    //    std::size_t i_end = i_start; // Index past last char not blank
-    //    while( i<siz )
-    //       {
-    //        if( curr_codepoint()==ch )
-    //           {
-    //            //++i; // Nah, do not eat ch
-    //            return string_view(buf+i_start, i_end-i_start);
-    //           }
-    //        else if( curr_codepoint()=='\n' )
-    //           {
-    //            ++line;
-    //            ++i;
-    //           }
-    //        else
-    //           {
-    //            if( !is_blank(curr_codepoint()) ) i_end = ++i;
-    //            else ++i;
-    //           }
-    //       }
-    //    throw create_parse_error(fmt::format("Unclosed content (\'{}\' expected)", str::escape(ch)), line_start, i_start);
-    //   }
-
-
-    //-----------------------------------------------------------------------
-    //[[nodiscard]] string_view collect_until_newline_token(const string_view tok)
-    //   {
-    //    const std::size_t line_start = line;
-    //    const std::size_t i_start = i;
-    //    while( i<siz )
-    //       {
-    //        if( curr_codepoint()=='\n' )
-    //           {
-    //            ++i;
-    //            ++line;
-    //            skip_blanks();
-    //            if( eat_token(tok) )
-    //               {
-    //                return string_view(buf+i_start, i-i_start-tok.length());
-    //               }
-    //           }
-    //        else ++i;
-    //       }
-    //    throw create_parse_error(fmt::format("Unclosed content (\"{}\" expected)",tok), line_start, i_start);
-    //   }
 
     //-----------------------------------------------------------------------
     // Read a (base10) positive integer literal
@@ -372,14 +355,10 @@ class ParserBase
     // Read a (base10) integer literal
     [[nodiscard]] constexpr int extract_integer()
        {
-        if( not has_codepoint() )
-           {
-            throw create_parse_error("No integer found");
-           }
         int sign = 1;
         if( got('+') )
            {
-            if( !get_next() )
+            if( not get_next() )
                {
                 throw create_parse_error("Invalid integer \'+\'");
                }
@@ -387,29 +366,135 @@ class ParserBase
         else if( got('-') )
            {
             sign = -1;
-            if( !get_next() )
+            if( not get_next() )
                {
                 throw create_parse_error("Invalid integer \'+\'");
                }
            }
 
-        if( !not got_digit() )
+        if( not got_digit() )
            {
             throw create_parse_error(fmt::format("Invalid char \'{}\' in integer", curr_codepoint()));
            }
         int result = (curr_codepoint() - '0');
         const int base = 10;
-        while( get_next() && got_digit() )
+        while( get_next() and got_digit() )
            {
             result = (base*result) + (curr_codepoint() - '0');
            }
         return sign * result;
        }
 
+    //-----------------------------------------------------------------------
+    // Read a (base10) float literal
+    [[nodiscard]] constexpr double extract_float()
+       {
+        // [sign]
+        double sign = 1.0;
+        if( got('-') )
+           {
+            sign = -1.0;
+            if( not get_next() )
+               {
+                throw create_parse_error("Invalid float \'-\'");
+               }
+           }
+        else if( got('+') )
+           {
+            if( not get_next() )
+               {
+                throw create_parse_error("Invalid float \'+\'");
+               }
+           }
+
+        // [mantissa - integer part]
+        double mantissa = 0.0;
+        if( got_digit() )
+           {
+            mantissa = (curr_codepoint() - '0');
+            while( get_next() && got_digit() )
+               {
+                mantissa = (10.0 * mantissa) + (curr_codepoint() - '0');
+               }
+           }
+        // [mantissa - fractional part]
+        if( got('.') )
+           {
+            double k = 0.1; // shift of decimal part
+            if( get_next() && got_digit() )
+               {
+                do {
+                    mantissa += k * (curr_codepoint() - '0');
+                    k *= 0.1;
+                   }
+                while( get_next() and got_digit() );
+               }
+           }
+
+        // [exponent]
+        int exp = 0;
+        if( got_any_of<'E','e'>() )
+           {
+            int exp_sign = 1;
+            if( get_next() )
+               {
+                // [exponent sign]
+                if( got('-') )
+                   {
+                    exp_sign = -1;
+                    if( not get_next() )
+                       {
+                        throw create_parse_error("Invalid float \'...E-\'");
+                       }
+                   }
+                else if( got('+') )
+                   {
+                    if( not get_next() )
+                       {
+                        throw create_parse_error("Invalid float \'...E+\'");
+                       }
+                   }
+
+                // [exponent value]
+                while( got_digit() )
+                   {
+                    exp = (10 * exp) + static_cast<int>((curr_codepoint() - '0'));
+                    get_next();
+                   }
+                exp *= exp_sign;
+               }
+           }
+
+        const auto pow10 = [](const int n) noexcept -> double
+           {
+            double result = 1.0;
+            if( n>=0 )
+               {
+                for(int i=n; i>0; --i) result *= 10.0;
+               }
+            else
+               {
+                for(int i=-n; i>0; --i) result *= 10.0;
+                result = 1.0 / result;
+               }
+            return result;
+           };
+
+        return sign * mantissa * pow10( exp );
+       }
 
  private:
     //-----------------------------------------------------------------------
-    void check_and_skip_bom()
+    void constexpr advance_of(const std::size_t codepoints_num)
+       {
+        assert( codepoints_num>0 );
+        m_offset += codepoints_num-1;
+        // Note: assuming same m_line
+        get_next();
+       }
+
+    //-----------------------------------------------------------------------
+    void constexpr check_and_skip_bom()
        {
         if constexpr(std::same_as<Char, char32_t>)
            {
@@ -612,15 +697,20 @@ ut::test("codepoint queries") = []
     plain::ParserBase<char> parser{"a; 2\n"sv};
 
     ut::expect( parser.got('a') and parser.got(ascii::is_alpha) );
+    ut::expect( parser.got("a"sv) );
+    ut::expect( parser.got("a; 2"sv) );
 
     ut::expect( parser.get_next() );
     ut::expect( parser.got(';') and parser.got_punct() and parser.got(ascii::is_punct) );
 
     ut::expect( parser.get_next() );
     ut::expect( parser.got(' ') and parser.got_space() and parser.got(ascii::is_blank) );
+    ut::expect( parser.got(" "sv) );
+    ut::expect( parser.got(" 2"sv) );
 
     ut::expect( parser.get_next() );
     ut::expect( parser.got('2') and parser.got_digit() and parser.got(ascii::is_float) );
+    ut::expect( parser.got("2\n"sv) );
 
     ut::expect( parser.get_next() );
     ut::expect( parser.got('\n') and parser.got_endline() and parser.got(ascii::is_space) );
@@ -659,17 +749,25 @@ ut::test("skipping functions") = []
    {
     plain::ParserBase<char> parser{" \t a \t b\n\t\t\n\nc d e f\ng"sv};
 
-    parser.skip_blanks()
+    parser.skip_blanks();
     ut::expect( ut::that % parser.curr_codepoint()=='a' );
 
-    parser.skip_any_space()
+    ut::expect( parser.get_next() );
+    parser.skip_any_space();
     ut::expect( ut::that % parser.curr_codepoint()=='b' );
 
-    parser.skip_any_space()
+    ut::expect( parser.get_next() );
+    parser.skip_any_space();
     ut::expect( ut::that % parser.curr_codepoint()=='c' );
 
-    parser.skip_line()
+    parser.skip_line();
     ut::expect( ut::that % parser.curr_codepoint()=='g' );
+
+    parser.skip_line();
+    ut::expect( not parser.has_codepoint() );
+
+    parser.skip_line(); // skipping line at buffer end shouldn't be harmful
+    ut::expect( not parser.has_codepoint() );
    };
 
 ut::test("getting primitives") = []
@@ -684,31 +782,117 @@ ut::test("getting primitives") = []
     ut::expect( ut::that % parser.get_until(ascii::is<':'>)=="k2"sv );
     ut::expect( ut::that % parser.curr_codepoint()==':' and parser.get_next() );
     ut::expect( ut::that % parser.get_until_and_skip(ascii::is_space)=="v2"sv );
-    ut::expect( ut::that % parser.curr_codepoint()=='k' );
+    ut::expect( ut::that % parser.curr_codepoint()=='a' );
 
-    ut::expect( ut::that % parser.get_until(ascii::is<'@'>)=="a3==b3"sv );
+    ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto sv = parser.get_until(ascii::is<';'>); }) ) << "should complain for termination not found\n";
+    ut::expect( ut::that % parser.get_until(ascii::is_any_of<'\0',';'>)=="a3==b3"sv );
    };
 
 ut::test("getting functions") = []
    {
-    //parser.get_rest_of_line()
-    //parser.get_alphabetic()
-    //parser.get_alnums()
-    //parser.get_identifier()
-    //parser.get_digits()
-    //parser.get_float()
+    plain::ParserBase<char> parser{"abc123 ...\n_id3:-2.3E5mm2 ..."sv};
 
-    ut::expect( ut::that % true );
+    ut::expect( ut::that % parser.get_alphabetic()=="abc"sv );
+    ut::expect( ut::that % parser.get_digits()=="123"sv );
+    ut::expect( ut::that % parser.get_rest_of_line()==" ..."sv );
+
+    ut::expect( ut::that % parser.get_identifier()=="_id3"sv );
+    ut::expect( parser.get_next() );
+    ut::expect( ut::that % parser.get_float()=="-2.3E5"sv );
+    ut::expect( ut::that % parser.get_alnums()=="mm2"sv );
+    ut::expect( ut::that % parser.get_rest_of_line()==" ..."sv );
    };
 
-//ut::test("xx") = []
-//   {
-//    ut::expect( ut::that % true );
-//   };
+ut::test("end line functions") = []
+   {
+    plain::ParserBase<char> parser{"1  \n2  \n3  \n"sv};
 
-// eat_token() in the end
-// skipping line at buffer end skip_line()
+    ut::expect( ut::throws([&parser]{ parser.skip_endline(); }) ) << "should complain for line not ended\n";
 
+    ut::expect( ut::that % parser.curr_codepoint()=='2' ) << "previous line was collected\n";
+    ut::expect( ut::that % parser.curr_line()==2 );
+    ut::expect( not parser.eat_endline() );
+    ut::expect( parser.get_next() );
+    ut::expect( not parser.eat_endline() ) << "there are still spaces here\n";
+    parser.skip_blanks();
+    ut::expect( parser.eat_endline() );
+
+    ut::expect( ut::that % parser.curr_codepoint()=='3' );
+    ut::expect( ut::that % parser.curr_line()==3 );
+    ut::expect( parser.get_next() );
+    parser.skip_endline();
+    ut::expect( not parser.has_codepoint() );
+    ut::expect( ut::that % parser.curr_line()==4 );
+   };
+
+ut::test("eat functions") = []
+   {
+    plain::ParserBase<char> parser{"abcd 1234 efgh"sv};
+
+    ut::expect( not parser.eat('b') );
+    ut::expect( ut::that % parser.curr_codepoint()=='a' );
+
+    ut::expect( not parser.eat("bc"sv) );
+    ut::expect( ut::that % parser.curr_codepoint()=='a' );
+
+    ut::expect( not parser.eat_token("ab"sv) );
+    ut::expect( ut::that % parser.curr_codepoint()=='a' );
+
+    ut::expect( parser.eat('a') );
+    ut::expect( ut::that % parser.curr_codepoint()=='b' );
+
+    ut::expect( parser.eat("bc"sv) );
+    ut::expect( ut::that % parser.curr_codepoint()=='d' );
+
+    ut::expect( parser.eat("d "sv) );
+    ut::expect( ut::that % parser.curr_codepoint()=='1' );
+
+    ut::expect( not parser.eat_token("123"sv) );
+    ut::expect( ut::that % parser.curr_codepoint()=='1' );
+
+    ut::expect( parser.eat_token("1234"sv) );
+    ut::expect( ut::that % parser.curr_codepoint()==' ' );
+
+    ut::expect( parser.eat(' ') );
+    ut::expect( ut::that % parser.curr_codepoint()=='e' );
+
+    ut::expect( not parser.eat_token("efghi"sv) );
+    ut::expect( ut::that % parser.curr_codepoint()=='e' );
+
+    ut::expect( parser.eat_token("efgh"sv) );
+    ut::expect( not parser.has_codepoint() );
+   };
+
+ut::test("get_until_newline_token()") = []
+   {
+    plain::ParserBase<char> parser{ "start\n"
+                                    "123\n"
+                                    "endnot\n"
+                                    "  end start2\n"
+                                    "not end\n"
+                                    "end"sv };
+
+    ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto n = parser.get_until_newline_token("xxx"sv); }) ) << "should complain for unclosed content\n";
+    ut::expect( ut::that % parser.get_until_newline_token("end"sv) == "start\n123\nendnot\n  "sv );
+    ut::expect( ut::that % parser.get_until_newline_token("end"sv) == " start2\nnot end\n"sv );
+    ut::expect( not parser.has_codepoint() );
+   };
+
+ut::test("parsing numbers") = []
+   {
+    plain::ParserBase<char> parser{"1234 -10300 +2.3E-2"sv};
+
+    ut::expect( ut::that % parser.extract_index() == 1234u );
+    parser.skip_blanks();
+
+    ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto n = parser.extract_index(); }) ) << "index has no sign\n";
+    ut::expect( ut::that % parser.extract_integer() == -10'300 );
+    
+    parser.skip_blanks();
+    ut::expect( ut::that % parser.extract_float() == 2.3E-2 );
+
+    ut::expect( not parser.has_codepoint() );
+   };
 
 };///////////////////////////////////////////////////////////////////////////
 #endif // TEST_UNITS ////////////////////////////////////////////////////////

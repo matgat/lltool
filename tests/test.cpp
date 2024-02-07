@@ -28,12 +28,15 @@ namespace ut = boost::ut;
 #include "text_parser_base.hpp" // text::ParserBase
 #include "text_parser_xml.hpp" // text::xml::Parser
 #include "plain_parser_base.hpp" // plain::ParserBase
+//#include "h_parser.hpp" // h::Parser
 
 #include "sipro.hpp" // sipro::*
-#include "project_updater.hpp" // ll::update_project_libraries()
-#include "libraries_converter.hpp" // ll::convert_libraries()
+//#include "h_file_parser.hpp" // sipro::h_parse()
+//#include "pll_file_parser.hpp" // ll::pll_parse()
 #include "writer_pll.hpp" // pll::write_lib()
 #include "writer_plclib.hpp" // plclib::write_lib()
+#include "project_updater.hpp" // ll::update_project_libraries()
+#include "libraries_converter.hpp" // ll::convert_libraries()
 
 int main()
 {

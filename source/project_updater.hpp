@@ -224,7 +224,7 @@ template<utxt::Enc ENC>
 
 //---------------------------------------------------------------------------
 // Parse original project detecting contained libs
-[[nodiscard]] libs_t parse_project_file( const fs::path& project_file_path, const std::string_view project_file_bytes, utxt::Enc project_bytes_enc, fnotify_t const& notify_issue )
+[[nodiscard]] libs_t parse_project_file( const fs::path& project_file_path, const std::string_view project_file_bytes, const utxt::Enc project_bytes_enc, fnotify_t const& notify_issue )
 {
     // Temporarily switch current path to properly resolve libraries paths relative to project file
     fsu::CurrentPathLocalChanger curr_path_changed( project_file_path.parent_path() );

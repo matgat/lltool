@@ -400,7 +400,7 @@ template<Enc ENC> class bytes_buffer_t final
        {
         return { m_current_byte_offset };
        }
-    constexpr void restore_context(const context_t context) noexcept
+    constexpr void restore_context(const context_t& context) noexcept
        {
         m_current_byte_offset = context.current_byte_offset;
        }
