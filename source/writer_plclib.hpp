@@ -457,16 +457,16 @@ void write_preamble(MG::OutputStreamable auto& f, const plcb::Library& lib, cons
 void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG::keyvals& options)
 {
     //-----------------------------------------------------------------------
-    const auto get_indent = [](const MG::keyvals& options) -> std::size_t
+    const auto get_indent = [](const MG::keyvals& opts) -> std::size_t
        {
-        const std::string_view sv = options.value_or("plclib-indent", "2"sv);
+        const std::string_view sv = opts.value_or("plclib-indent", "2"sv);
         if( const auto num=str::to_num_or<std::size_t>(sv) )
            {
             return num.value();
            }
         throw std::runtime_error( fmt::format("invalid plclib-indent:{}", sv) );
        };
-       
+
     //-----------------------------------------------------------------------
     const auto write_pous = [&f](std::vector<plcb::Pou> const& pous, const std::string_view tag, const std::string_view pou_tag, const std::size_t lvl)
        {

@@ -106,12 +106,12 @@ namespace details //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
     // Facility for case conversion
     template<bool SET>
-    [[nodiscard]] inline constexpr char set_case_bit(char c) noexcept
+    [[nodiscard]] inline constexpr char set_case_bit(char ch) noexcept
        {
         static constexpr char case_bit = '\x20';
-        if constexpr (SET) c |= case_bit;
-        else               c &= ~case_bit;
-        return c;
+        if constexpr (SET) ch |= case_bit;
+        else               ch &= ~case_bit;
+        return ch;
        }
 } //::::::::::::::::::::::::::::::: details ::::::::::::::::::::::::::::::::::
 
@@ -147,40 +147,40 @@ template<CharLike Chr> [[nodiscard]] constexpr bool is_always_false(const Chr) n
     return false;
    }
 
-template<CharLike auto CH>
-[[nodiscard]] constexpr bool is(const decltype(CH) ch) noexcept
+template<CharLike auto C>
+[[nodiscard]] constexpr bool is(const decltype(C) c) noexcept
    {
-    return ch==CH;
+    return c==C;
    }
 
-template<CharLike auto CH1, decltype(CH1)... CHS>
-[[nodiscard]] constexpr bool is_any_of(const decltype(CH1) ch) noexcept
+template<CharLike auto C1, decltype(C1)... CS>
+[[nodiscard]] constexpr bool is_any_of(const decltype(C1) c) noexcept
    {
-    return ch==CH1 or ((ch==CHS) or ...);
+    return c==C1 or ((c==CS) or ...);
    }
 
-template<CharLike auto CH1, decltype(CH1)... CHS>
-[[nodiscard]] constexpr bool is_none_of(const decltype(CH1) ch) noexcept
+template<CharLike auto C1, decltype(C1)... CS>
+[[nodiscard]] constexpr bool is_none_of(const decltype(C1) c) noexcept
    {
-    return ch!=CH1 and ((ch!=CHS) and ...);
+    return c!=C1 and ((c!=CS) and ...);
    }
 
-//template<CharLike auto CH>
-//[[nodiscard]] constexpr bool is_greater_than(const decltype(CH) ch) noexcept
+//template<CharLike auto C>
+//[[nodiscard]] constexpr bool is_greater_than(const decltype(C) c) noexcept
 //   {
-//    return ch>CH;
+//    return c>C;
 //   }
 
-//template<CharLike auto CH>
-//[[nodiscard]] constexpr bool is_less_than(const decltype(CH) ch) noexcept
+//template<CharLike auto C>
+//[[nodiscard]] constexpr bool is_less_than(const decltype(C) c) noexcept
 //   {
-//    return ch<CH;
+//    return c<C;
 //   }
 
-//template<CharLike auto CH1, CharLike auto CH2>
-//[[nodiscard]] constexpr bool is_between(const decltype(CH) ch) noexcept
+//template<CharLike auto C1, CharLike auto C2>
+//[[nodiscard]] constexpr bool is_between(const decltype(C) c) noexcept
 //   {
-//    return ch>=CH1 and ch<=CH2;
+//    return c>=C1 and c<=C2;
 //   }
 
 
@@ -188,36 +188,46 @@ template<CharLike auto CH1, decltype(CH1)... CHS>
 //---------------------------------------------------------------------------
 // Some examples of non-type parameterized template composite predicates
 
-template<CharLike auto CH1, decltype(CH1)... CHS>
-[[nodiscard]] constexpr bool is_space_or_any_of(const decltype(CH1) ch) noexcept
+template<CharLike auto C1, decltype(C1)... CS>
+[[nodiscard]] constexpr bool is_space_or_any_of(const decltype(C1) c) noexcept
    {
-    return is_space(ch) or is_any_of<CH1, CHS ...>(ch);
+    return is_space(c) or is_any_of<C1, CS ...>(c);
    }
 
-template<CharLike auto CH1, decltype(CH1)... CHS>
-[[nodiscard]] constexpr bool is_alnum_or_any_of(const decltype(CH1) ch) noexcept
+template<CharLike auto C1, decltype(C1)... CS>
+[[nodiscard]] constexpr bool is_alnum_or_any_of(const decltype(C1) c) noexcept
    {
-    return is_alnum(ch) or is_any_of<CH1, CHS ...>(ch);
+    return is_alnum(c) or is_any_of<C1, CS ...>(c);
    }
 
-template<CharLike auto CH1, decltype(CH1)... CHS>
-[[nodiscard]] constexpr bool is_digit_or_any_of(const decltype(CH1) ch) noexcept
+template<CharLike auto C1, decltype(C1)... CS>
+[[nodiscard]] constexpr bool is_digit_or_any_of(const decltype(C1) c) noexcept
    {
-    return is_digit(ch) or is_any_of<CH1, CHS ...>(ch);
+    return is_digit(c) or is_any_of<C1, CS ...>(c);
    }
 
-template<CharLike auto CH1, decltype(CH1)... CHS>
-[[nodiscard]] constexpr bool is_punct_and_none_of(const decltype(CH1) ch) noexcept
+template<CharLike auto C1, decltype(C1)... CS>
+[[nodiscard]] constexpr bool is_punct_and_none_of(const decltype(C1) c) noexcept
    {
-    return is_punct(ch) and is_none_of<CH1, CHS ...>(ch);
+    return is_punct(c) and is_none_of<C1, CS ...>(c);
    }
 
 
 
 //---------------------------------------------------------------------------
 // Case conversion (only for ASCII char, so not so useful!)
-[[nodiscard]] constexpr char to_lower(char c) noexcept { if(is_upper(c)) c = details::set_case_bit<true>(c); return c; }
-[[nodiscard]] constexpr char to_upper(char c) noexcept { if(is_lower(c)) c = details::set_case_bit<false>(c); return c; }
+[[nodiscard]] constexpr char to_lower(char ch) noexcept { if(is_upper(ch)) ch = details::set_case_bit<true>(ch); return ch; }
+[[nodiscard]] constexpr char to_upper(char ch) noexcept { if(is_lower(ch)) ch = details::set_case_bit<false>(ch); return ch; }
+
+
+//---------------------------------------------------------------------------
+template<CharLike Chr>
+[[nodiscard]] constexpr std::uint8_t value_of_digit(const Chr c) noexcept
+{
+    //assert( is_digit(c) );
+    return static_cast<uint8_t>((c - static_cast<Chr>('0')));
+}
+
 
 }//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -661,6 +671,30 @@ ut::test("case conversion") = []
     ut::expect( ut::that % ascii::to_upper('~') == '~');
    };
 
+ut::test("value_of_digit()") = []
+   {
+    ut::expect( ut::that % ascii::value_of_digit('0') == 0);
+    ut::expect( ut::that % ascii::value_of_digit('1') == 1);
+    ut::expect( ut::that % ascii::value_of_digit('2') == 2);
+    ut::expect( ut::that % ascii::value_of_digit('3') == 3);
+    ut::expect( ut::that % ascii::value_of_digit('4') == 4);
+    ut::expect( ut::that % ascii::value_of_digit('5') == 5);
+    ut::expect( ut::that % ascii::value_of_digit('6') == 6);
+    ut::expect( ut::that % ascii::value_of_digit('7') == 7);
+    ut::expect( ut::that % ascii::value_of_digit('8') == 8);
+    ut::expect( ut::that % ascii::value_of_digit('9') == 9);
+
+    ut::expect( ut::that % ascii::value_of_digit(U'0') == 0);
+    ut::expect( ut::that % ascii::value_of_digit(U'1') == 1);
+    ut::expect( ut::that % ascii::value_of_digit(U'2') == 2);
+    ut::expect( ut::that % ascii::value_of_digit(U'3') == 3);
+    ut::expect( ut::that % ascii::value_of_digit(U'4') == 4);
+    ut::expect( ut::that % ascii::value_of_digit(U'5') == 5);
+    ut::expect( ut::that % ascii::value_of_digit(U'6') == 6);
+    ut::expect( ut::that % ascii::value_of_digit(U'7') == 7);
+    ut::expect( ut::that % ascii::value_of_digit(U'8') == 8);
+    ut::expect( ut::that % ascii::value_of_digit(U'9') == 9);
+   };
 
 };///////////////////////////////////////////////////////////////////////////
 #endif // TEST_UNITS ////////////////////////////////////////////////////////
