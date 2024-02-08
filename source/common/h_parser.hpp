@@ -27,7 +27,15 @@ class Define final
     std::string_view m_comment_predecl;
 
  public:
-    [[nodiscard]] constexpr operator bool() const noexcept { return !m_value.empty(); }
+    constexpr void clear() noexcept
+       {
+        m_label = {};
+        m_value = {};
+        m_comment = {};
+        m_comment_predecl = {};
+       }
+
+    [[nodiscard]] explicit constexpr operator bool() const noexcept { return !m_value.empty(); }
 
     [[nodiscard]] constexpr std::string_view label() const noexcept { return m_label; }
     constexpr void set_label(const std::string_view sv)
@@ -49,13 +57,6 @@ class Define final
         m_value = sv;
        }
 
-    [[nodiscard]] constexpr bool value_is_number() const noexcept
-       {
-        double result;
-        const auto i_end = m_value.data() + m_value.size();
-        auto [i, ec] = std::from_chars(m_value.data(), i_end, result);
-        return ec==std::errc() and i==i_end;
-       }
 
     [[nodiscard]] constexpr bool has_comment() const noexcept { return !m_comment.empty(); }
     [[nodiscard]] constexpr std::string_view comment() const noexcept { return m_comment; }
@@ -64,6 +65,14 @@ class Define final
     [[nodiscard]] constexpr bool has_comment_predecl() const noexcept { return !m_comment_predecl.empty(); }
     [[nodiscard]] constexpr std::string_view comment_predecl() const noexcept { return m_comment_predecl; }
     constexpr void set_comment_predecl(const std::string_view sv) noexcept { m_comment_predecl = sv; }
+
+    [[nodiscard]] bool value_is_number() const noexcept
+       {
+        double result;
+        const auto i_end = m_value.data() + m_value.size();
+        auto [i, ec] = std::from_chars(m_value.data(), i_end, result);
+        return ec==std::errc() and i==i_end;
+       }
 };
 
 
@@ -71,16 +80,18 @@ class Define final
 /////////////////////////////////////////////////////////////////////////////
 class Parser final : public plain::ParserBase<char>
 {         using inherited = plain::ParserBase<char>;
+ private:
+    Define m_curr_def;
+
  public:
     Parser(const std::string_view buf)
-      : plain::ParserBase(buf)
+      : inherited(buf)
        {}
 
     //-----------------------------------------------------------------------
-    [[nodiscard]] Define next_define()
+    [[nodiscard]] const Define& next_define()
        {
-        Define def;
-
+        m_curr_def.clear();
         try{
             while( true )
                {
@@ -103,7 +114,7 @@ class Parser final : public plain::ParserBase<char>
                    }
                 else if( inherited::eat_token("#define"sv) )
                    {
-                    collect_define(def);
+                    collect_define(m_curr_def);
                     break;
                    }
                 else
@@ -112,16 +123,16 @@ class Parser final : public plain::ParserBase<char>
                    }
                }
            }
-        catch(parse_error&)
+        catch( parse::error& )
            {
             throw;
            }
-        catch(std::exception& e)
+        catch( std::exception& e )
            {
             throw create_parse_error(e.what());
            }
 
-        return def;
+        return m_curr_def;
        }
 
 
@@ -141,64 +152,41 @@ class Parser final : public plain::ParserBase<char>
     //-----------------------------------------------------------------------
     void skip_block_comment()
        {
-        [[maybe_unused]] auto cmt = inherited::get_until<'*','/'>();
+        [[maybe_unused]] auto cmt = inherited::get_until("*/");
        }
 
     //-----------------------------------------------------------------------
     void collect_define_comment( Define& def )
        {// [INT] Descr
         inherited::skip_blanks();
-        const std::size_t i_start = inherited::curr_offset(); // Start of overall comment string
 
         // Detect possible pre-declaration in square brackets like: // [xxx] comment
         if( inherited::got('[') )
            {
             inherited::get_next();
             inherited::skip_blanks();
-            const std::size_t i_pre_start = inherited::curr_offset(); // Start of pre-declaration
-            std::size_t i_pre_end = i_pre_start; // One-past-end of pre-declaration
-            while( true )
+            std::string_view predecl = inherited::get_until_or_endline<']'>();
+            if( inherited::got(']') )
                {
-                if( not inherited::has_codepoint() or inherited::got_endline() )
-                   {
-                    notify_issue( fmt::format("Unclosed initial \'[\' in the comment of define {}", def.label()) );
-                    def.set_comment( str::trim_right(inherited::get_view_between(i_start, i_pre_end)) );
-                    break;
-                   }
-                else if( inherited::got(']') )
-                   {
-                    def.set_comment_predecl( str::trim_right(inherited::get_view_between(i_pre_start, i_pre_end)) );
-                    inherited::get_next();
-                    break;
-                   }
-                else
-                   {
-                    inherited::get_next();
-                   }
+                def.set_comment_predecl( str::trim_right(predecl) );
+                inherited::get_next();
+                inherited::skip_blanks();
                }
-            inherited::skip_blanks();
+            else
+               {
+                notify_issue( fmt::format("Unclosed \'[\' in the comment of define {}", def.label()) );
+                def.set_comment( str::trim_right(predecl) );
+                inherited::get_next();
+                return;
+               }
            }
 
         // Collect the remaining comment text
-        if( not def.has_comment() and i<siz and buf[i]!='\n' )
-           {
-            const std::size_t i_txt_start = i; // Start of comment text
-            std::size_t i_txt_end = i; // One-past-end of comment text
-            do {
-                if( buf[i]=='\n' )
-                   {// Line finished
-                    break;
-                   }
-                else
-                   {
-                    if( not is_blank(buf[i]) ) i_txt_end = ++i;
-                    else ++i;
-                   }
-               }
-            while( i<siz );
-
-            def.set_comment( inherited::get_view_between(i_txt_start, i_txt_end) );
-           }
+        def.set_comment( str::trim_right(inherited::get_rest_of_line()) );
+        //if( def.comment().empty() )
+        //   {
+        //    notify_issue( fmt::format("Define {} has no comment", def.label()) );
+        //   }
        }
 
     //-----------------------------------------------------------------------
@@ -226,16 +214,6 @@ class Parser final : public plain::ParserBase<char>
         //   {
         //    notify_issue( fmt::format("Define {} hasn't a comment", def.label()) );
         //   }
-
-        // Expecting a line end here
-        if( inherited::got_endline() )
-           {
-            inherited::get_next();
-           }
-        else
-           {
-            throw create_parse_error( fmt::format("Unexpected content after define {}: {}", def.label(), str::escape(inherited::get_rest_of_line())) );
-           }
        }
 };
 
@@ -249,10 +227,77 @@ class Parser final : public plain::ParserBase<char>
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
 static ut::suite<"h::Parser"> h_parser_tests = []
 {////////////////////////////////////////////////////////////////////////////
-
+//auto notify_sink = [](const std::string_view msg) -> void { ut::log << "\033[33m" "parser: " "\033[0m" << msg; };
 ut::test("basic") = []
    {
-    ut::expect( true );
+    const std::string_view buf =
+        "// test header\n"
+        "\n"
+        "//#define commented val // A commented define\n"
+        "#define const 1234 // [INT] A constant\n"
+        "\n"
+        "#define macro  value   // A first macro\n"
+        "#define macro2  value2 // A second macro \n"
+        " /* block\n   comment */ \n"
+        " #define  macro3 value3 // [ A third macro \n"
+        "\n"
+        "#define last x //  [ y 2 ]  A last macro"sv;
+
+    h::Parser parser(buf);
+    //parser.set_on_notify_issue(notify_sink);
+
+    std::size_t n_event = 0u;
+    try{
+        while( const h::Define def = parser.next_define() )
+           {
+            //ut::log << "\033[33m" << def.label() << '=' << def.value() << "\033[36m" "(num " << n_event+1u << " line " << parser.curr_line() << ")\n" "\033[0m";
+            switch( ++n_event )
+               {
+                case  1:
+                    ut::expect( ut::that % def.label()=="const"sv );
+                    ut::expect( ut::that % def.value()=="1234"sv );
+                    ut::expect( ut::that % def.comment()=="A constant"sv );
+                    ut::expect( ut::that % def.comment_predecl()=="INT"sv );
+                    break;
+
+                case  2:
+                    ut::expect( ut::that % def.label()=="macro"sv );
+                    ut::expect( ut::that % def.value()=="value"sv );
+                    ut::expect( ut::that % def.comment()=="A first macro"sv );
+                    ut::expect( ut::that % def.comment_predecl()==""sv );
+                    break;
+
+                case  3:
+                    ut::expect( ut::that % def.label()=="macro2"sv );
+                    ut::expect( ut::that % def.value()=="value2"sv );
+                    ut::expect( ut::that % def.comment()=="A second macro"sv );
+                    ut::expect( ut::that % def.comment_predecl()==""sv );
+                    break;
+
+                case  4:
+                    ut::expect( ut::that % def.label()=="macro3"sv );
+                    ut::expect( ut::that % def.value()=="value3"sv );
+                    ut::expect( ut::that % def.comment()=="A third macro"sv );
+                    ut::expect( ut::that % def.comment_predecl()==""sv );
+                    break;
+
+                case  5:
+                    ut::expect( ut::that % def.label()=="last"sv );
+                    ut::expect( ut::that % def.value()=="x"sv );
+                    ut::expect( ut::that % def.comment()=="A last macro"sv );
+                    ut::expect( ut::that % def.comment_predecl()=="y 2"sv );
+                    break;
+
+                default:
+                    ut::expect(false) << "unexpected define: " << def.label() << '\n';
+               }
+           }
+       }
+    catch( parse::error& e )
+       {
+        ut::log << "\033[35m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(event " << n_event << " line " << e.line() << ")\n";
+       }
+    ut::expect( ut::that % n_event==5u ) << "events number should match";
    };
 
 };///////////////////////////////////////////////////////////////////////////

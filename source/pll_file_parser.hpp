@@ -20,7 +20,7 @@ class PllParser final : public plain::ParserBase<char>
 {            using inherited = plain::ParserBase<char>;
  public:
     PllParser(const std::string_view buf)
-      : plain::ParserBase(buf)
+      : inherited(buf)
        {}
 
     //-----------------------------------------------------------------------
@@ -1175,7 +1175,7 @@ class PllParser final : public plain::ParserBase<char>
 // Parse pll file
 void pll_parse(const std::string& file_path, const std::string_view buf, plcb::Library& lib, fnotify_t const& notify_issue)
 {
-    PllParser parser(file_path, buf, issues, fussy);
+    PllParser parser(buf);
     parser.set_on_notify_issue(notify_issue);
     parser.set_file_path( file_path );
 
@@ -1186,11 +1186,11 @@ void pll_parse(const std::string& file_path, const std::string_view buf, plcb::L
             parser.collect_next(lib);
            }
        }
-    catch(parse_error&)
+    catch( parse::error& )
        {
         throw;
        }
-    catch(std::exception& e)
+    catch( std::exception& e )
        {
         throw parser.create_parse_error(e.what());
        }

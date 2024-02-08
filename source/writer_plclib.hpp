@@ -61,7 +61,7 @@ class SchemaVersion final
        {
         try{
             const auto [first_num, second_num, remaining] = ascii::extract_pair<std::uint16_t,std::uint16_t>(sv);
-            if( !remaining.empty() )
+            if( not remaining.empty() )
                {
                 throw std::runtime_error{ fmt::format("ignored content \"{}\"", remaining) };
                }

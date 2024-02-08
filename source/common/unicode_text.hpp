@@ -421,7 +421,7 @@ template<Enc ENC> class bytes_buffer_t final
 
     [[nodiscard]] constexpr std::string_view get_view_between(const std::size_t from_byte_pos, const std::size_t to_byte_pos) const noexcept
        {
-        assert( from_byte_pos<=to_byte_pos and to_byte_pos<=m_byte_buf.size() );
+        assert( from_byte_pos<=to_byte_pos );
         return m_byte_buf.substr(from_byte_pos, to_byte_pos-from_byte_pos);
        }
 

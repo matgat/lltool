@@ -74,7 +74,7 @@ class ParserBase
 
     [[nodiscard]] constexpr string_view get_view_between(const std::size_t from_byte_pos, const std::size_t to_byte_pos) const noexcept
        {
-        //assert( from_byte_pos<=to_byte_pos and to_byte_pos<=m_buf.size() );
+        assert( from_byte_pos<=to_byte_pos );
         return m_buf.substr(from_byte_pos, to_byte_pos-from_byte_pos);
        }
     [[nodiscard]] constexpr string_view get_view_of_next(const std::size_t len) const noexcept
@@ -243,6 +243,12 @@ class ParserBase
        {
         return get_until_and_skip(ascii::is<end_codepoint>, ascii::is_always_false<Char>);
        }
+    //-----------------------------------------------------------------------
+    template<Char end_codepoint>
+    [[nodiscard]] constexpr string_view get_until_or_endline()
+       {
+        return get_until(ascii::is_any_of<end_codepoint,'\n','\0'>, ascii::is_always_false<Char>);
+       }
 
     //-----------------------------------------------------------------------
     [[nodiscard]] constexpr string_view get_until(const string_view sv)
@@ -257,6 +263,27 @@ class ParserBase
         while( get_next() );
         restore_context( start ); // Strong guarantee
         throw create_parse_error(fmt::format("Unclosed content (\"{}\" not found)",sv), start.line);
+       }
+
+    //-----------------------------------------------------------------------
+    [[nodiscard]] constexpr string_view get_until_newline_token(const string_view tok)
+       {
+        const auto start = save_context();
+        do {
+            if( got_endline() )
+               {
+                get_next();
+                skip_blanks();
+                const std::size_t candidate_end = curr_offset();
+                if( eat_token(tok) )
+                   {
+                    return get_view_between(start.offset, candidate_end);
+                   }
+               }
+           }
+        while( get_next() );
+        restore_context( start ); // Strong guarantee
+        throw create_parse_error(fmt::format("Unclosed content (\"{}\" not found)",tok), start.line);
        }
 
     constexpr void skip_blanks() noexcept { skip_while(ascii::is_blank<Char>); }
@@ -325,26 +352,6 @@ class ParserBase
         return false;
        }
 
-    //-----------------------------------------------------------------------
-    [[nodiscard]] constexpr string_view get_until_newline_token(const string_view tok)
-       {
-        const auto start = save_context();
-        do {
-            if( got_endline() )
-               {
-                get_next();
-                skip_blanks();
-                const std::size_t candidate_end = curr_offset();
-                if( eat_token(tok) )
-                   {
-                    return get_view_between(start.offset, candidate_end);
-                   }
-               }
-           }
-        while( get_next() );
-        restore_context( start ); // Strong guarantee
-        throw create_parse_error(fmt::format("Unclosed content (\"{}\" not found)",tok), start.line);
-       }
 
     //-----------------------------------------------------------------------
     // Read a (base10) positive integer literal
@@ -511,14 +518,14 @@ class ParserBase
     //-----------------------------------------------------------------------
     void constexpr check_and_skip_bom()
        {
-        if constexpr(std::same_as<Char, char32_t>)
+        if constexpr( std::same_as<Char, char32_t> )
            {
             if( got(U'\uFEFF') )
                {
                 m_offset += 1;
                }
            }
-        //else if constexpr(std::same_as<Char, char16_t>)
+        //else if constexpr( std::same_as<Char, char16_t> )
         //   {
         //    if( got(u"\x0000\xFEFF"sv) or got(u"\xFEFF\x0000"sv) )
         //       {
@@ -802,7 +809,7 @@ ut::test("getting primitives") = []
     ut::expect( ut::that % parser.get_until(ascii::is_any_of<'\0',';'>)=="a3==b3"sv );
    };
 
-ut::test("getting block") = []
+ut::test("get_until(block)") = []
    {
     plain::ParserBase<char> parser{"**abc**\n**def***///ghi/*\n**lmn***/"sv};
 
@@ -812,6 +819,26 @@ ut::test("getting block") = []
     ut::expect( ut::that % parser.get_until("*/"sv)=="//ghi/*\n**lmn**"sv );
     ut::expect( ut::that % parser.curr_line()==3u );
     ut::expect( not parser.has_codepoint() );
+   };
+
+ut::test("get_until_or_endline()") = []
+   {
+    plain::ParserBase<char> parser{"// [abc] def\n"
+                                   "// [ghi lmn"sv};
+
+    ut::expect( ut::that % parser.get_until_or_endline<']'>()=="// [abc"sv );
+    ut::expect( ut::that % parser.curr_codepoint()==']' );
+    ut::expect( ut::that % parser.curr_line()==1u );
+    ut::expect( parser.get_next() );
+
+    ut::expect( ut::that % parser.get_until_or_endline<']'>()==" def"sv );
+    ut::expect( ut::that % parser.curr_codepoint()=='\n' );
+    ut::expect( ut::that % parser.curr_line()==1u );
+    ut::expect( parser.get_next() );
+
+    ut::expect( ut::that % parser.get_until_or_endline<']'>()=="// [ghi lmn"sv );
+    ut::expect( not parser.has_codepoint() );
+    ut::expect( ut::that % parser.curr_line()==2u );
    };
 
 ut::test("getting functions") = []

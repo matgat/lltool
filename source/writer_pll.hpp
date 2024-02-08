@@ -21,7 +21,7 @@ namespace pll
 //---------------------------------------------------------------------------
 inline void write(MG::OutputStreamable auto& f, const plcb::Variable& var)
 {
-    assert( !var.name().empty() );
+    assert( not var.name().empty() );
 
     f<< '\t' << var.name();
 
@@ -80,37 +80,37 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Pou& pou, const std:
        }
 
     // [Variables]
-    if( !pou.inout_vars().empty() )
+    if( not pou.inout_vars().empty() )
        {
         f << "\n\tVAR_IN_OUT\n"sv;
         for( const auto& var : pou.inout_vars() ) write(f, var);
         f << "\tEND_VAR\n"sv;
        }
-    if( !pou.input_vars().empty() )
+    if( not pou.input_vars().empty() )
        {
         f << "\n\tVAR_INPUT\n"sv;
         for( const auto& var : pou.input_vars() ) write(f, var);
         f << "\tEND_VAR\n"sv;
        }
-    if( !pou.output_vars().empty() )
+    if( not pou.output_vars().empty() )
        {
         f << "\n\tVAR_OUTPUT\n"sv;
         for( const auto& var : pou.output_vars() ) write(f, var);
         f << "\tEND_VAR\n"sv;
        }
-    if( !pou.external_vars().empty() )
+    if( not pou.external_vars().empty() )
        {
         f << "\n\tVAR_EXTERNAL\n"sv;
         for( const auto& var : pou.external_vars() ) write(f, var);
         f << "\tEND_VAR\n"sv;
        }
-    if( !pou.local_vars().empty() )
+    if( not pou.local_vars().empty() )
        {
         f << "\n\tVAR\n"sv;
         for( const auto& var : pou.local_vars() ) write(f, var);
         f << "\tEND_VAR\n"sv;
        }
-    if( !pou.local_constants().empty() )
+    if( not pou.local_constants().empty() )
        {
         f << "\n\tVAR CONSTANT\n"sv;
         for( const auto& var : pou.local_constants() ) write(f, var);
@@ -120,7 +120,7 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Pou& pou, const std:
     // [Body]
     f << "\n\t{ CODE:"sv << pou.code_type() << " }"sv
       << pou.body();
-    if( !pou.body().ends_with('\n') ) f << '\n';
+    if( not pou.body().ends_with('\n') ) f << '\n';
     f << "END_"sv << tag << "\n\n"sv;
 }
 
@@ -130,17 +130,17 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Pou& pou, const std:
 inline void write(MG::OutputStreamable auto& f, const plcb::Enum& enm)
 {
     f<< "\n\t"sv << enm.name() << ": (\n"sv;
-    if( !enm.descr().empty() )
+    if( not enm.descr().empty() )
        {
         f<< "\t\t{ DE:\""sv << enm.descr() << "\" }\n"sv;
        }
-    if( !enm.elements().empty() )
+    if( not enm.elements().empty() )
        {
         const auto it_last = std::prev( enm.elements().cend() );
         for( auto it=enm.elements().cbegin(); it!=it_last; ++it )
            {
             f<< "\t\t"sv << it->name() << " := "sv << it->value() << ',';
-            if( !it->descr().empty() )
+            if( not it->descr().empty() )
                {
                 f<< " { DE:\""sv << it->descr() << "\" }"sv;
                }
@@ -148,7 +148,7 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Enum& enm)
            }
         // Last element
         f<< "\t\t"sv << it_last->name() << " := "sv << it_last->value();
-        if( !it_last->descr().empty() )
+        if( not it_last->descr().empty() )
            {
             f<< " { DE:\""sv << it_last->descr() << "\" }"sv;
            }
@@ -178,7 +178,7 @@ inline void write(MG::OutputStreamable auto& f, const plcb::TypeDef& tdef)
        }
     f<< ';';
 
-    if( !tdef.descr().empty() )
+    if( not tdef.descr().empty() )
        {
         f<< " { DE:\""sv << tdef.descr() << "\" }"sv;
        }
@@ -192,7 +192,7 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Struct& strct)
 {
     f<< '\t' << strct.name() << " : STRUCT"sv;
 
-    if( !strct.descr().empty() )
+    if( not strct.descr().empty() )
        {
         f<< " { DE:\""sv << strct.descr() << "\" }"sv;
        }
@@ -201,7 +201,7 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Struct& strct)
     for( const auto& var : strct.members() )
        {
         f<< "\t\t"sv << var.name() << " : "sv << var.type() << ';';
-        if( !var.descr().empty() )
+        if( not var.descr().empty() )
            {
             f<< " { DE:\""sv << var.descr() << "\" }"sv;
            }
@@ -221,7 +221,7 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Subrange& subrng)
      << std::to_string(subrng.max_value())
      << ");"sv;
 
-    if( !subrng.descr().empty() )
+    if( not subrng.descr().empty() )
        {
         f<< " { DE:\""sv << subrng.descr() << "\" }"sv;
        }
@@ -241,7 +241,7 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Macro& macro)
        }
 
     // [Parameters]
-    if( !macro.parameters().empty() )
+    if( not macro.parameters().empty() )
        {
         f << "\n\tPAR_MACRO\n"sv;
         for( const auto& par : macro.parameters() )
@@ -254,7 +254,7 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Macro& macro)
     // [Body]
     f << "\n\t{ CODE:"sv << macro.code_type() << " }"sv
       << macro.body();
-    if( !macro.body().ends_with('\n') ) f << '\n';
+    if( not macro.body().ends_with('\n') ) f << '\n';
     f << "END_MACRO\n\n"sv;
 }
 
@@ -280,23 +280,23 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
        }
 
     // Content summary
-    if( !lib.global_variables().is_empty() )  f<< "\tglobal-variables: "sv << std::to_string(lib.global_variables().size()) << '\n';
-    if( !lib.global_constants().is_empty() )  f<< "\tglobal-constants: "sv << std::to_string(lib.global_constants().size()) << '\n';
-    if( !lib.global_retainvars().is_empty() ) f<< "\tglobal-retain-vars: "sv << std::to_string(lib.global_retainvars().size()) << '\n';
-    if( !lib.functions().empty() )            f<< "\tfunctions: "sv << std::to_string(lib.functions().size()) << '\n';
-    if( !lib.function_blocks().empty() )      f<< "\tfunction blocks: "sv << std::to_string(lib.function_blocks().size()) << '\n';
-    if( !lib.programs().empty() )             f<< "\tprograms: "sv << std::to_string(lib.programs().size()) << '\n';
-    if( !lib.macros().empty() )               f<< "\tmacros: "sv << std::to_string(lib.macros().size()) << '\n';
-    if( !lib.structs().empty() )              f<< "\tstructs: "sv << std::to_string(lib.structs().size()) << '\n';
-    if( !lib.typedefs().empty() )             f<< "\ttypedefs: "sv << std::to_string(lib.typedefs().size()) << '\n';
-    if( !lib.enums().empty() )                f<< "\tenums: "sv << std::to_string(lib.enums().size()) << '\n';
-    if( !lib.subranges().empty() )            f<< "\tsubranges: "sv << std::to_string(lib.subranges().size()) << '\n';
-    //if( !lib.interfaces().empty() )           f<< "\tinterfaces: "sv << std::to_string(lib.interfaces().size()) << '\n';
+    if( not lib.global_variables().is_empty() )  f<< "\tglobal-variables: "sv << std::to_string(lib.global_variables().size()) << '\n';
+    if( not lib.global_constants().is_empty() )  f<< "\tglobal-constants: "sv << std::to_string(lib.global_constants().size()) << '\n';
+    if( not lib.global_retainvars().is_empty() ) f<< "\tglobal-retain-vars: "sv << std::to_string(lib.global_retainvars().size()) << '\n';
+    if( not lib.functions().empty() )            f<< "\tfunctions: "sv << std::to_string(lib.functions().size()) << '\n';
+    if( not lib.function_blocks().empty() )      f<< "\tfunction blocks: "sv << std::to_string(lib.function_blocks().size()) << '\n';
+    if( not lib.programs().empty() )             f<< "\tprograms: "sv << std::to_string(lib.programs().size()) << '\n';
+    if( not lib.macros().empty() )               f<< "\tmacros: "sv << std::to_string(lib.macros().size()) << '\n';
+    if( not lib.structs().empty() )              f<< "\tstructs: "sv << std::to_string(lib.structs().size()) << '\n';
+    if( not lib.typedefs().empty() )             f<< "\ttypedefs: "sv << std::to_string(lib.typedefs().size()) << '\n';
+    if( not lib.enums().empty() )                f<< "\tenums: "sv << std::to_string(lib.enums().size()) << '\n';
+    if( not lib.subranges().empty() )            f<< "\tsubranges: "sv << std::to_string(lib.subranges().size()) << '\n';
+    //if( not lib.interfaces().empty() )           f<< "\tinterfaces: "sv << std::to_string(lib.interfaces().size()) << '\n';
     f << "*)\n"sv;
 
     // [Global variables]
-    if( !lib.global_variables().is_empty() ||
-        !lib.global_retainvars().is_empty() )
+    if( not lib.global_variables().is_empty() or
+        not lib.global_retainvars().is_empty() )
        {
         f<< sects_spacer <<
             "\t(****************************)\n"
@@ -308,19 +308,19 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
             "\tVAR_GLOBAL\n"sv;
         for( const auto& group : lib.global_variables().groups() )
            {
-            if( !group.name().empty() ) f << "\t{G:\""sv << group.name() << "\"}\n"sv;
+            if( not group.name().empty() ) f << "\t{G:\""sv << group.name() << "\"}\n"sv;
             for( const auto& var : group.variables() ) write(f, var);
            }
         for( const auto& group : lib.global_retainvars().groups() )
            {
-            if( !group.name().empty() ) f << "\t{G:\""sv << group.name() << "\"}\n"sv;
+            if( not group.name().empty() ) f << "\t{G:\""sv << group.name() << "\"}\n"sv;
             for( const auto& var : group.variables() ) write(f, var);
            }
         f<< "\tEND_VAR\n"sv;
        }
 
     // [Global constants]
-    if( !lib.global_constants().is_empty() )
+    if( not lib.global_constants().is_empty() )
        {
         f<< sects_spacer <<
             "\t(****************************)\n"
@@ -332,14 +332,14 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
             "\tVAR_GLOBAL CONSTANT\n"sv;
         for( const auto& group : lib.global_constants().groups() )
            {
-            if( !group.name().empty() ) f << "\t{G:\""sv << group.name() << "\"}\n"sv;
+            if( not group.name().empty() ) f << "\t{G:\""sv << group.name() << "\"}\n"sv;
             for( const auto& var : group.variables() ) write(f, var);
            }
         f<< "\tEND_VAR\n"sv;
        }
 
     // [Functions]
-    if( !lib.functions().empty() )
+    if( not lib.functions().empty() )
        {
         f<< sects_spacer <<
             "\t(*********************)\n"
@@ -355,7 +355,7 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
        }
 
     // [FunctionBlocks]
-    if( !lib.function_blocks().empty() )
+    if( not lib.function_blocks().empty() )
        {
         f<< sects_spacer <<
             "\t(***************************)\n"
@@ -371,7 +371,7 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
        }
 
     // [Programs]
-    if( !lib.programs().empty() )
+    if( not lib.programs().empty() )
        {
         f<< sects_spacer <<
             "\t(********************)\n"
@@ -387,7 +387,7 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
        }
 
     // [Enums]
-    if( !lib.enums().empty() )
+    if( not lib.enums().empty() )
        {
         f<< sects_spacer <<
             "\t(*****************)\n"
@@ -405,7 +405,7 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
        }
 
     // [Typedefs]
-    if( !lib.typedefs().empty() )
+    if( not lib.typedefs().empty() )
        {
         f<< sects_spacer <<
             "\t(********************)\n"
@@ -423,7 +423,7 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
        }
 
     // [Structs]
-    if( !lib.structs().empty() )
+    if( not lib.structs().empty() )
        {
         f<< sects_spacer <<
             "\t(*******************)\n"
@@ -441,7 +441,7 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
        }
 
     // [Subranges]
-    if( !lib.subranges().empty() )
+    if( not lib.subranges().empty() )
        {
         f<< sects_spacer <<
             "\t(*********************)\n"
@@ -459,7 +459,7 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
        }
 
     // [Macros]
-    if( !lib.macros().empty() )
+    if( not lib.macros().empty() )
        {
         f<< sects_spacer <<
             "\t(********************)\n"
@@ -476,7 +476,7 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
        }
 
     // [Interfaces]
-    //if( !lib.interfaces().empty() )
+    //if( not lib.interfaces().empty() )
     //   {
     //    f<< sects_spacer <<
     //        "\t(**********************)\n"
