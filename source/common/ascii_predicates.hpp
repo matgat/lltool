@@ -268,7 +268,7 @@ static_assert( ascii::to_lower('A') == 'a' );
 // Compatibility with standard predicates, but just in ASCII range
 for( unsigned char ch=0; ch<0x80u; ++ch )
    {
-    ut::test( std::to_string(static_cast<int>(ch)) ) = [ch] //
+    ut::test( std::to_string(static_cast<int>(ch)) ) = [ch]
        {
         //ut::log << fmt::format("standard predicates on '\\x{:X}'\n",ch);
 
