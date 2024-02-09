@@ -431,14 +431,14 @@ class ParserBase
 
         Uint result = ascii::value_of_digit(curr_codepoint());
         constexpr Uint base = 10u;
-        constexpr Uint overflow_limit = (std::numeric_limits<Uint>::max() - base - 1u) / base;
+        constexpr Uint overflow_limit = ((std::numeric_limits<Uint>::max() - (base - 1u)) / (2 * base)) - 1u; // A little conservative
         while( get_next() and got_digit() )
            {
-            if( result>=overflow_limit )
+            if( result>overflow_limit )
                {
-                throw create_parse_error("Integer literal overflow");
+                throw create_parse_error( fmt::format("Integer literal too big ({}x{} would be dangerously near {})", result, base, std::numeric_limits<Uint>::max()/2) );
                }
-            result = (base*result) + ascii::value_of_digit(curr_codepoint());
+            result = static_cast<Uint>((base*result) + ascii::value_of_digit(curr_codepoint()));
            }
         return result;
        }

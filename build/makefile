@@ -31,7 +31,7 @@ all: executable test
 
 test: CXXFLAGS += -Wno-noexcept
 debug: CXXFLAGS += -DDEBUG -D_DEBUG -g
-debug: executable
+debug: executable test
 
 executable: $(CPPS) $(HEADERS) makefile
 	$(info [executable $(CPPS)])

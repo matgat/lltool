@@ -368,14 +368,14 @@ class ParserBase
 
         Uint result = ascii::value_of_digit(curr_codepoint());
         constexpr Uint base = 10u;
-        constexpr Uint overflow_limit = (std::numeric_limits<Uint>::max() - base - 1u) / base;
+        constexpr Uint overflow_limit = ((std::numeric_limits<Uint>::max() - (base - 1u)) / (2 * base)) - 1u; // A little conservative
         while( get_next() and got_digit() )
            {
-            if( result>=overflow_limit )
+            if( result>overflow_limit )
                {
-                throw create_parse_error("Integer literal overflow");
+                throw create_parse_error( fmt::format("Integer literal too big ({}x{} would be dangerously near {})", result, base, std::numeric_limits<Uint>::max()/2) );
                }
-            result = (base*result) + ascii::value_of_digit(curr_codepoint());
+            result = static_cast<Uint>((base*result) + ascii::value_of_digit(curr_codepoint()));
            }
         return result;
        }
@@ -547,9 +547,13 @@ class ParserBase
 
 
 
+
+
 /////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
-#include <cstdint> // std::int16_t
+/////////////////////////////////////////////////////////////////////////////
+#include <cstdint> // std::uint16_t, ...
+/////////////////////////////////////////////////////////////////////////////
 static ut::suite<"plain::ParserBase"> plain_parser_base_tests = []
 {////////////////////////////////////////////////////////////////////////////
 
@@ -619,6 +623,7 @@ ut::test("basic stuff") = []
     ut::expect( ut::that % parser.curr_codepoint()=='\0' );
    };
 
+
 ut::test("get_view_of_next()") = []
    {
     plain::ParserBase<char> parser{"abc"sv};
@@ -647,6 +652,7 @@ ut::test("get_view_of_next()") = []
     ut::expect( ut::that % parser.get_view_of_next(100)==""sv );
    };
 
+
 ut::test("get_view_between()") = []
    {
     plain::ParserBase<char> parser{"abc"sv};
@@ -660,6 +666,7 @@ ut::test("get_view_between()") = []
     ut::expect( ut::that % parser.get_view_between(2,3)=="c"sv );
     ut::expect( ut::that % parser.get_view_between(2,100)=="c"sv );
    };
+
 
 ut::test("no data to parse") = []
    {
@@ -688,12 +695,14 @@ ut::test("no data to parse") = []
        };
    };
 
+
 ut::test("rejected boms") = []
    {
     ut::expect( ut::throws([]{ [[maybe_unused]] plain::ParserBase<char> parser{"\x00\x00\xFE\xFF blah"sv}; }) ) << "char should reject utf-32-be\n";
     ut::expect( ut::throws([]{ [[maybe_unused]] plain::ParserBase<char> parser{"\xFF\xFE blah"sv}; }) ) << "char should reject utf-16-le\n";
     //ut::expect( ut::throws([]{ [[maybe_unused]] plain::ParserBase<char16_t> parser{u"\xFEFF\x0000 blah"sv}; }) ) << "char16_t should reject utf-32-be\n";
    };
+
 
 ut::test("codepoint queries") = []
    {
@@ -718,6 +727,7 @@ ut::test("codepoint queries") = []
     ut::expect( parser.get_next() );
     ut::expect( parser.got('\n') and parser.got_endline() and parser.got(ascii::is_space) );
    };
+
 
 ut::test("skipping primitives") = []
    {
@@ -748,6 +758,7 @@ ut::test("skipping primitives") = []
     ut::expect( not parser.has_codepoint() );
    };
 
+
 ut::test("skipping functions") = []
    {
     plain::ParserBase<char> parser{" \t a \t b\n\t\t\n\nc d e f\ng"sv};
@@ -773,6 +784,7 @@ ut::test("skipping functions") = []
     ut::expect( not parser.has_codepoint() );
    };
 
+
 ut::test("getting primitives") = []
    {
     plain::ParserBase<char> parser{"nam=val k2:v2 a3==b3"sv};
@@ -790,6 +802,7 @@ ut::test("getting primitives") = []
     ut::expect( ut::that % parser.get_until(ascii::is_any_of<'\0',';'>)=="a3==b3"sv );
    };
 
+
 ut::test("get_until(block)") = []
    {
     plain::ParserBase<char> parser{"**abc**\n**def***///ghi/*\n**lmn***/"sv};
@@ -801,6 +814,7 @@ ut::test("get_until(block)") = []
     ut::expect( ut::that % parser.curr_line()==3u );
     ut::expect( not parser.has_codepoint() );
    };
+
 
 ut::test("get_until_or_endline()") = []
    {
@@ -822,6 +836,7 @@ ut::test("get_until_or_endline()") = []
     ut::expect( ut::that % parser.curr_line()==2u );
    };
 
+
 ut::test("getting functions") = []
    {
     plain::ParserBase<char> parser{"abc123 ... ---\n_id3:-2.3E5mm2 ..."sv};
@@ -841,6 +856,7 @@ ut::test("getting functions") = []
     ut::expect( ut::that % parser.get_alnums()=="mm2"sv );
     ut::expect( ut::that % parser.get_rest_of_line()==" ..."sv );
    };
+
 
 ut::test("end line functions") = []
    {
@@ -863,6 +879,7 @@ ut::test("end line functions") = []
     ut::expect( not parser.has_codepoint() );
     ut::expect( ut::that % parser.curr_line()==4u );
    };
+
 
 ut::test("eat functions") = []
    {
@@ -902,6 +919,7 @@ ut::test("eat functions") = []
     ut::expect( not parser.has_codepoint() );
    };
 
+
 ut::test("get_until_newline_token()") = []
    {
     plain::ParserBase<char> parser{ "start\n"
@@ -919,34 +937,53 @@ ut::test("get_until_newline_token()") = []
     ut::expect( not parser.has_codepoint() );
    };
 
+
 ut::test("parsing numbers") = []
    {
-    plain::ParserBase<char> parser{" 1234 "
-                                   " +2.3E-2 "
-                                   //" 1.79769e+308 " // std::numeric_limits<double>::max()
-                                   " -10300 "
-                                   " 32769 "
-                                   " 32769 "sv};
+    ut::test("1234") = []
+       {
+        plain::ParserBase<char> parser{"1234"sv};
+        ut::expect( ut::that % parser.extract_index() == 1234u );
+       };
 
-    parser.skip_until(ascii::is_float);
-    ut::expect( ut::that % parser.extract_index() == 1234u );
+    ut::test("+2.3E-2") = []
+       {
+        plain::ParserBase<char> parser{"+2.3E-2"sv};
+        ut::expect( ut::that % parser.extract_float() == 2.3E-2 );
+       };
 
-    parser.skip_until(ascii::is_float);
-    ut::expect( ut::that % parser.extract_float() == 2.3E-2 );
+    //ut::test("1.79769e+308") = []
+    //   {
+    //    plain::ParserBase<char> parser{"1.79769e+308"sv};
+    //    ut::expect( ut::that % parser.extract_float() == std::numeric_limits<double>::max() );
+    //   };
 
-    //parser.skip_until(ascii::is_float);
-    //ut::expect( ut::that % parser.extract_float() == std::numeric_limits<double>::max() );
+    ut::test("-10300") = []
+       {
+        plain::ParserBase<char> parser{"-10300"sv};
+        ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto n = parser.extract_index(); }) ) << "index has no sign\n";
+        ut::expect( ut::that % parser.extract_integer() == -10'300 );
+       };
 
-    parser.skip_until(ascii::is_float);
-    ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto n = parser.extract_index(); }) ) << "index has no sign\n";
-    ut::expect( ut::that % parser.extract_integer() == -10'300 );
+    ut::test("65536 as std::uint32_t") = []
+       {
+        plain::ParserBase<char> parser{"65536"sv};
+        ut::expect( ut::that % parser.extract_index<std::uint32_t>() == 65'536u );
+       };
 
-    parser.skip_until(ascii::is_float);
-    ut::expect( ut::that % parser.extract_integer<int>() == 32'769 );
+    ut::test("65536 as std::uint16_t") = []
+       {
+        plain::ParserBase<char> parser{"65536"sv};
+        ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto n = parser.extract_index<std::uint16_t>(); }) ) << "std::uint16_t literal overflow\n";
+       };
 
-    parser.skip_until(ascii::is_float);
-    ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto n = parser.extract_integer<std::int16_t>(); }) ) << "short literal overflow\n";
+    ut::test("32768 as std::int16_t") = []
+       {
+        plain::ParserBase<char> parser{"32768"sv};
+        ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto n = parser.extract_integer<std::int16_t>(); }) ) << "std::int16_t literal overflow\n";
+       };
    };
+
 
 ut::test("parsing key:value entries") = []
    {

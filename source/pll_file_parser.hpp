@@ -1200,6 +1200,7 @@ ut::test("ll::PllParser::collect_variable()") = []
 
     parser.skip_any_space();
     ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto bad = parser.collect_variable(); }) ) << "should complain for bad variable\n";
+    [[maybe_unused]] const auto rest_of_bad_var = parser.get_rest_of_line();
 
     ut::expect( ut::that % plcb::to_string(parser.collect_variable()) == "Title STRING[80] 'a string' <MB700.0>"sv );
    };
