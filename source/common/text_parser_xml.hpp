@@ -628,7 +628,8 @@ ut::test("interface.xml sample") = [&notify_sink]
                 case 23: expect(event.is_close_tag(U"group")) << "got: " << to_string(event) << '\n'; break;
                 case 24: expect(event.is_comment()) << "got: " << to_string(event) << '\n'; break;
                 case 25: expect(event.is_close_tag(U"interface")) << "got: " << to_string(event) << '\n'; break;
-                default: expect(false) << "unexpected event: " << to_string(event) << '\n';
+                default: expect(false) << "unexpected event:\"" << to_string(event) << "\"\n";
+                
                }
            }
        }

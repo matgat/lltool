@@ -14,32 +14,13 @@
 #include "memory_mapped_file.hpp" // sys::memory_mapped_file
 #include "keyvals.hpp" // MG::keyvals
 #include "plc_library.hpp" // plcb::Library
-//#include "h_file_parser.hpp" // sipro::h_parse()
-//#include "pll_file_parser.hpp" // ll::pll_parse()
+#include "h_file_parser.hpp" // sipro::h_parse()
+#include "pll_file_parser.hpp" // ll::pll_parse()
 #include "file_write.hpp" // sys::file_write()
 #include "writer_pll.hpp" // pll::write_lib()
 #include "writer_plclib.hpp" // plclib::write_lib()
 
-
 using namespace std::literals; // "..."sv
-
-
-// stubs
-    namespace ll
-    {
-    void pll_parse([[maybe_unused]] const std::string& pth, [[maybe_unused]] const std::string_view input_bytes, [[maybe_unused]] plcb::Library& lib, [[maybe_unused]] fnotify_t const& notify_issue)
-    {
-        throw std::runtime_error{"pll::parse() not yet ready"};
-    }
-    }
-
-    namespace sipro
-    {
-    void h_parse([[maybe_unused]] const std::string& pth, [[maybe_unused]] const std::string_view input_bytes, [[maybe_unused]] plcb::Library& lib, [[maybe_unused]] fnotify_t const& notify_issue)
-    {
-        throw std::runtime_error{"h::parse() not yet ready"};
-    }
-    }
 
 
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::

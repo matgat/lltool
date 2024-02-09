@@ -56,7 +56,7 @@ void export_constant(const h::Define& def, std::vector<plcb::Variable>& consts)
 // Parse a Sipro header file
 void h_parse(const std::string& file_path, const std::string_view buf, plcb::Library& lib, fnotify_t const& notify_issue)
 {
-    h::Parser parser(buf);
+    h::Parser parser{buf};
     parser.set_on_notify_issue(notify_issue);
     parser.set_file_path( file_path );
 
@@ -95,27 +95,6 @@ void h_parse(const std::string& file_path, const std::string_view buf, plcb::Lib
 /////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
-//---------------------------------------------------------------------------
-std::string to_string(const plcb::Variable& var)
-{
-    std::string s = fmt::format("{} {}[{}] ({}) '{}'"sv
-                        , var.name()
-                        , var.type()
-                        , var.length()
-                        //, var.array_startidx(), var.array_lastidx()
-                        , var.value()
-                        , var.descr() );
-    if( !var.address().is_empty() )
-       {
-        s += fmt::format(" [{}{}{}.{}]"sv
-                        , var.address().type()
-                        , var.address().typevar()
-                        , var.address().index()
-                        , var.address().subindex() );
-       }
-    return s;
-}
-/////////////////////////////////////////////////////////////////////////////
 static ut::suite<"h_file_parser"> h_file_parser_tests = []
 {////////////////////////////////////////////////////////////////////////////
 ut::test("sipro::h_parse()") = []
@@ -150,20 +129,20 @@ ut::test("sipro::h_parse()") = []
     const auto& gvars = gvars_groups.front().variables();
     ut::expect( ut::fatal(gvars.size() == 5u) );
 
-    ut::expect( ut::that % to_string(gvars[0]) == "vbSample BOOL[0] () 'A vb var' [MB300.123]"sv );
-    ut::expect( ut::that % to_string(gvars[1]) == "vnSample INT[0] () 'A vn var' [MW400.123]"sv );
-    ut::expect( ut::that % to_string(gvars[2]) == "vqSample DINT[0] () 'A vq var' [MD500.123]"sv );
-    ut::expect( ut::that % to_string(gvars[3]) == "vaSample STRING[80] () 'A va var' [MB700.123]"sv );
-    ut::expect( ut::that % to_string(gvars[4]) == "vdSample LREAL[0] () 'A vd var' [ML600.123]"sv );
+    ut::expect( ut::that % plcb::to_string(gvars[0]) == "vbSample BOOL 'A vb var' <MB300.123>"sv );
+    ut::expect( ut::that % plcb::to_string(gvars[1]) == "vnSample INT 'A vn var' <MW400.123>"sv );
+    ut::expect( ut::that % plcb::to_string(gvars[2]) == "vqSample DINT 'A vq var' <MD500.123>"sv );
+    ut::expect( ut::that % plcb::to_string(gvars[3]) == "vaSample STRING[80] 'A va var' <MB700.123>"sv );
+    ut::expect( ut::that % plcb::to_string(gvars[4]) == "vdSample LREAL 'A vd var' <ML600.123>"sv );
 
     const auto& gconsts_groups = lib.global_constants().groups();
     ut::expect( ut::fatal(gconsts_groups.size() == 1u) );
     const auto& gconsts = gconsts_groups.front().variables();
     ut::expect( ut::fatal(gconsts.size() == 3u) );
 
-    ut::expect( ut::that % to_string(gconsts[0]) == "int INT[0] (42) 'An int constant'"sv );
-    ut::expect( ut::that % to_string(gconsts[1]) == "dint DINT[0] (100) 'A dint constant'"sv );
-    ut::expect( ut::that % to_string(gconsts[2]) == "double LREAL[0] (12.3) 'A double constant'"sv );
+    ut::expect( ut::that % plcb::to_string(gconsts[0]) == "int INT 'An int constant' (=42)"sv );
+    ut::expect( ut::that % plcb::to_string(gconsts[1]) == "dint DINT 'A dint constant' (=100)"sv );
+    ut::expect( ut::that % plcb::to_string(gconsts[2]) == "double LREAL 'A double constant' (=12.3)"sv );
    };
 
 };///////////////////////////////////////////////////////////////////////////

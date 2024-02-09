@@ -32,7 +32,7 @@ namespace ut = boost::ut;
 
 #include "sipro.hpp" // sipro::*
 #include "h_file_parser.hpp" // sipro::h_parse()
-//#include "pll_file_parser.hpp" // ll::pll_parse()
+#include "pll_file_parser.hpp" // ll::pll_parse()
 #include "writer_pll.hpp" // pll::write_lib()
 #include "writer_plclib.hpp" // plclib::write_lib()
 #include "project_updater.hpp" // ll::update_project_libraries()

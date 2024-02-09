@@ -8,6 +8,7 @@
 //  ---------------------------------------------
 #include <cassert>
 #include <concepts> // std::predicate
+#include <limits> // std::numeric_limits<>
 #include <array>
 
 #include <fmt/format.h> // fmt::format
@@ -420,19 +421,24 @@ class ParserBase
 
     //-----------------------------------------------------------------------
     // Read a (base10) positive integer literal
-    [[nodiscard]] constexpr std::size_t extract_index()
+    template<std::unsigned_integral Uint =std::size_t>
+    [[nodiscard]] constexpr Uint extract_index()
        {
         if( not got_digit() )
            {
-            throw create_parse_error( fmt::format("Invalid char '{}' in index"sv, utxt::to_utf8(curr_codepoint())) );
+            throw create_parse_error( fmt::format("Invalid char '{}' in number literal"sv, utxt::to_utf8(curr_codepoint())) );
            }
 
-        std::size_t result = (curr_codepoint()-U'0');
-        constexpr std::size_t base = 10u;
+        Uint result = ascii::value_of_digit(curr_codepoint());
+        constexpr Uint base = 10u;
+        constexpr Uint overflow_limit = (std::numeric_limits<Uint>::max() - base - 1u) / base;
         while( get_next() and got_digit() )
            {
-            //assert( result < (std::numeric_limits<std::size_t>::max - (curr_codepoint()-U'0')) / base ); // Check overflows
-            result = (base*result) + (curr_codepoint()-U'0');
+            if( result>=overflow_limit )
+               {
+                throw create_parse_error("Integer literal overflow");
+               }
+            result = (base*result) + ascii::value_of_digit(curr_codepoint());
            }
         return result;
        }

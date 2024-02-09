@@ -22,7 +22,7 @@ CXXFLAGS += -I/usr/local/include -L/usr/local/lib -lfmt
 #MSVCFLAGS += -MD -Gm- -GS -Gy -O2 -Oi -nologo
 #MSVCFLAGS += -W4 -WX -external:W3 -FC -diagnostics:column -sdl
 #MSVCFLAGS += $(addprefix -I, $(INCLUDEDIRS)) -ID:\HD\dev\vcpkg\installed\x64-windows\include
-#MSVCFLAGS += -D X64 -D NDEBUG -D _CONSOLE -D WIN32_LEAN_AND_MEAN -D VC_EXTRALEAN -D _MBCS
+#MSVCFLAGS += -D X64 -D NOMINMAX -D NDEBUG -D _CONSOLE -D WIN32_LEAN_AND_MEAN -D VC_EXTRALEAN -D _MBCS
 #MSVCFLAGS = -c -Zs # Just syntax
 
 default: executable

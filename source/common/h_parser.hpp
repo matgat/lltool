@@ -174,7 +174,7 @@ class Parser final : public plain::ParserBase<char>
                }
             else
                {
-                notify_issue( fmt::format("Unclosed \'[\' in the comment of define {}", def.label()) );
+                inherited::notify_issue( fmt::format("Unclosed \'[\' in the comment of define {}", def.label()) );
                 def.set_comment( str::trim_right(predecl) );
                 inherited::get_next();
                 return;
@@ -185,7 +185,7 @@ class Parser final : public plain::ParserBase<char>
         def.set_comment( str::trim_right(inherited::get_rest_of_line()) );
         //if( def.comment().empty() )
         //   {
-        //    notify_issue( fmt::format("Define {} has no comment", def.label()) );
+        //    inherited::notify_issue( fmt::format("Define {} has no comment", def.label()) );
         //   }
        }
 
@@ -212,7 +212,7 @@ class Parser final : public plain::ParserBase<char>
            }
         //else
         //   {
-        //    notify_issue( fmt::format("Define {} hasn't a comment", def.label()) );
+        //    inherited::notify_issue( fmt::format("Define {} hasn't a comment", def.label()) );
         //   }
        }
 };
@@ -289,7 +289,7 @@ ut::test("basic") = []
                     break;
 
                 default:
-                    ut::expect(false) << "unexpected define: " << def.label() << '\n';
+                    ut::expect(false) << "unexpected define:\"" << def.label() << "\"\n";
                }
            }
        }

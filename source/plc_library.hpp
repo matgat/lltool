@@ -170,7 +170,14 @@ class Variable final
 
     [[nodiscard]] bool has_length() const noexcept { return m_Length>0; }
     [[nodiscard]] std::size_t length() const noexcept { return m_Length; }
-    void set_length(const std::size_t n) { m_Length = n; }
+    void set_length(const std::size_t len)
+       {
+        if( len<=1u )
+           {
+            throw std::runtime_error( fmt::format("Invalid length ({}) of variable \"{}\"", len, name()) );
+           }
+        m_Length = len;
+       }
 
     [[nodiscard]] bool is_array() const noexcept { return m_ArrayDim>0; }
     [[nodiscard]] std::size_t array_dim() const noexcept { return m_ArrayDim; }
@@ -852,6 +859,40 @@ namespace plcb = plc::buf; // Objects that refer to an external buffer
 namespace plc{ namespace buf{
 
 //---------------------------------------------------------------------------
+std::string to_string(const plcb::Variable& var)
+{
+    std::string s = fmt::format("{} {}"sv, var.name() , var.type() );
+
+    if( var.has_length() )
+       {
+        s += fmt::format("[{}]"sv, var.length());
+       }
+
+    if( var.is_array() )
+       {
+        s += fmt::format("[{}...{}]"sv, var.array_startidx(), var.array_lastidx());
+       }
+
+    s += fmt::format(" '{}'"sv, var.descr() );
+
+    if( var.has_value() )
+       {
+        s += fmt::format(" (={})"sv , var.value() );
+       }
+
+    if( var.has_address() )
+       {
+        s += fmt::format(" <{}{}{}.{}>"sv
+                        , var.address().type()
+                        , var.address().typevar()
+                        , var.address().index()
+                        , var.address().subindex() );
+       }
+
+    return s;
+}
+
+//---------------------------------------------------------------------------
 [[nodiscard]] Variable make_var(const std::string_view nam,
                                 const std::string_view typ,
                                 const std::size_t len,
@@ -866,7 +907,7 @@ namespace plc{ namespace buf{
 
     var.set_name( nam );
     var.set_type( typ );
-    var.set_length( len );
+    if(len>0) var.set_length( len );
     if( not val.empty() ) var.set_value( val );
     var.set_descr( descr );
 
@@ -903,7 +944,6 @@ namespace plc{ namespace buf{
 
     return par;
 }
-
 
 }}//:::: plc::buf :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 

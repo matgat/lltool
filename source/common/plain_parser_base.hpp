@@ -9,13 +9,15 @@
 //  #include "plain_parser_base.hpp" // plain::ParserBase
 //  ---------------------------------------------
 #include <cassert>
-#include <concepts> // std::same_as<>, std::predicate<>
+#include <concepts> // std::same_as<>, std::predicate<>, std::signed_integral
+#include <limits> // std::numeric_limits<>
+#include <type_traits> // std::make_unsigned_t<>
 
 #include <fmt/format.h> // fmt::format
 
 #include "parsers_common.hpp" // parse::error
 #include "fnotify_type.hpp" // fnotify_t
-#include "string_utilities.hpp" // str::escape
+#include "string_utilities.hpp" // str::escape()
 #include "ascii_predicates.hpp" // ascii::is_*
 
 
@@ -291,6 +293,7 @@ class ParserBase
     constexpr void skip_line() noexcept { skip_until(ascii::is_endline<Char>); get_next(); }
     [[nodiscard]] constexpr string_view get_rest_of_line() noexcept { return get_until_and_skip(ascii::is_any_of<Char('\n'),'\0'>); }
     [[nodiscard]] constexpr string_view get_until_space_or_end() noexcept { return get_until_and_skip(ascii::is_space_or_any_of<Char('\0')>); }
+    [[nodiscard]] constexpr string_view get_notspace() noexcept { return get_until(ascii::is_space_or_any_of<Char('\0')>); }
     [[nodiscard]] constexpr string_view get_alphabetic() noexcept { return get_while(ascii::is_alpha<Char>); }
     [[nodiscard]] constexpr string_view get_alnums() noexcept { return get_while(ascii::is_alnum<Char>); }
     [[nodiscard]] constexpr string_view get_identifier() noexcept { return get_while(ascii::is_ident<Char>); }
@@ -355,18 +358,23 @@ class ParserBase
 
     //-----------------------------------------------------------------------
     // Read a (base10) positive integer literal
-    [[nodiscard]] constexpr std::size_t extract_index()
+    template<std::unsigned_integral Uint =std::size_t>
+    [[nodiscard]] constexpr Uint extract_index()
        {
         if( not got_digit() )
            {
-            throw create_parse_error( fmt::format("Invalid char '{}' in index"sv, str::escape(curr_codepoint())) );
+            throw create_parse_error( fmt::format("Invalid char '{}' in number literal"sv, str::escape(curr_codepoint())) );
            }
 
-        std::size_t result = ascii::value_of_digit(curr_codepoint());
-        constexpr std::size_t base = 10u;
+        Uint result = ascii::value_of_digit(curr_codepoint());
+        constexpr Uint base = 10u;
+        constexpr Uint overflow_limit = (std::numeric_limits<Uint>::max() - base - 1u) / base;
         while( get_next() and got_digit() )
            {
-            //assert( result < (std::numeric_limits<std::size_t>::max - (curr_codepoint()-'0')) / base ); // Check overflows
+            if( result>=overflow_limit )
+               {
+                throw create_parse_error("Integer literal overflow");
+               }
             result = (base*result) + ascii::value_of_digit(curr_codepoint());
            }
         return result;
@@ -375,14 +383,15 @@ class ParserBase
 
     //-----------------------------------------------------------------------
     // Read a (base10) integer literal
-    [[nodiscard]] constexpr int extract_integer()
+    template<std::signed_integral Int =int>
+    [[nodiscard]] constexpr Int extract_integer()
        {
-        int sign = 1;
+        Int sign = 1;
         if( got('+') )
            {
             if( not get_next() )
                {
-                throw create_parse_error("Invalid integer \'+\'");
+                throw create_parse_error("Invalid integer '+'");
                }
            }
         else if( got('-') )
@@ -390,21 +399,12 @@ class ParserBase
             sign = -1;
             if( not get_next() )
                {
-                throw create_parse_error("Invalid integer \'+\'");
+                throw create_parse_error("Invalid integer '-'");
                }
            }
 
-        if( not got_digit() )
-           {
-            throw create_parse_error(fmt::format("Invalid char \'{}\' in integer", curr_codepoint()));
-           }
-        int result = ascii::value_of_digit(curr_codepoint());
-        const int base = 10;
-        while( get_next() and got_digit() )
-           {
-            result = (base*result) + ascii::value_of_digit(curr_codepoint());
-           }
-        return sign * result;
+        using Uint = std::make_unsigned_t<Int>;
+        return sign * static_cast<Int>( extract_index<Uint>() );
        }
 
     //-----------------------------------------------------------------------
@@ -418,14 +418,14 @@ class ParserBase
             sign = -1.0;
             if( not get_next() )
                {
-                throw create_parse_error("Invalid float \'-\'");
+                throw create_parse_error("Invalid float '-'");
                }
            }
         else if( got('+') )
            {
             if( not get_next() )
                {
-                throw create_parse_error("Invalid float \'+\'");
+                throw create_parse_error("Invalid float '+'");
                }
            }
 
@@ -457,33 +457,13 @@ class ParserBase
         int exp = 0;
         if( got_any_of<'E','e'>() )
            {
-            int exp_sign = 1;
-            if( get_next() )
+            get_next();
+            try{
+                exp = extract_integer<int>();
+               }
+            catch(...)
                {
-                // [exponent sign]
-                if( got('-') )
-                   {
-                    exp_sign = -1;
-                    if( not get_next() )
-                       {
-                        throw create_parse_error("Invalid float \'...E-\'");
-                       }
-                   }
-                else if( got('+') )
-                   {
-                    if( not get_next() )
-                       {
-                        throw create_parse_error("Invalid float \'...E+\'");
-                       }
-                   }
-
-                // [exponent value]
-                while( got_digit() )
-                   {
-                    exp = (10 * exp) + ascii::value_of_digit(curr_codepoint());
-                    get_next();
-                   }
-                exp *= exp_sign;
+                throw create_parse_error("Invalid exponent");
                }
            }
 
@@ -569,6 +549,7 @@ class ParserBase
 
 /////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
+#include <cstdint> // std::int16_t
 static ut::suite<"plain::ParserBase"> plain_parser_base_tests = []
 {////////////////////////////////////////////////////////////////////////////
 
@@ -843,11 +824,16 @@ ut::test("get_until_or_endline()") = []
 
 ut::test("getting functions") = []
    {
-    plain::ParserBase<char> parser{"abc123 ...\n_id3:-2.3E5mm2 ..."sv};
+    plain::ParserBase<char> parser{"abc123 ... ---\n_id3:-2.3E5mm2 ..."sv};
 
+    ut::expect( ut::that % parser.get_digits()==""sv );
     ut::expect( ut::that % parser.get_alphabetic()=="abc"sv );
     ut::expect( ut::that % parser.get_digits()=="123"sv );
-    ut::expect( ut::that % parser.get_rest_of_line()==" ..."sv );
+    ut::expect( ut::that % parser.get_identifier()==""sv );
+    ut::expect( ut::that % parser.get_notspace()==""sv );
+    ut::expect( parser.get_next() );
+    ut::expect( ut::that % parser.get_notspace()=="..."sv );
+    ut::expect( ut::that % parser.get_rest_of_line()==" ---"sv );
 
     ut::expect( ut::that % parser.get_identifier()=="_id3"sv );
     ut::expect( parser.get_next() );
@@ -935,18 +921,106 @@ ut::test("get_until_newline_token()") = []
 
 ut::test("parsing numbers") = []
    {
-    plain::ParserBase<char> parser{"1234 -10300 +2.3E-2"sv};
+    plain::ParserBase<char> parser{" 1234 "
+                                   " +2.3E-2 "
+                                   //" 1.79769e+308 " // std::numeric_limits<double>::max()
+                                   " -10300 "
+                                   " 32769 "
+                                   " 32769 "sv};
 
+    parser.skip_until(ascii::is_float);
     ut::expect( ut::that % parser.extract_index() == 1234u );
-    parser.skip_blanks();
 
+    parser.skip_until(ascii::is_float);
+    ut::expect( ut::that % parser.extract_float() == 2.3E-2 );
+
+    //parser.skip_until(ascii::is_float);
+    //ut::expect( ut::that % parser.extract_float() == std::numeric_limits<double>::max() );
+
+    parser.skip_until(ascii::is_float);
     ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto n = parser.extract_index(); }) ) << "index has no sign\n";
     ut::expect( ut::that % parser.extract_integer() == -10'300 );
 
-    parser.skip_blanks();
-    ut::expect( ut::that % parser.extract_float() == 2.3E-2 );
+    parser.skip_until(ascii::is_float);
+    ut::expect( ut::that % parser.extract_integer<int>() == 32'769 );
 
-    ut::expect( not parser.has_codepoint() );
+    parser.skip_until(ascii::is_float);
+    ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto n = parser.extract_integer<std::int16_t>(); }) ) << "short literal overflow\n";
+   };
+
+ut::test("parsing key:value entries") = []
+   {
+    const std::string_view buf =
+        "    name: test\n"
+        "    descr: a sample (parser test)\n"
+        "    version : 0.5.0\n"
+        "    test\n"
+        "    \n"
+        "    dependencies: parsers_common.hpp, fnotify_type.hpp, ascii_predicates.hpp\n"sv;
+    plain::ParserBase<char> parser{buf};
+    struct keyvalue_t final
+       {
+        std::string_view key;
+        std::string_view value;
+
+        bool get_next( plain::ParserBase<char>& parser )
+           {
+            while( true )
+               {
+                parser.skip_any_space();
+                key = parser.get_identifier();
+                if( not key.empty() )
+                   {
+                    parser.skip_blanks();
+                    if( parser.got_any_of<':','='>() )
+                       {
+                        parser.get_next();
+                        parser.skip_blanks();
+                        value = parser.get_rest_of_line();
+                        if( not value.empty() )
+                           {
+                            return true;
+                           }
+                       }
+                   }
+                else
+                   {
+                    return false;
+                   }
+               }
+           }
+       } entry;
+
+    std::size_t n_event = 0u;
+    while( entry.get_next(parser) )
+       {
+        switch( ++n_event )
+           {
+            case  1:
+                ut::expect( ut::that % entry.key=="name"sv );
+                ut::expect( ut::that % entry.value=="test"sv );
+                break;
+
+            case  2:
+                ut::expect( ut::that % entry.key=="descr"sv );
+                ut::expect( ut::that % entry.value=="a sample (parser test)"sv );
+                break;
+
+            case  3:
+                ut::expect( ut::that % entry.key=="version"sv );
+                ut::expect( ut::that % entry.value=="0.5.0"sv );
+                break;
+
+            case  4:
+                ut::expect( ut::that % entry.key=="dependencies"sv );
+                ut::expect( ut::that % entry.value=="parsers_common.hpp, fnotify_type.hpp, ascii_predicates.hpp"sv );
+                break;
+
+            default:
+                ut::expect(false) << "unexpected key:\"" << entry.key << "\"\n";
+           }
+       }
+    ut::expect( ut::that % n_event==4u ) << "events number should match";
    };
 
 };///////////////////////////////////////////////////////////////////////////
