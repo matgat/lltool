@@ -30,13 +30,13 @@ _________________________________________________________________________
 The program invocation in the most generic form:
 
 ```bat
-> lltool [task] [arguments in any order]
+$ lltool [task] [arguments in any order]
 ```
 
 In a little more detail:
 
 ```bat
-> lltool [update|convert|help] [switches] [path(s)]
+$ lltool [update|convert|help] [switches] [path(s)]
 ```
 
 The first argument selects the task; the order of the subsequent arguments
@@ -44,16 +44,14 @@ is not relevant, except when the command switch must be followed by a value
 such as `--out/--to` or `--options`.
 
 > [!TIP]
-> The switches can be passed in a brief notation using a single hyphen,
-> for example `-vF` is equivalent to `--verbose --force`.
-
-> [!TIP]
-> The program won't overwrite an existing file unless you `--force` it.
+> * The switches can be passed in a brief notation using a single hyphen,
+>   for example `-vF` is equivalent to `--verbose --force`.
+> * The program won't overwrite an existing file unless you `--force` it.
 
 To check all the available command line arguments:
 
 ```bat
-> lltool help
+$ lltool help
 ```
 
 ### Exit values
@@ -70,7 +68,7 @@ To check all the available command line arguments:
 To update a project:
 
 ```bat
-> lltool update "C:\path\to\project.ppjs"
+$ lltool update "C:\path\to\project.ppjs"
 ```
 > [!CAUTION]
 > The choice to backup or not the original file is yours: do it in your script.
@@ -78,7 +76,7 @@ To update a project:
 To update a project without overwriting the original file:
 
 ```bat
-> lltool update "C:\path\to\project.ppjs" --to "C:\path\to\project-updated.ppjs" --force
+$ lltool update "C:\path\to\project.ppjs" --to "C:\path\to\project-updated.ppjs" --force
 ```
 
 > [!TIP]
@@ -194,17 +192,17 @@ It is possible to specify a set of comma separated `key:value` pairs
 to provide some control on the produced output.
 The recognized keys are:
 
-|   key              |    value        |               description               |
-|--------------------|-----------------|-----------------------------------------|
-| `no-timestamp`     | *\<empty\>*       | Don't put a timestamp in generated file |
-| `sort`             | *\<empty\>*       | Sort PLC elements and variables by name |
+|   key              |    value            |               description               |
+|--------------------|---------------------|-----------------------------------------|
+| `no-timestamp`     |                     | Don't put a timestamp in generated file |
+| `sort`             |                     | Sort PLC elements and variables by name |
 | `plclib-schemaver` | *\<uint\>.\<uint\>* | Schema version of generated plclib file |
-| `plclib-indent`    | *\<uint\>*        | Tabs indentation of `<lib>` content     |
+| `plclib-indent`    | *\<uint\>*          | Tabs indentation of `<lib>` content     |
 
 Example:
 
 ```bat
-$ lltool convert --options no-timestamp,plclib-schemaver:2.8,plclib-indent:1,sort  ...
+$ lltool convert --options plclib-schemaver:2.8,plclib-indent:1,no-timestamp,sort  ...
 ```
 
 
@@ -225,7 +223,7 @@ _________________________________________________________________________
 ### Syntax of Sipro header files
 Sipro `.h` files supported syntax is:
 
-```c
+```
 // line comment
 /*  -------------
     block comment
@@ -238,14 +236,14 @@ Inlined comments have meaning and define the resource description.
 
 Sipro registers will be recognized and exported:
 
-```c
+```cpp
 #define vqPos vq100 // Position
 ```
 
 It's possible to export also numeric constants
 declaring their *IEC 61131-3* type as in:
 
-```c
+```cpp
 #define PI 3.14159 // [LREAL] Circumference/diameter ratio
 ```
 
@@ -289,7 +287,7 @@ Authors are encouraged to embed custom additional library data in
 the first comment of the `.pll` file.
 The recognized fields are `descr` and `version`, for example:
 
-```c
+```
 (*
     author: ignored
     descr: Machine logic
