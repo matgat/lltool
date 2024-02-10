@@ -17,7 +17,8 @@ allocations as much as possible.
 
 _________________________________________________________________________
 ## Usage
-> 📝 Windows binary is dynamically linked to Microsoft c++ runtime,
+> [!NOTE]
+> Windows binary is dynamically linked to Microsoft c++ runtime,
 > so needs the installation of
 > [`VC_redist.x64.exe`](https://aka.ms/vs/17/release/vc_redist.x64.exe)
 > as prerequisite.
@@ -66,8 +67,8 @@ To update a project:
 ```bat
 > lltool update "C:\path\to\project.ppjs"
 ```
-
-> ***❗The choice to backup or not the original file is yours: do it in your script❗***
+> [!CAUTION]
+> The choice to backup or not the original file is yours: do it in your script.
 
 To update a project without overwriting the original file:
 
@@ -83,7 +84,7 @@ deleting existing files in the given output folder and
 indicating some conversion options:
 
 ```bat
-$ lltool convert --options no-timestamp,sort,plclib-indent:4 --force --to plc/LogicLab/generated-libs  prog/*.h plc/*.pll
+$ lltool convert --options no-timestamp,sort,plclib-indent:2 --force --to plc/LogicLab/generated-libs  prog/*.h plc/*.pll
 ```
 
 * _`.h` files will generate both `.pll` and `.plclib` files, while `.pll` files a `.plclib`_
@@ -96,8 +97,8 @@ To reconvert a `.pll` file to a given output file:
 ```bat
 $ lltool convert file.pll --force --to path/to/output.pll
 ```
-
-* _File extension does matter to choose the desired parsing and writing functions_
+> [!IMPORTANT]
+> File extension does matter to choose the desired parsing and writing functions
 
 
 
@@ -109,8 +110,9 @@ their content in the project file.
 If the external libraries are stored in a different encoding,
 their content will be embedded respecting the original project file
 encoding.
-This operation has a strong guarantee: in case of ordinary runtime errors
-the filesystem is left in the same state as before the invocation.
+> [!NOTE]
+> This operation has a strong guarantee: in case of ordinary runtime errors
+> the filesystem is left in the same state as before the invocation.
 
 
 The supported project formats are:
@@ -125,7 +127,8 @@ The supported library formats are:
 | `.pll`    | (Plc LogicLab3 Library) |
 | `.plclib` | (LogicLab5 PLC LIBrary) |
 
-> *File type is determined by its extension (must be lowercase)*
+> [!IMPORTANT]
+> File type is determined by its extension (must be lowercase)
 
 
 ### Limitations
@@ -142,7 +145,7 @@ _________________________________________________________________________
 ## Converting to library
 The operation consists in taking some input files and translating their
 content in another format.
-It is possible to indicate multiple input files also using a glob
+It is possible to indicate multiple input files using a glob
 pattern, in that case an output directory must be specified;
 in case of duplicate file base names the program will exit with error.
 
@@ -155,14 +158,16 @@ The supported conversions are:
 * `.h` → `.pll`, `.plclib`
 * `.pll` → `.plclib`
 
-> *These will be the default conversions when the output file is not explicitly specified*
+> [!TIP]
+> These will be the default conversions when the output file is not explicitly specified
 
 Where
 * `.h` (Sipro header)
 * `.pll` (Plc LogicLab3 Library)
 * `.plclib` (LogicLab5 PLC LIBrary)
 
-> *File type is determined by its extension, mind the case!*
+> [!WARNING]
+> File type is determined by its extension, mind the case!
 
 Sipro header files resemble a *c-like* header containing just
 `#define` directives.
@@ -177,10 +182,10 @@ to provide some control on the produced output.
 The recognized keys are:
 |   key              |    value        |               description               |
 |--------------------|-----------------|-----------------------------------------|
-| `no-timestamp`     | *<empty>*       | Don't put a timestamp in generated file |
-| `sort`             | *<empty>*       | Sort PLC elements and variables by name |
-| `plclib-schemaver` | *<uint>.<uint>* | Schema version of generated plclib file |
-| `plclib-indent`    | *<uint>*        | Tabs indentation of `<lib>` content     |
+| `no-timestamp`     | *\<empty\>*       | Don't put a timestamp in generated file |
+| `sort`             | *\<empty\>*       | Sort PLC elements and variables by name |
+| `plclib-schemaver` | *\<uint\>.\<uint\>* | Schema version of generated plclib file |
+| `plclib-indent`    | *\<uint\>*        | Tabs indentation of `<lib>` content     |
 
 Example:
 
@@ -194,8 +199,8 @@ The following limitations are introduced to maximize efficiency:
 * Input files must be encoded in `UTF-8`
 * Input files must be syntactically correct
 * Input files should use preferably unix line breaks (`\n`)
-* On windows paths containing uppercase non ASCII characters may
-  compromise name collision checks (no lowercase converter for unicode)*
+* In windows, paths containing uppercase non ASCII characters may
+  compromise name collision checks *(no lowercase converter for unicode)*
 * Descriptions (`.h` `#define` inlined comments and `.pll` `{DE: ...}`)
   cannot contain XML special characters nor line breaks
 * Check syntax limitations below
@@ -233,21 +238,21 @@ The recognized types are:
 
 | type        | description                 | size | range                     |
 | ----------- | --------------------------- | ---- | ------------------------- |
-|   `BOOL`    | *BOOLean*                   |  1   | FALSE/TRUE                |
+|   `BOOL`    | *BOOLean*                   |  1   | FALSE|TRUE                |
 |   `SINT`    | *Short INTeger*             |  1   | -128 … 127                |
 |   `INT`     | *INTeger*                   |  2   | -32768 … 32767            |
 |   `DINT`    | *Double INTeger*            |  4   |  -2147483648 … 2147483647 |
-| ~~`LINT`~~  | ~~*Long INTeger*~~          |  8   | -2⁶³ … 2⁶³-1              |
+| ~~`LINT`~~  | ~~*Long INTeger*~~          |  8   | -2<sup>63</sup> … 2<sup>63</sup>-1 |
 |   `USINT`   | *Unsigned Short INTeger*    |  1   | 0 … 255                   |
 |   `UINT`    | *Unsigned INTeger*          |  2   | 0 … 65535                 |
 |   `UDINT`   | *Unsigned Double INTeger*   |  4   | 0 … 4294967295            |
-| ~~`ULINT`~~ | ~~*Unsigned Long INTeger*~~ |  8   | 0 … 18446744073709551615  |
-| ~~`REAL`~~  | ~~*REAL number*~~           |  4   | ±10³⁸                     |
-|   `LREAL`   | *Long REAL number*          |  8   | ±10³⁰⁸                    |
+| ~~`ULINT`~~ | ~~*Unsigned Long INTeger*~~ |  8   | 0 … 2<sup>64</sup>-1      |
+| ~~`REAL`~~  | ~~*REAL number*~~           |  4   | ±10<sup>38</sup>          |
+|   `LREAL`   | *Long REAL number*          |  8   | ±10<sup>308</sup>         |
 |   `BYTE`    | *1 byte*                    |  1   | 0 … 255                   |
 |   `WORD`    | *2 bytes*                   |  2   | 0 … 65535                 |
 |   `DWORD`   | *4 bytes*                   |  4   | 0 … 4294967295            |
-| ~~`LWORD`~~ | ~~*8 bytes*~~               |  8   | 0 … 18446744073709551615  |
+| ~~`LWORD`~~ | ~~*8 bytes*~~               |  8   | 0 … 2<sup>64</sup>-1      |
 
 
 _________________________________________________________________________
@@ -270,6 +275,7 @@ The recognized fields are `descr` and `version`, for example:
 
 ```
 (*
+    author: ignored
     descr: Machine logic
     version: 1.2.31
 *)
@@ -336,19 +342,21 @@ To run tests:
 $ make test
 ```
 
-If building a version that needs `{fmt}`,
-install the dependency beforehand with
-your package manager:
+> [!TIP]
+> If building a version that needs `{fmt}`,
+> install the dependency beforehand with
+> your package manager:
+> 
+> ```sh
+> $ sudo pacman -S fmt
+> ```
+> 
+> or
+> 
+> ```sh
+> $ sudo apt install -y libfmt-dev
+> ```
 
-```sh
-$ sudo pacman -S fmt
-```
-
-or
-
-```sh
-$ sudo apt install -y libfmt-dev
-```
 
 ### Windows
 
@@ -359,22 +367,23 @@ Once you have `msbuild` visible in path, you can launch the build from the comma
 > msbuild build/lltool.vcxproj -t:Rebuild -p:Configuration=Release -p:Platform=x64
 ```
 
-If building a version that needs `{fmt}`
-install the dependency beforehand with `vcpkg`:
-
-```bat
-> git clone https://github.com/Microsoft/vcpkg.git
-> cd .\vcpkg
-> .\bootstrap-vcpkg.bat -disableMetrics
-> .\vcpkg integrate install
-> .\vcpkg install fmt:x64-windows
-```
-
-To just update the `vcpkg` libraries:
-
-```bat
-> cd .\vcpkg
-> git pull
-> .\bootstrap-vcpkg.bat -disableMetrics
-> .\vcpkg upgrade --no-dry-run
-```
+> [!TIP]
+> If building a version that needs `{fmt}`
+> install the dependency beforehand with `vcpkg`:
+> 
+> ```bat
+> > git clone https://github.com/Microsoft/vcpkg.git
+> > cd .\vcpkg
+> > .\bootstrap-vcpkg.bat -disableMetrics
+> > .\vcpkg integrate install
+> > .\vcpkg install fmt:x64-windows
+> ```
+>
+> To just update the `vcpkg` libraries:
+>
+> ```bat
+> > cd .\vcpkg
+> > git pull
+> > .\bootstrap-vcpkg.bat -disableMetrics
+> > .\vcpkg upgrade --no-dry-run
+> ```
