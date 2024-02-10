@@ -1,6 +1,7 @@
-## [lltool](https://github.com/matgat/lltool.git)
+# [lltool](https://github.com/matgat/lltool.git)
 [![linux-build](https://github.com/matgat/lltool/actions/workflows/linux-build.yml/badge.svg)](https://github.com/matgat/lltool/actions/workflows/linux-build.yml)
 [![ms-build](https://github.com/matgat/lltool/actions/workflows/ms-build.yml/badge.svg)](https://github.com/matgat/lltool/actions/workflows/ms-build.yml)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 A tool capable to manipulate LogicLab files.
 The main functions are:
@@ -41,9 +42,13 @@ In a little more detail:
 The first argument selects the task; the order of the subsequent arguments
 is not relevant, except when the command switch must be followed by a value
 such as `--out/--to` or `--options`.
-The switches can be passed in a brief notation using a single hyphen,
-for example `-vF` is equivalent to `--verbose --force`.
-The program won't overwrite an existing file unless you `--force` it.
+
+> [!TIP]
+> The switches can be passed in a brief notation using a single hyphen,
+> for example `-vF` is equivalent to `--verbose --force`.
+
+> [!TIP]
+> The program won't overwrite an existing file unless you `--force` it.
 
 To check all the available command line arguments:
 
@@ -51,7 +56,7 @@ To check all the available command line arguments:
 > lltool help
 ```
 
-### Exit value
+### Exit values
 
 | Return value | Meaning                                |
 |--------------|----------------------------------------|
@@ -76,7 +81,8 @@ To update a project without overwriting the original file:
 > lltool update "C:\path\to\project.ppjs" --to "C:\path\to\project-updated.ppjs" --force
 ```
 
-* _Use `--force` to overwrite the output file if existing_
+> [!TIP]
+> Use `--force` to overwrite the output file if existing
 
 
 To convert all `.h` files in `prog/` and all `.pll` files in `plc/`,
@@ -87,9 +93,10 @@ indicating some conversion options:
 $ lltool convert --options no-timestamp,sort,plclib-indent:2 --force --to plc/LogicLab/generated-libs  prog/*.h plc/*.pll
 ```
 
-* _`.h` files will generate both `.pll` and `.plclib` files, while `.pll` files a `.plclib`_
-* _An error will be raised in case of library name clashes_
-* _Use `--force` to overwrite and clear the directory content_
+> [!TIP]
+> * `.h` files will generate both `.pll` and `.plclib` files, while `.pll` files a `.plclib`
+> * An error will be raised in case of library name clashes
+> * Use `--force` to overwrite and clear the directory content
 
 
 To reconvert a `.pll` file to a given output file:
@@ -116,12 +123,14 @@ encoding.
 
 
 The supported project formats are:
+
 |           |                     |
 |-----------|---------------------|
 | `.ppjs`   | (LogicLab3 project) |
 | `.plcprj` | (LogicLab5 project) |
 
 The supported library formats are:
+
 |           |                         |
 |-----------|-------------------------|
 | `.pll`    | (Plc LogicLab3 Library) |
@@ -133,6 +142,7 @@ The supported library formats are:
 
 ### Limitations
 The following limitations are introduced to maximize efficiency:
+
 * The program assumes well formed projects
 * Line breaks won't be converted: if the external libraries and
   the project file use a different end of line character sequence,
@@ -156,6 +166,7 @@ in case of duplicate file base names the program will exit with error.
 > incoherent state.
 
 The supported conversions are:
+
 * `.h` → `.pll`, `.plclib`
 * `.pll` → `.plclib`
 
@@ -163,6 +174,7 @@ The supported conversions are:
 > These will be the default conversions when the output file is not explicitly specified
 
 Where
+
 * `.h` (Sipro header)
 * `.pll` (Plc LogicLab3 Library)
 * `.plclib` (LogicLab5 PLC LIBrary)
@@ -181,6 +193,7 @@ More about these formats below.
 It is possible to specify a set of comma separated `key:value` pairs
 to provide some control on the produced output.
 The recognized keys are:
+
 |   key              |    value        |               description               |
 |--------------------|-----------------|-----------------------------------------|
 | `no-timestamp`     | *\<empty\>*       | Don't put a timestamp in generated file |
@@ -197,7 +210,8 @@ $ lltool convert --options no-timestamp,plclib-schemaver:2.8,plclib-indent:1,sor
 
 ### Limitations
 The following limitations are introduced to maximize efficiency:
-* Input files must be encoded in `UTF-8`
+
+* Input files must be encoded in `utf-8`
 * Input files must be syntactically correct
 * Input files should use preferably unix line breaks (`\n`)
 * In windows, paths containing uppercase non ASCII characters may
@@ -208,8 +222,8 @@ The following limitations are introduced to maximize efficiency:
 
 
 _________________________________________________________________________
-### Syntax of `.h` files
-Sipro header files supported syntax is:
+### Syntax of Sipro header files
+Sipro `.h` files supported syntax is:
 
 ```c
 // line comment
@@ -239,28 +253,29 @@ The recognized types are:
 
 | type        | description                 | size | range                     |
 | ----------- | --------------------------- | ---- | ------------------------- |
-|   `BOOL`    | *BOOLean*                   |  1   | FALSE|TRUE                |
+|   `BOOL`    | *BOOLean*                   |  1   | FALSE\|TRUE               |
 |   `SINT`    | *Short INTeger*             |  1   | -128 … 127                |
 |   `INT`     | *INTeger*                   |  2   | -32768 … 32767            |
 |   `DINT`    | *Double INTeger*            |  4   |  -2147483648 … 2147483647 |
-| ~~`LINT`~~  | ~~*Long INTeger*~~          |  8   | -2<sup>63</sup> … 2<sup>63</sup>-1 |
+| ~~`LINT`~~  | ~~*Long INTeger*~~          |  8   |~~-2<sup>63</sup> … 2<sup>63</sup>-1~~|
 |   `USINT`   | *Unsigned Short INTeger*    |  1   | 0 … 255                   |
 |   `UINT`    | *Unsigned INTeger*          |  2   | 0 … 65535                 |
 |   `UDINT`   | *Unsigned Double INTeger*   |  4   | 0 … 4294967295            |
-| ~~`ULINT`~~ | ~~*Unsigned Long INTeger*~~ |  8   | 0 … 2<sup>64</sup>-1      |
-| ~~`REAL`~~  | ~~*REAL number*~~           |  4   | ±10<sup>38</sup>          |
+| ~~`ULINT`~~ | ~~*Unsigned Long INTeger*~~ |  8   |~~0 … 2<sup>64</sup>-1~~   |
+| ~~`REAL`~~  | ~~*REAL number*~~           |  4   |~~±10<sup>38</sup>~~       |
 |   `LREAL`   | *Long REAL number*          |  8   | ±10<sup>308</sup>         |
 |   `BYTE`    | *1 byte*                    |  1   | 0 … 255                   |
 |   `WORD`    | *2 bytes*                   |  2   | 0 … 65535                 |
 |   `DWORD`   | *4 bytes*                   |  4   | 0 … 4294967295            |
-| ~~`LWORD`~~ | ~~*8 bytes*~~               |  8   | 0 … 2<sup>64</sup>-1      |
+| ~~`LWORD`~~ | ~~*8 bytes*~~               |  8   |~~0 … 2<sup>64</sup>-1~~   |
 
 
 _________________________________________________________________________
 ### Syntax of `.pll` files
 
-Refer to _IEC 61131-3_ ST syntax.
-This parser has the following characteristics:
+Refer to *IEC 61131-3* `ST` syntax.
+The parser has the following limitations:
+
 * Is case sensitive: recognizes only uppercase keywords (`PROGRAM`, ...)
 * Tested only on pure Structured Text projects
 * Not supported:
@@ -274,7 +289,7 @@ Authors are encouraged to embed custom additional library data in
 the first comment of the `.pll` file.
 The recognized fields are `descr` and `version`, for example:
 
-```
+```c
 (*
     author: ignored
     descr: Machine logic
@@ -287,25 +302,26 @@ _________________________________________________________________________
 ## Author's biased opinions
 Some limitations of this program come directly from the
 biased opinions of the author about the following topics:
-* Text file encoding: `UTF-8` it's the only sane choice
-  _Rationale: `8-bit ANSI` must be finally dropped because
-              incomplete, ambiguous and not portable.
-              `UTF-32` is a huge waste of space and cache
-              (at least with files that are mostly `ASCII`),
-              with the disadvantage of having to deal with endianness
-              and to be less compatible with old tools.
-              I'm not considering at all `UTF-16`, the worst possible
-              choice because combines all the drawbacks of the others
-              with a very little gain_
-* Line breaks should be finally uniformed to _unix_ (`LF`, `\n`)
-  _Rationale: No technical reason for two-chars `\r\n` lines breaks
-              nowadays, this just introduces avoidable annoyances
-              porting on different platforms and a useless waste
-              of space and time_
+
+* Text file encoding: `utf-8` it's the only sane choice
+  * <sub>Rationale: `8-bit` encodings and codepages must
+    be finally dropped because incomplete, ambiguous and
+    not portable.
+	`utf-32` is a huge waste of space and cache
+	(at least with files that are mostly `ASCII`),
+	with the disadvantage of having to deal with endianness
+	and to be less compatible with old tools.
+	I'm not considering at all `utf-16`, the worst possible
+	choice because combines all the drawbacks of the others
+	with a very little gain</sub>
+* Line breaks should be uniformed to `\n` (`LF`)
+  * <sub>Rationale: no technical reason for two-chars
+    lines breaks nowadays, this just introduces avoidable
+    annoyances working on different platforms and a useless
+    waste of space and time</sub>
 * Mind the case of file names
-  _Rationale: `Windows` users often don't pay attention if a file
-              has a lowercase or uppercase name, but the rest of
-              the world do, so better take into account that_
+  * <sub>Rationale: most filesystems are case sensitive,
+    so better take into account that</sub>
 
 
 
