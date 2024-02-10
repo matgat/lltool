@@ -149,10 +149,11 @@ It is possible to indicate multiple input files using a glob
 pattern, in that case an output directory must be specified;
 in case of duplicate file base names the program will exit with error.
 
-This operation offers no guarantee in case of ordinary runtime
-errors: an output file could be left incomplete and others may
-have been already written, leaving the set of libraries in a
-incoherent state.
+> [!NOTE]
+> This operation offers no guarantee in case of ordinary runtime
+> errors: an output file could be left incomplete and others may
+> have been already written, leaving the set of libraries in a
+> incoherent state.
 
 The supported conversions are:
 * `.h` → `.pll`, `.plclib`
