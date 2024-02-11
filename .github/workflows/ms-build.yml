@@ -1,9 +1,10 @@
 name: ms-build
 
 on:
-  workflow_dispatch
-  #push:
-  #  branches: [ "main" ]
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
   build:
@@ -15,7 +16,7 @@ jobs:
       BUILD_PLATFORM: x64
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Add MSBuild to PATH
       uses: microsoft/setup-msbuild@v1.3.1
@@ -43,7 +44,7 @@ jobs:
       BUILD_PLATFORM: x64
       
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Add MSBuild to PATH
       uses: microsoft/setup-msbuild@v1.3.1
