@@ -12,6 +12,7 @@
 #include <string>
 #include <string_view>
 #include <ranges> // std::ranges::sort
+#include <algorithm> // std::ranges::transform
 #include <thread> // std::this_thread
 #include <chrono> // std::chrono::*
 #include <fstream> // std::ifstream, std::ofstream
