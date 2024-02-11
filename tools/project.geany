@@ -29,7 +29,7 @@ long_line_column=72
 
 [files]
 current_page=0
-FILE_NAME_0=12421;C++;0;EUTF-8;0;1;0;%2Fhome%2Fmat%2Fdev%2Flltool%2Fsource%2Fmain.cpp;0;4
+FILE_NAME_0=12631;C++;0;EUTF-8;0;1;0;%2Fhome%2Fmat%2Fdev%2Flltool%2Fsource%2Fmain.cpp;0;4
 
 [VTE]
 last_dir=/home/mat/dev/lltool/source
@@ -84,7 +84,7 @@ ignored_file_patterns=*.o;*.obj;*.a;*.lib;*.so;*.dll;*.lo;*.la;*.class;*.jar;*.p
 generate_tag_prefs=0
 show_empty_dirs=true
 external_dirs=
-expanded_paths=/home/mat/dev/lltool/build;/home/mat/dev/lltool/source/common;/home/mat/dev/lltool/tests;
+expanded_paths=/home/mat/dev/lltool/build;/home/mat/dev/lltool/source;/home/mat/dev/lltool/tests;
 
 [code-format]
 clang-format-path=clang-format

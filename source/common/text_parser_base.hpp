@@ -280,18 +280,15 @@ class ParserBase
     [[nodiscard]] constexpr std::string_view get_bytes_until(CodepointPredicate is_end, CodepointPredicate is_unexpected =ascii::is_always_false<char32_t>)
        {
         const auto start = save_context();
-        do {
-            if( is_end(curr_codepoint()) ) [[unlikely]]
-               {
-                break;
-               }
-            else if( is_unexpected(curr_codepoint()) ) [[unlikely]]
+        while( not is_end(curr_codepoint()) )
+           {
+            if( is_unexpected(curr_codepoint()) )
                {
                 const char32_t offending_codepoint = curr_codepoint();
                 restore_context( start ); // Strong guarantee
                 throw create_parse_error( fmt::format("Unexpected character '{}'"sv, utxt::to_utf8(offending_codepoint)) );
                }
-            else if( not get_next() ) [[unlikely]]
+            else if( not get_next() )
                {// No more data
                 if( is_end(curr_codepoint()) )
                    {// End predicate tolerates end of data
@@ -304,7 +301,6 @@ class ParserBase
                    }
                }
            }
-        while( true );
 
         return m_buf.get_view_between(start.curr_codepoint_byte_offset, m_curr_codepoint_byte_offset);
        }
@@ -381,7 +377,7 @@ class ParserBase
                }
             //notify_issue( fmt::format("cp:{} collected:{} matched:{}", utxt::to_utf8(curr_codepoint()), m_buf.get_slice_between(start.curr_codepoint_byte_offset, content_end_byte_pos), utxt::to_utf8(end_block.substr(0, i))) );
            }
-        while( get_next() ); [[likely]]
+        while( get_next() );
 
         restore_context( start ); // Strong guarantee
         throw create_parse_error(fmt::format("Unclosed content (\"{}\" not found)",utxt::to_utf8(end_block)), start.line);

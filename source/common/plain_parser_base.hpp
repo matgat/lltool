@@ -203,18 +203,15 @@ class ParserBase
     [[nodiscard]] constexpr string_view get_until(CodepointPredicate is_end, CodepointPredicate is_unexpected =ascii::is_always_false<Char>)
        {
         const auto start = save_context();
-        do {
-            if( is_end(curr_codepoint()) ) [[unlikely]]
-               {
-                break;
-               }
-            else if( is_unexpected(curr_codepoint()) ) [[unlikely]]
+        while( not is_end(curr_codepoint()) )
+           {
+            if( is_unexpected(curr_codepoint()) )
                {
                 const Char offending_codepoint = curr_codepoint();
                 restore_context( start ); // Strong guarantee
                 throw create_parse_error( fmt::format("Unexpected character '{}'"sv, str::escape(offending_codepoint)) );
                }
-            else if( not get_next() ) [[unlikely]]
+            else if( not get_next() )
                {// No more data
                 if( is_end(curr_codepoint()) )
                    {// End predicate tolerates end of data
@@ -227,7 +224,6 @@ class ParserBase
                    }
                }
            }
-        while( true );
 
         return get_view_between(start.offset, curr_offset());
        }

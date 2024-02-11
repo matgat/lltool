@@ -40,7 +40,7 @@ namespace test //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 //-----------------------------------------------------------------------
 [[nodiscard]] constexpr std::string tolower(std::string s) noexcept
 {
-    std::ranges::transform(s, s.begin(), [](const char ch){ return static_cast<char>(std::tolower(static_cast<unsigned char>(ch))); });
+    std::ranges::transform(s, s.begin(), [](const char ch) noexcept { return static_cast<char>(std::tolower(static_cast<unsigned char>(ch))); });
     return s;
 }
 

@@ -237,7 +237,7 @@ template<bool LE> constexpr char32_t extract_next_codepoint_from_utf16(const std
         return codeunit1;
        }
 
-    if( codeunit1>=0xDC00 or (pos+1)>=bytes.size() ) [[unlikely]]
+    else if( codeunit1>=0xDC00 or (pos+1)>=bytes.size() )
        {// Not a first surrogate!
         return codepoint::invalid;
        }

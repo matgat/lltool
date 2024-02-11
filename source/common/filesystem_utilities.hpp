@@ -53,7 +53,7 @@ namespace fsu //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 {
     fs::path backup_path{ file_to_backup };
     backup_path += ".bck";
-    if( fs::exists(backup_path) ) [[unlikely]]
+    if( fs::exists(backup_path) )
        {
         int n = 0;
         do {

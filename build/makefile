@@ -29,7 +29,8 @@ default: executable
 
 all: executable test
 
-test: CXXFLAGS += -Wno-noexcept
+analisys: CXXFLAGS += --coverage
+test: CXXFLAGS += -fsanitize=undefined
 debug: CXXFLAGS += -DDEBUG -D_DEBUG -g
 debug: executable test
 
