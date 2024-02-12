@@ -263,27 +263,6 @@ class ParserBase
         throw create_parse_error(fmt::format("Unclosed content (\"{}\" not found)",sv), start.line);
        }
 
-    //-----------------------------------------------------------------------
-    [[nodiscard]] constexpr string_view get_until_newline_token(const string_view tok)
-       {
-        const auto start = save_context();
-        do {
-            if( got_endline() )
-               {
-                get_next();
-                skip_blanks();
-                const std::size_t candidate_end = curr_offset();
-                if( eat_token(tok) )
-                   {
-                    return get_view_between(start.offset, candidate_end);
-                   }
-               }
-           }
-        while( get_next() );
-        restore_context( start ); // Strong guarantee
-        throw create_parse_error(fmt::format("Unclosed content (\"{}\" not found)",tok), start.line);
-       }
-
     constexpr void skip_blanks() noexcept { skip_while(ascii::is_blank<Char>); }
     constexpr void skip_any_space() noexcept { skip_while(ascii::is_space<Char>); }
     constexpr void skip_line() noexcept { skip_until(ascii::is_endline<Char>); get_next(); }
@@ -297,10 +276,9 @@ class ParserBase
     [[nodiscard]] constexpr string_view get_float() noexcept { return get_while(ascii::is_float<Char>); }
 
     //-----------------------------------------------------------------------
-    // Called when line is supposed to end: nothing more than spaces allowed
-    constexpr void skip_endline()
+    // Called when line is supposed to end
+    constexpr void check_and_eat_endline()
        {
-        skip_blanks();
         if( got_endline() )
            {
             get_next();
@@ -858,7 +836,7 @@ ut::test("end line functions") = []
    {
     plain::ParserBase<char> parser{"1  \n2  \n3  \n"sv};
 
-    ut::expect( ut::throws([&parser]{ parser.skip_endline(); }) ) << "should complain for line not ended\n";
+    ut::expect( ut::throws([&parser]{ parser.check_and_eat_endline(); }) ) << "should complain for line not ended\n";
 
     ut::expect( ut::that % parser.curr_codepoint()=='2' ) << "previous line was collected\n";
     ut::expect( ut::that % parser.curr_line()==2u );
@@ -871,7 +849,8 @@ ut::test("end line functions") = []
     ut::expect( ut::that % parser.curr_codepoint()=='3' );
     ut::expect( ut::that % parser.curr_line()==3u );
     ut::expect( parser.get_next() );
-    parser.skip_endline();
+    parser.skip_blanks();
+    parser.check_and_eat_endline();
     ut::expect( not parser.has_codepoint() );
     ut::expect( ut::that % parser.curr_line()==4u );
    };
@@ -912,24 +891,6 @@ ut::test("eat functions") = []
     ut::expect( ut::that % parser.curr_codepoint()=='e' );
 
     ut::expect( parser.eat_token("efgh"sv) );
-    ut::expect( not parser.has_codepoint() );
-   };
-
-
-ut::test("get_until_newline_token()") = []
-   {
-    plain::ParserBase<char> parser{ "start\n"
-                                    "123\n"
-                                    "endnot\n"
-                                    "  end start2\n"
-                                    "not end\n"
-                                    "end"sv };
-
-    ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto n = parser.get_until_newline_token("xxx"sv); }) ) << "should complain for unclosed content\n";
-    ut::expect( ut::that % parser.get_until_newline_token("end"sv) == "start\n123\nendnot\n  "sv );
-    ut::expect( ut::that % parser.curr_line()==4u );
-    ut::expect( ut::that % parser.get_until_newline_token("end"sv) == " start2\nnot end\n"sv );
-    ut::expect( ut::that % parser.curr_line()==6u );
     ut::expect( not parser.has_codepoint() );
    };
 

@@ -250,11 +250,7 @@ class PllParser final : public plain::ParserBase<char>
                 throw create_parse_error( fmt::format("Expected '%' in address of variable \"{}\" address", var.name()) );
                }
             // Here expecting something like: MB300.6000
-            var.address().set_type( inherited::curr_codepoint() );
-            if( var.address().type()!='M' )
-               {// In the Sipro/LogicLab world the address type is always 'M'
-                inherited::notify_issue( fmt::format("Strange address type '{}'", var.address().type()) );
-               }
+            var.address().set_type( inherited::curr_codepoint() ); // Typically M or Q
             inherited::get_next();
             var.address().set_typevar( inherited::curr_codepoint() );
             inherited::get_next();
@@ -374,7 +370,7 @@ class PllParser final : public plain::ParserBase<char>
            }
 
         // Expecting a line end now
-        inherited::skip_endline();
+        inherited::check_and_eat_endline();
        }
 
 
@@ -383,213 +379,67 @@ class PllParser final : public plain::ParserBase<char>
        {
         collect_global_vars(vgroups, true);
        }
-    //-----------------------------------------------------------------------
-    void collect_global_vars([[maybe_unused]] std::vector<plcb::Variables_Group>& vgroups, [[maybe_unused]] const bool value_needed =false)
-       {
-        //    VAR_GLOBAL
+    void collect_global_vars(std::vector<plcb::Variables_Group>& vgroups, const bool value_needed =false)
+       {//    VAR_GLOBAL
         //    {G:"System"}
-        //    Cnc : fbCncM32; { DE:"Cnc device" }
+        //    Cnc : fbCncM32; { DE:"device" }
         //    {G:"Arrays"}
-        //    vbMsgs AT %MB300.6000 : ARRAY[ 0..999 ] OF BOOL; { DE:"ivbMsgs Array messaggi attivati !MAX_MESSAGES!" }
+        //    vbMsgs AT %MB300.6000 : ARRAY[ 0..999 ] OF BOOL; { DE:"msg array" }
         //    END_VAR
-        //while( i<siz )
-        //   {
-        //    inherited::skip_blanks();
-        //    if( not inherited::has_codepoint() )
-        //       {
-        //        throw create_parse_error("VAR_GLOBAL not closed by END_VAR");
-        //       }
-        //    else if( inherited::got_endline() )
-        //       {// Nella lista variabili sono ammesse righe vuote
-        //        inherited::get_next();
-        //       }
-        //    else if( eat_block_comment_start() )
-        //       {// Nella lista variabili sono ammesse righe di commento
-        //        skip_block_comment();
-        //       }
-        //    else if( got_directive_start() )
-        //       {
-        //        const plcb::Directive dir = collect_directive();
-        //        if( dir.key()=="G" )
-        //           {// È la descrizione di un gruppo di variabili
-        //            if( dir.value().find(' ')!=std::string::npos )
-        //               {
-        //                notify_issue("Avoid spaces in var group name \"{}\"", dir.value());
-        //               }
-        //            vgroups.emplace_back();
-        //            vgroups.back().set_name( dir.value() );
-        //           }
-        //        else
-        //           {
-        //            throw create_parse_error( fmt::format("Unexpected directive \"{}\" in global vars", dir.key()) );
-        //           }
-        //       }
-        //    else if( inherited::eat_token("END_VAR"sv) )
-        //       {
-        //        //DBGLOG("    Global vars end at line {}\n", line)
-        //        break;
-        //       }
-        //    else
-        //       {
-        //        if( vgroups.empty() ) vgroups.emplace_back(); // Unnamed group
-        //        vgroups.back().add_variable( collect_variable() );
-        //        //DBGLOG("    Variable {}: {}\n", vgroups.back().variables().back().name(), vgroups.back().variables().back().descr())
-        //        // Check if a value was needed
-        //        if( value_needed and !vgroups.back().variables().back().has_value() )
-        //           {
-        //            throw create_parse_error( fmt::format("Value not specified for variable \"{}\"", vgroups.back().variables().back().name()) );
-        //           }
-        //       }
-        //   }
+
+        // Since I'm appending I won't support more than one for each global groups
+        if( not vgroups.empty() )
+           {
+            throw create_parse_error("Multiple global variables declaration");
+           }
+
+        const auto start = inherited::save_context();
+        while( true )
+           {
+            inherited::skip_blanks();
+            if( not inherited::has_codepoint() )
+               {
+                throw create_parse_error("VAR_GLOBAL not closed by END_VAR", start.line);
+               }
+            else if( inherited::got_endline() )
+               {// Skip empty lines
+                inherited::get_next();
+               }
+            else if( eat_block_comment_start() )
+               {
+                skip_block_comment();
+               }
+            else if( got_directive_start() )
+               {
+                const plcb::Directive dir = collect_directive();
+                if( dir.key()=="G" )
+                   {// A group
+                    vgroups.emplace_back().set_name( dir.value() );
+                   }
+                else
+                   {
+                    throw create_parse_error( fmt::format("Unexpected directive \"{}\" in global vars", dir.key()) );
+                   }
+               }
+            else if( inherited::eat_token("END_VAR"sv) )
+               {
+                break;
+               }
+            else
+               {// Expected a variable entry
+                if( vgroups.empty() )
+                   {
+                    vgroups.emplace_back(); // Unnamed group
+                   }
+                const plcb::Variable& var = vgroups.back().add_variable( collect_variable() );
+
+                if( value_needed and !var.has_value() )
+                   {
+                    throw create_parse_error( fmt::format("Value not specified for \"{}\"", var.name()) );
+                   }
+               }
+           }
        }
-
-
-    //-----------------------------------------------------------------------
-    //void collect_var_block(std::vector<plcb::Variable>& vars, const bool value_needed =false)
-    //   {
-    //    struct local final
-    //       {
-    //        [[nodiscard]] static bool contains(const std::vector<plcb::Variable>& vars, const std::string_view var_name) noexcept
-    //           {
-    //            //return std::ranges::any_of(vars, [&](const Variable& var){ return var.name()==var_name; });
-    //            for(const plcb::Variable& var : vars) if(var.name()==var_name) return true;
-    //            return false;
-    //           }
-    //
-    //        static void add_variable(std::vector<plcb::Variable>& vars, plcb::Variable&& var)
-    //           {
-    //            if( contains(vars, var.name()) )
-    //               {
-    //                throw std::runtime_error(fmt::format("Duplicate variable \"{}\"", var.name()) );
-    //               }
-    //            vars.push_back(std::move(var));
-    //           }
-    //       };
-    //
-    //    while( i<siz )
-    //       {
-    //        inherited::skip_blanks();
-    //        if( inherited::eat_token("END_VAR"sv) )
-    //           {
-    //            break;
-    //           }
-    //        else if( inherited::got_endline() )
-    //           {// Sono ammesse righe vuote
-    //            inherited::get_next();
-    //            continue;
-    //           }
-    //        else if( eat_block_comment_start() )
-    //           {// Nella lista variabili sono ammesse righe di commento
-    //            skip_block_comment();
-    //           }
-    //        else
-    //           {// Expected a variable entry
-    //            local::add_variable(vars, collect_variable());
-    //            //DBGLOG("  variable \"{}\": {}\n", vars.back().name(), vars.back().descr())
-    //            // Check if a value was needed
-    //            if( value_needed and !vars.back().has_value() )
-    //               {
-    //                throw create_parse_error( fmt::format("Value not specified for var \"{}\"", vars.back().name()) );
-    //               }
-    //           }
-    //       }
-    //   }
-
-
-    //-----------------------------------------------------------------------
-    //void collect_pou_header(plcb::Pou& pou, const std::string_view start_tag, const std::string_view end_tag)
-    //   {
-    //    while( i<siz )
-    //       {
-    //        inherited::skip_blanks();
-    //        if( not inherited::has_codepoint() )
-    //           {
-    //            throw create_parse_error( fmt::format("{} not closed by {}", start_tag, end_tag) );
-    //           }
-    //        else if( inherited::got_endline() )
-    //           {// Sono ammesse righe vuote
-    //            inherited::get_next();
-    //            continue;
-    //           }
-    //        else
-    //           {
-    //            if( got_directive_start() )
-    //               {
-    //                const plcb::Directive dir = collect_directive();
-    //                if( dir.key()=="DE"sv )
-    //                   {// Is a description
-    //                    if( not pou.descr().empty() )
-    //                       {
-    //                        throw create_parse_error( fmt::format("{} has already a description: {}", start_tag, pou.descr()) );
-    //                       }
-    //                    pou.set_descr( dir.value() );
-    //                    //DBGLOG("    {} description: {}\n", start_tag, dir.value())
-    //                   }
-    //                else if( dir.key()=="CODE"sv )
-    //                   {// Header finished
-    //                    pou.set_code_type( dir.value() );
-    //                    break;
-    //                   }
-    //                else
-    //                   {
-    //                    throw create_parse_error( fmt::format("Unexpected directive \"{}\" in {} of {}", dir.key(), start_tag, pou.name()) );
-    //                   }
-    //               }
-    //            else if( inherited::eat_token("VAR_INPUT"sv) )
-    //               {
-    //                inherited::skip_endline(); // ("VAR_INPUT of {}"sv, pou.name());
-    //                collect_var_block( pou.input_vars() );
-    //               }
-    //            else if( inherited::eat_token("VAR_OUTPUT"sv) )
-    //               {
-    //                inherited::skip_endline(); // ("VAR_OUTPUT of {}"sv, pou.name());
-    //                collect_var_block( pou.output_vars() );
-    //               }
-    //            else if( inherited::eat_token("VAR_IN_OUT"sv) )
-    //               {
-    //                inherited::skip_endline(); // ("VAR_IN_OUT of {}"sv, pou.name());
-    //                collect_var_block( pou.inout_vars() );
-    //               }
-    //            else if( inherited::eat_token("VAR_EXTERNAL"sv) )
-    //               {
-    //                inherited::skip_endline(); // ("VAR_EXTERNAL of {}"sv, pou.name());
-    //                collect_var_block( pou.external_vars() );
-    //               }
-    //            else if( inherited::eat_token("VAR"sv) )
-    //               {
-    //                // Check if there's some additional attributes
-    //                inherited::skip_blanks();
-    //                if( inherited::eat_token("CONSTANT"sv) )
-    //                   {
-    //                    inherited::skip_endline(); // ("VAR CONSTANT of {}"sv, pou.name());
-    //                    collect_var_block( pou.local_constants(), true );
-    //                   }
-    //                //else if( inherited::eat_token("RETAIN"sv) )
-    //                //   {
-    //                //    throw create_parse_error("RETAIN variables not supported");
-    //                //   }
-    //                else if( inherited::got_endline() )
-    //                   {
-    //                    inherited::get_next();
-    //                    collect_var_block( pou.local_vars() );
-    //                   }
-    //                else
-    //                   {
-    //                    throw create_parse_error( fmt::format("Unexpected content after {} of {}: {}", start_tag, pou.name(), str::escape(inherited::get_rest_of_line())) );
-    //                   }
-    //               }
-    //            else if( inherited::eat_token(end_tag) )
-    //               {
-    //                throw create_parse_error( fmt::format("Truncated {} of {}", start_tag, pou.name()) );
-    //                break;
-    //               }
-    //            else
-    //               {
-    //                throw create_parse_error( fmt::format("Unexpected content in {} of {} header: {}", start_tag, pou.name(), str::escape(inherited::get_rest_of_line())) );
-    //               }
-    //           }
-    //       }
-    //   }
 
 
     //-----------------------------------------------------------------------
@@ -604,9 +454,166 @@ class PllParser final : public plain::ParserBase<char>
         //(* Body *)
         //END_POU
 
-        //DBGLOG("Collecting {} in line {}\n", start_tag, line)
-
+        //struct local_t final
+        //   {
+        //    ll::PllParser& parser;
+        //    explicit local_t() constexpr( ll::PllParser& p)
+        //      : parser(p)
+        //       {}
+        //
+        //    //-------------------------------------------------------------------
+        //    void collect_var_block(std::vector<plcb::Variable>& vars, const bool value_needed =false)
+        //       {
+        //        struct local final
+        //           {
+        //            [[nodiscard]] static bool contains(const std::vector<plcb::Variable>& vars, const std::string_view var_name) noexcept
+        //               {
+        //                //return std::ranges::any_of(vars, [](const plcb::Variable& var) noexcept { return var.name()==var_name; });
+        //                for(const plcb::Variable& var : vars) if(var.name()==var_name) return true;
+        //                return false;
+        //               }
+        //
+        //            static plcb::Variable& add_variable(std::vector<plcb::Variable>& vars, plcb::Variable&& var)
+        //               {
+        //                if( contains(vars, var.name()) )
+        //                   {
+        //                    throw std::runtime_error( fmt::format("Duplicate variable \"{}\"", var.name()) );
+        //                   }
+        //                vars.push_back( std::move(var) );
+        //                return vars.back();
+        //               }
+        //           };
+        //
+        //        const auto start = parser->save_context();
+        //        while( true )
+        //           {
+        //            parser->skip_blanks();
+        //            if( not parser->has_codepoint() )
+        //               {
+        //                throw create_parse_error("VAR block not closed by END_VAR", start.line);
+        //               }
+        //            else if( parser->got_endline() )
+        //               {// Skip empty lines
+        //                parser->get_next();
+        //               }
+        //            else if( eat_block_comment_start() )
+        //               {
+        //                skip_block_comment();
+        //               }
+        //            else if( parser->eat_token("END_VAR"sv) )
+        //               {
+        //                break;
+        //               }
+        //            else
+        //               {// Expected a variable entry
+        //                const plcb::Variable& var = local::add_variable(vars, collect_variable());
+        //
+        //                if( value_needed and !var.has_value() )
+        //                   {
+        //                    throw create_parse_error( fmt::format("Value not specified for \"{}\"", var.name()) );
+        //                   }
+        //               }
+        //           }
+        //       }
+        //
+        //
+        //    //-------------------------------------------------------------------
+        //    void collect_pou_header(plcb::Pou& pou, const std::string_view start_tag, const std::string_view end_tag)
+        //       {
+        //        while( true )
+        //           {
+        //            parser->skip_blanks();
+        //            if( not parser->has_codepoint() )
+        //               {
+        //                throw create_parse_error( fmt::format("{} not closed by {}", start_tag, end_tag), start.line );
+        //               }
+        //            else if( parser->got_endline() )
+        //               {// Sono ammesse righe vuote
+        //                parser->get_next();
+        //                continue;
+        //               }
+        //            else
+        //               {
+        //                if( got_directive_start() )
+        //                   {
+        //                    const plcb::Directive dir = collect_directive();
+        //                    if( dir.key()=="DE"sv )
+        //                       {// Is a description
+        //                        if( not pou.descr().empty() )
+        //                           {
+        //                            throw create_parse_error( fmt::format("{} has already a description: {}", start_tag, pou.descr()) );
+        //                           }
+        //                        pou.set_descr( dir.value() );
+        //                       }
+        //                    else if( dir.key()=="CODE"sv )
+        //                       {// Header finished
+        //                        pou.set_code_type( dir.value() );
+        //                        break;
+        //                       }
+        //                    else
+        //                       {
+        //                        throw create_parse_error( fmt::format("Unexpected directive \"{}\" in {} of {}", dir.key(), start_tag, pou.name()) );
+        //                       }
+        //                   }
+        //                else if( parser->eat_token("VAR_INPUT"sv) )
+        //                   {
+        //                    parser->check_and_eat_endline(); // ("VAR_INPUT of {}"sv, pou.name());
+        //                    collect_var_block( pou.input_vars() );
+        //                   }
+        //                else if( parser->eat_token("VAR_OUTPUT"sv) )
+        //                   {
+        //                    parser->check_and_eat_endline(); // ("VAR_OUTPUT of {}"sv, pou.name());
+        //                    collect_var_block( pou.output_vars() );
+        //                   }
+        //                else if( parser->eat_token("VAR_IN_OUT"sv) )
+        //                   {
+        //                    parser->check_and_eat_endline(); // ("VAR_IN_OUT of {}"sv, pou.name());
+        //                    collect_var_block( pou.inout_vars() );
+        //                   }
+        //                else if( parser->eat_token("VAR_EXTERNAL"sv) )
+        //                   {
+        //                    parser->check_and_eat_endline(); // ("VAR_EXTERNAL of {}"sv, pou.name());
+        //                    collect_var_block( pou.external_vars() );
+        //                   }
+        //                else if( parser->eat_token("VAR"sv) )
+        //                   {
+        //                    // Check if there's some additional attributes
+        //                    parser->skip_blanks();
+        //                    if( parser->eat_token("CONSTANT"sv) )
+        //                       {
+        //                        parser->check_and_eat_endline(); // ("VAR CONSTANT of {}"sv, pou.name());
+        //                        collect_var_block( pou.local_constants(), true );
+        //                       }
+        //                    //else if( parser->eat_token("RETAIN"sv) )
+        //                    //   {
+        //                    //    throw create_parse_error("RETAIN variables not supported");
+        //                    //   }
+        //                    else if( parser->got_endline() )
+        //                       {
+        //                        parser->get_next();
+        //                        collect_var_block( pou.local_vars() );
+        //                       }
+        //                    else
+        //                       {
+        //                        throw create_parse_error( fmt::format("Unexpected content after {} of {}: {}", start_tag, pou.name(), str::escape(parser->get_rest_of_line())) );
+        //                       }
+        //                   }
+        //                else if( parser->eat_token(end_tag) )
+        //                   {
+        //                    throw create_parse_error( fmt::format("Truncated {} of {}", start_tag, pou.name()) );
+        //                    break;
+        //                   }
+        //                else
+        //                   {
+        //                    throw create_parse_error( fmt::format("Unexpected content in {} of {} header: {}", start_tag, pou.name(), str::escape(parser->get_rest_of_line())) );
+        //                   }
+        //               }
+        //           }
+        //       }
+        //   } local(parser);
+        //
         //// Get name
+        //const auto start = inherited::save_context();
         //inherited::skip_blanks();
         //pou.set_name( inherited::get_identifier() );
         //if( pou.name().empty() )
@@ -623,36 +630,35 @@ class PllParser final : public plain::ParserBase<char>
         //    pou.set_return_type( get_alphabetic() );
         //    if( pou.return_type().empty() )
         //       {
-        //        throw create_parse_error( fmt::format("Empty return type in {} of {}", start_tag, pou.name()) );
+        //        throw create_parse_error( fmt::format("Empty return type in {} {}", start_tag, pou.name()) );
         //       }
         //    if( not needs_ret_type )
         //       {
-        //        throw create_parse_error( fmt::format("Return type specified in {} of {}", start_tag, pou.name()) );
+        //        throw create_parse_error( fmt::format("Return type specified in {} {}", start_tag, pou.name()) );
         //       }
-        //    inherited::skip_endline();
+        //    inherited::check_and_eat_endline();
         //   }
         //else
         //   {// No return type
         //    if( needs_ret_type )
         //       {
-        //        throw create_parse_error( fmt::format("Return type not specified in {} of {}", start_tag, pou.name()) );
+        //        throw create_parse_error( fmt::format("Return type not specified in {} {}", start_tag, pou.name()) );
         //       }
         //   }
         //
         //// Collect description and variables
-        //collect_pou_header(pou, start_tag, end_tag);
+        //collect_pou_header(pou, start_tag, end_tag, start);
         //
         //// Collect the code body
         //if( pou.code_type().empty() )
         //   {
-        //    throw create_parse_error( fmt::format("CODE not found in {} of {}", start_tag, pou.name()) );
+        //    throw create_parse_error( fmt::format("CODE not found in {} {}", start_tag, pou.name()) );
         //   }
         ////else if( pou.code_type()!="ST"sv )
         ////   {
-        ////    issues.push_back(fmt::format("Code type: {} for {} of {}", dir.value(), start_tag, pou.name()));
+        ////    notify_issue( fmt::format("Code type: {} for {} {}", dir.value(), start_tag, pou.name())) ;
         ////   }
-        //pou.set_body( get_until_newline_token(end_tag) );
-        ////DBGLOG("    {} of {} fully collected at line {}\n", start_tag, pou.name(), line)
+        //pou.set_body( get_until_newline_token(end_tag, start) );
        }
 
 
@@ -682,7 +688,7 @@ class PllParser final : public plain::ParserBase<char>
     //       }
     //
     //    // Expecting a line end now
-    //    inherited::skip_endline(); // ("macro parameter {}"sv, par.name());
+    //    inherited::check_and_eat_endline(); // ("macro parameter {}"sv, par.name());
     //
     //    return par;
     //   }
@@ -766,7 +772,7 @@ class PllParser final : public plain::ParserBase<char>
     //                   {
     //                    throw create_parse_error("Multiple groups of macro parameters");
     //                   }
-    //                inherited::skip_endline(); // ("PAR_MACRO of {}"sv, macro.name());
+    //                inherited::check_and_eat_endline(); // ("PAR_MACRO of {}"sv, macro.name());
     //                collect_macro_parameters( macro.parameters() );
     //               }
     //            else if( inherited::eat_token("END_MACRO"sv) )
@@ -812,7 +818,7 @@ class PllParser final : public plain::ParserBase<char>
         //   }
         ////else if( macro.code_type()!="ST"sv )
         ////   {
-        ////    issues.push_back(fmt::format("Code type: {} for MACRO {}", dir.value(), macro.name()));
+        ////    notify_issue( fmt::format("Code type: {} for MACRO {}", dir.value(), macro.name()) );
         ////   }
         //macro.set_body( get_until_newline_token("END_MACRO"sv) );
        }
@@ -872,7 +878,7 @@ class PllParser final : public plain::ParserBase<char>
     //       }
     //
     //    // Expecting a line end now
-    //    inherited::skip_endline(); // ("struct {}"sv, strct.name());
+    //    inherited::check_and_eat_endline(); // ("struct {}"sv, strct.name());
     //    //DBGLOG("    [*] Collected struct \"{}\", {} members\n", strct.name(), strct.members().size())
     //   }
 
@@ -912,7 +918,7 @@ class PllParser final : public plain::ParserBase<char>
     //       }
     //
     //    // Expecting a line end now
-    //    inherited::skip_endline(); // ("enum element {}"sv, elem.name());
+    //    inherited::check_and_eat_endline(); // ("enum element {}"sv, elem.name());
     //    //DBGLOG("    [*] Collected enum element: name=\"{}\" value=\"{}\" descr=\"{}\"\n", elem.name(), elem.value(), elem.descr())
     //    return has_next;
     //   }
@@ -963,7 +969,7 @@ class PllParser final : public plain::ParserBase<char>
     //       }
     //
     //    // Expecting a line end now
-    //    inherited::skip_endline(); // ("enum {}"sv, en.name());
+    //    inherited::check_and_eat_endline(); // ("enum {}"sv, en.name());
     //    //DBGLOG("    [*] Collected enum \"{}\", {} elements\n", en.name(), en.elements().size())
     //   }
 
@@ -1021,7 +1027,7 @@ class PllParser final : public plain::ParserBase<char>
     //       }
     //
     //    // Expecting a line end now
-    //    inherited::skip_endline(); // ("subrange {}"sv, subr.name());
+    //    inherited::check_and_eat_endline(); // ("subrange {}"sv, subr.name());
     //    //DBGLOG("    [*] Collected subrange: name=\"{}\" type=\"{}\" min=\"{}\" max=\"{}\" descr=\"{}\"\n", subr.name(), subr.type(), subr.min(), subr.max(), subr.descr())
     //   }
 
@@ -1115,6 +1121,26 @@ class PllParser final : public plain::ParserBase<char>
         //       }
         //   }
        }
+
+    //-----------------------------------------------------------------------
+    [[nodiscard]] constexpr std::string_view get_until_newline_token(const std::string_view tok, const inherited::context_t& start)
+       {
+        do {
+            if( inherited::got_endline() )
+               {
+                inherited::get_next();
+                inherited::skip_blanks();
+                const std::size_t candidate_end = inherited::curr_offset();
+                if( inherited::eat_token(tok) )
+                   {
+                    return inherited::get_view_between(start.offset, candidate_end);
+                   }
+               }
+           }
+        while( inherited::get_next() );
+        inherited::restore_context( start ); // Strong guarantee
+        throw create_parse_error(fmt::format("Unclosed content (\"{}\" not found)",tok), start.line);
+       }
 };
 
 
@@ -1154,6 +1180,31 @@ void pll_parse(const std::string& file_path, const std::string_view buf, plcb::L
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
 static ut::suite<"pll_file_parser"> pll_file_parser_tests = []
 {////////////////////////////////////////////////////////////////////////////
+
+ut::test("get_until_newline_token()") = []
+   {
+    ll::PllParser parser {  "start\n"
+                            "123\n"
+                            "endnot\n"
+                            "  end start2\n"
+                            "not end\n"
+                            "end"sv };
+
+
+    ut::expect( ut::throws([&parser]
+       {
+        const auto start = parser.save_context();
+        [[maybe_unused]] auto n = parser.get_until_newline_token("xxx"sv, start);
+       }) ) << "should complain for unclosed content\n";
+
+    const auto start1 = parser.save_context();
+    ut::expect( ut::that % parser.get_until_newline_token("end"sv, start1) == "start\n123\nendnot\n  "sv );
+    ut::expect( ut::that % parser.curr_line()==4u );
+    const auto start2 = parser.save_context();
+    ut::expect( ut::that % parser.get_until_newline_token("end"sv, start2) == " start2\nnot end\n"sv );
+    ut::expect( ut::that % parser.curr_line()==6u );
+    ut::expect( not parser.has_codepoint() );
+   };
 
 ut::test("ll::PllParser::check_heading_comment()") = []
    {
@@ -1203,6 +1254,59 @@ ut::test("ll::PllParser::collect_variable()") = []
     [[maybe_unused]] const auto rest_of_bad_var = parser.get_rest_of_line();
 
     ut::expect( ut::that % plcb::to_string(parser.collect_variable()) == "Title STRING[80] 'a string' <MB700.0>"sv );
+   };
+
+
+ut::test("ll::PllParser::collect_global_vars()") = []
+   {
+    // Note: opened by "VAR_GLOBAL\n"
+    ll::PllParser parser{"    {G:\"System\"}\n"
+                         "        Cnc : fbCncM32; { DE:\"Cnc device\" }\n"
+                         "        vqDevErrors AT %MD500.5800 : ARRAY[ 0..99 ] OF DINT; { DE:\"Emg array\" }\n"
+                         "    {G:\"Cnc Shared Variables\"}\n"
+                         "        sysTimer AT %MD0.0 : UDINT;  { DE:\"System timer 1 KHz\"}\n"
+                         "        din      AT %IX100.0 : ARRAY[ 0..511 ] OF BOOL; {DE:\"Digital Inputs\"}\n"
+                         "        va1      AT %MB700.1 : STRING[ 80 ]; {DE:\"a string\"}\n"
+                         "    END_VAR\n"sv};
+    std::vector<plcb::Variables_Group> gvars_groups;
+    parser.collect_global_vars( gvars_groups );
+
+    ut::expect( ut::fatal(gvars_groups.size() == 2u) );
+
+    const plcb::Variables_Group& System_group = gvars_groups[0];
+    ut::expect( ut::that % System_group.name() == "System"sv );
+    const auto& gvars_System = System_group.variables();
+    ut::expect( ut::fatal(gvars_System.size() == 2u) );
+    ut::expect( ut::that % plcb::to_string(gvars_System[0]) == "Cnc fbCncM32 'Cnc device'"sv );
+    ut::expect( ut::that % plcb::to_string(gvars_System[1]) == "vqDevErrors DINT[0...99] 'Emg array' <MD500.5800>"sv );
+
+    const plcb::Variables_Group& Cnc_group = gvars_groups[1];
+    ut::expect( ut::that % Cnc_group.name() == "Cnc Shared Variables"sv );
+    const auto& gvars_Cnc = Cnc_group.variables();
+    ut::expect( ut::fatal(gvars_Cnc.size() == 3u) );
+    ut::expect( ut::that % plcb::to_string(gvars_Cnc[0]) == "sysTimer UDINT 'System timer 1 KHz' <MD0.0>"sv );
+    ut::expect( ut::that % plcb::to_string(gvars_Cnc[1]) == "din BOOL[0...511] 'Digital Inputs' <IX100.0>"sv );
+    ut::expect( ut::that % plcb::to_string(gvars_Cnc[2]) == "va1 STRING[80] 'a string' <MB700.1>"sv );
+   };
+
+
+ut::test("ll::PllParser::collect_global_constants()") = []
+   {
+    // Note: opened by "VAR_GLOBAL CONSTANT\n"
+    ll::PllParser parser{"        GlassDensity : DINT := 2600; { DE:\"a dint constant\" }\n"
+                         "        PI : LREAL := 3.14; { DE:\"[rad] π\" }\n"
+                         "    END_VAR\n"sv};
+    std::vector<plcb::Variables_Group> gconsts_groups;
+    parser.collect_global_constants( gconsts_groups );
+
+    ut::expect( ut::fatal(gconsts_groups.size() == 1u) );
+    const plcb::Variables_Group& gconsts_group = gconsts_groups[0];
+    ut::expect( ut::that % gconsts_group.name() == ""sv );
+
+    const auto& gconsts = gconsts_group.variables();
+    ut::expect( ut::fatal(gconsts.size() == 2u) );
+    ut::expect( ut::that % plcb::to_string(gconsts[0]) == "GlassDensity DINT 'a dint constant' (=2600)"sv );
+    ut::expect( ut::that % plcb::to_string(gconsts[1]) == "PI LREAL '[rad] π' (=3.14)"sv );
    };
 
 

@@ -233,7 +233,7 @@ class Parser final : public text::ParserBase<ENC>
                }
             else if( inherited::eat(U'[') )
                {
-                if( inherited::eat(U"CDATA[") )
+                if( inherited::eat(U"CDATA["sv) )
                    {// A CDATA section <![CDATA[ ... ]]>
                     if( options().is_collect_text_sections() )
                        {
@@ -257,7 +257,7 @@ class Parser final : public text::ParserBase<ENC>
             else
                {// A special block: ex. <!DOCTYPE HTML>
                 m_event.set_as_special_block( inherited::template collect_until<U'>'>() );
-                //m_event.set_as_special_block( inherited::template collect_until(U"]>") );
+                //m_event.set_as_special_block( inherited::template collect_until(U"]>"sv) );
                }
            }
         else if( inherited::eat(U'?') )

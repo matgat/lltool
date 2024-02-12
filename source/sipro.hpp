@@ -26,29 +26,35 @@ class Register final
         vq,
         vd,
         va,
+        //din,
+        //dout,
         size
        };
 
     static constexpr std::array<std::string_view, std::to_underlying(type::size)>
     reg_iec_types =
        {
-        "",      // none
-        "BOOL",  // vb
-        "INT",   // vn
-        "DINT",  // vq
-        "LREAL", // vd
-        "STRING" // va
+        ""        // none
+       ,"BOOL"    // vb
+       ,"INT"     // vn
+       ,"DINT"    // vq
+       ,"LREAL"   // vd
+       ,"STRING" // va
+       //,"BOOL"   // din
+       //,"BOOL"   // dout
        };
 
     static constexpr std::array<char, std::to_underlying(type::size)>
     plc_var_type =
        {
-        '\0', // none
-        'B',  // vb
-        'W',  // vn
-        'D',  // vq
-        'L',  // vd
-        'B'   // va
+        '\0' // none
+       ,'B'  // vb
+       ,'W'  // vn
+       ,'D'  // vq
+       ,'L'  // vd
+       ,'B'  // va
+       //,'X'  // din
+       //,'X'  // dout
        };
 
     static constexpr std::array<std::uint16_t, std::to_underlying(type::size)>
@@ -61,7 +67,6 @@ class Register final
         600, // vd
         700  // va
        };
-
 
  private:
     std::uint16_t m_index = 0;
@@ -145,7 +150,7 @@ ut::test("sipro::Register") = []
         const sipro::Register vx123{"vx123"sv};
         ut::expect( not vx123.is_valid() );
        };
-       
+
     ut::test("large index") = []
        {
         const sipro::Register vqbadidx{"vq10000"sv};

@@ -23,7 +23,7 @@ namespace plc //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 {
 
 // Built in numeric types
-static constexpr std::array<std::string_view,15> num_types =
+inline static constexpr std::array<std::string_view,15> num_types =
    {
     "BOOL"sv,   // [1] BOOLean [FALSE|TRUE]
     "SINT"sv,   // [1] Short INTeger [-128 … 127]
@@ -233,13 +233,14 @@ class Variables_Group final
        {
         return std::ranges::any_of(m_Variables, [var_name](const Variable& var) noexcept { return var.name()==var_name; });
        }
-    void add_variable(Variable&& var)
+    Variable& add_variable(Variable&& var)
        {
         if( contains(var.name()) )
            {
             throw std::runtime_error{ fmt::format("Duplicate variable \"{}\" in group \"{}\"", var.name(), name()) };
            }
-        m_Variables.push_back(std::move(var));
+        m_Variables.push_back( std::move(var) );
+        return m_Variables.back();
        }
 
     void sort()

@@ -5,7 +5,7 @@
 //  ---------------------------------------------
 //  #include "integral_types_utilities.hpp" // MG::SmallerUnsignedIntegral<>
 //  ---------------------------------------------
-#include <cstdint> // std::int*_t
+#include <cstdint> // std::int16_t, ...
 #include <concepts> // std::integral
 #include <limits> // std::numeric_limits<>
 #include <type_traits> // std::make_unsigned_t<>

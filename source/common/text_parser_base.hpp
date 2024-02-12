@@ -198,10 +198,9 @@ class ParserBase
        }
 
     //-----------------------------------------------------------------------
-    // Called when line is supposed to end: nothing more than spaces allowed
-    constexpr void skip_endline()
+    // Called when line is supposed to end
+    constexpr void check_and_eat_endline()
        {
-        skip_blanks();
         if( got_endline() )
            {
             get_next();
@@ -554,10 +553,12 @@ ut::test("eating spaces") = []
     parser.skip_any_space();
 
     expect( parser.got(U'4') and parser.curr_line()==4 );
+    parser.skip_blanks();
     parser.skip_line();
 
     expect( parser.got(U'5') and parser.curr_line()==5 and parser.get_next() );
-    parser.skip_endline();
+    parser.skip_blanks();
+    parser.check_and_eat_endline();
 
     expect( parser.got(U'6') and parser.curr_line()==6 and parser.get_next() );
     parser.skip_blanks();
