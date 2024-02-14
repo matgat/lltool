@@ -22,32 +22,30 @@ using namespace std::literals; // "..."sv
 namespace plc //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 {
 
-// Built in numeric types
-inline static constexpr std::array<std::string_view,15> num_types =
-   {
-    "BOOL"sv,   // [1] BOOLean [FALSE|TRUE]
-    "SINT"sv,   // [1] Short INTeger [-128 … 127]
-    "INT"sv,    // [2] INTeger [-32768 … +32767]
-    "DINT"sv,   // [4] Double INTeger [-2147483648 … 2147483647]
-    "LINT"sv,   // [8] Long INTeger [-2^63 … 2^63-1]
-    "USINT"sv,  // [1] Unsigned Short INTeger [0 … 255]
-    "UINT"sv,   // [2] Unsigned INTeger [0 … 65535]
-    "UDINT"sv,  // [4] Unsigned Double INTeger [0 … 4294967295]
-    "ULINT"sv,  // [8] Unsigned Long INTeger [0 … 2^64-1]
-    "REAL"sv,   // [4] REAL number [±10^38]
-    "LREAL"sv,  // [8] Long REAL number [±10^308]
-    "BYTE"sv,   // [1] 1 byte
-    "WORD"sv,   // [2] 2 bytes
-    "DWORD"sv,  // [4] 4 bytes
-    "LWORD"sv   // [8] 8 bytes
-   };
-
 //---------------------------------------------------------------------------
-// Tell if a string is a recognized numerical type
-[[nodiscard]] constexpr bool is_num_type(const std::string_view sv)
-   {
-    return std::ranges::find(num_types, sv) != num_types.end();
-   }
+// Tell if a string is a recognized IEC numerical type
+//[[nodiscard]] bool is_iec_num_type(const std::string_view sv)
+//   {
+//    static constexpr std::array iec_num_types =
+//       {
+//        "BOOL"sv  // [1] BOOLean [FALSE|TRUE]
+//       ,"SINT"sv  // [1] Short INTeger [-128 … 127]
+//       ,"INT"sv   // [2] INTeger [-32768 … +32767]
+//       ,"DINT"sv  // [4] Double INTeger [-2147483648 … 2147483647]
+//       ,"LINT"sv  // [8] Long INTeger [-2^63 … 2^63-1]
+//       ,"USINT"sv // [1] Unsigned Short INTeger [0 … 255]
+//       ,"UINT"sv  // [2] Unsigned INTeger [0 … 65535]
+//       ,"UDINT"sv // [4] Unsigned Double INTeger [0 … 4294967295]
+//       ,"ULINT"sv // [8] Unsigned Long INTeger [0 … 2^64-1]
+//       ,"REAL"sv  // [4] REAL number [±10^38]
+//       ,"LREAL"sv // [8] Long REAL number [±10^308]
+//       ,"BYTE"sv  // [1] 1 byte
+//       ,"WORD"sv  // [2] 2 bytes
+//       ,"DWORD"sv // [4] 4 bytes
+//       ,"LWORD"sv // [8] 8 bytes
+//       };
+//    return std::ranges::contains(iec_num_types, sv);
+//   }
 
 
 
@@ -56,33 +54,33 @@ inline static constexpr std::array<std::string_view,15> num_types =
 //                      M     B        700  .  320
 //                      ↑     ↑        ↑       ↑
 //                      type  typevar  index   subindex
-class VariableAddress final
+class Address final
 {
  private:
-    char m_Type = '\0'; // Typically 'M'
+    char m_Zone = '\0'; // 'M', 'Q', ...
     char m_TypeVar = '\0'; // 'B', ...
     std::uint16_t m_Index = 0;
     std::uint16_t m_SubIndex = 0;
 
  public:
-    VariableAddress() noexcept = default;
-    VariableAddress(const char typ,
-                    const char vtyp,
-                    const std::uint16_t idx,
-                    const std::uint16_t sub) noexcept
-      : m_Type(typ)
-      , m_TypeVar(vtyp)
+    Address() noexcept = default;
+    Address(const char zn,
+            const char tp,
+            const std::uint16_t idx,
+            const std::uint16_t sub) noexcept
+      : m_Zone(zn)
+      , m_TypeVar(tp)
       , m_Index(idx)
       , m_SubIndex(sub)
        {}
 
-    [[nodiscard]] bool is_empty() const noexcept { return m_Type=='\0'; }
+    [[nodiscard]] bool is_empty() const noexcept { return m_Zone=='\0'; }
 
-    [[nodiscard]] char type() const noexcept { return m_Type; }
-    void set_type(const char typ) noexcept { m_Type = typ; }
+    [[nodiscard]] char zone() const noexcept { return m_Zone; }
+    void set_zone(const char zn) noexcept { m_Zone = zn; }
 
     [[nodiscard]] char typevar() const noexcept { return m_TypeVar; }
-    void set_typevar(const char vtyp) noexcept { m_TypeVar = vtyp; }
+    void set_typevar(const char tp) noexcept { m_TypeVar = tp; }
 
     [[nodiscard]] std::uint16_t index() const noexcept { return m_Index; }
     void set_index(const std::uint16_t idx) noexcept { m_Index = idx; }
@@ -90,6 +88,7 @@ class VariableAddress final
     [[nodiscard]] std::uint16_t subindex() const noexcept { return m_SubIndex; }
     void set_subindex(const std::uint16_t idx) noexcept { m_SubIndex = idx; }
 };
+
 
 
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -104,27 +103,53 @@ template<ClassWithName T>
 [[nodiscard]] bool less_by_name(const T& a, const T& b) noexcept { return a.name()<b.name(); }
 
 
+
 /////////////////////////////////////////////////////////////////////////////
-// A specific vendor directive
-class Directive final
+// A type
+class Type final
 {
  private:
-    std::string_view m_Key;
-    std::string_view m_Value;
+    std::string_view m_Name;
+    std::size_t m_Length = 0u;
+    std::size_t m_ArrayFirstIdx = 0u;
+    std::size_t m_ArrayDim = 0u;
 
  public:
-    [[nodiscard]] std::string_view key() const noexcept { return m_Key; }
-    void set_key(const std::string_view sv)
+    [[nodiscard]] std::string_view name() const noexcept { return m_Name; }
+    void set_name(const std::string_view sv)
        {
         if( sv.empty() )
            {
-            throw std::runtime_error{"Empty directive key"};
+            throw std::runtime_error{"Empty type name"};
            }
-        m_Key = sv;
+        m_Name = sv;
        }
 
-    [[nodiscard]] std::string_view value() const noexcept { return m_Value; }
-    void set_value(const std::string_view sv) noexcept { m_Value = sv; }
+    [[nodiscard]] bool has_length() const noexcept { return m_Length>0; }
+    [[nodiscard]] std::size_t length() const noexcept { return m_Length; }
+    void set_length(const std::size_t len)
+       {
+        if( len<=1u )
+           {
+            throw std::runtime_error{ fmt::format("Invalid type length: {}", len) };
+           }
+        m_Length = len;
+       }
+
+    [[nodiscard]] bool is_array() const noexcept { return m_ArrayDim>0; }
+    [[nodiscard]] std::size_t array_dim() const noexcept { return m_ArrayDim; }
+    [[nodiscard]] std::size_t array_startidx() const noexcept { return m_ArrayFirstIdx; }
+    [[nodiscard]] std::size_t array_lastidx() const noexcept { return m_ArrayFirstIdx + m_ArrayDim - 1u; }
+
+    void set_array_range(const std::size_t idx_start, const std::size_t idx_last)
+       {
+        if( idx_start>=idx_last )
+           {
+            throw std::runtime_error{ fmt::format("Invalid array range {}..{}", idx_start, idx_last) };
+           }
+        m_ArrayFirstIdx = idx_start;
+        m_ArrayDim = idx_last - idx_start + 1u;
+       }
 };
 
 
@@ -135,11 +160,8 @@ class Variable final
 {
  private:
     std::string_view m_Name;
-    VariableAddress m_Address;
-    std::string_view m_Type;
-    std::size_t m_Length = 0;
-    std::size_t m_ArrayFirstIdx = 0;
-    std::size_t m_ArrayDim = 0;
+    Type m_Type;
+    Address m_Address;
     std::string_view m_Value;
     std::string_view m_Descr;
 
@@ -154,45 +176,12 @@ class Variable final
         m_Name = sv;
        }
 
+    [[nodiscard]] Type& type() noexcept { return m_Type; }
+    [[nodiscard]] const Type& type() const noexcept { return m_Type; }
+
     [[nodiscard]] bool has_address() const noexcept { return not m_Address.is_empty(); }
-    [[nodiscard]] VariableAddress& address() noexcept { return m_Address; }
-    [[nodiscard]] const VariableAddress& address() const noexcept { return m_Address; }
-
-    [[nodiscard]] std::string_view type() const noexcept { return m_Type; }
-    void set_type(const std::string_view sv)
-       {
-        if( sv.empty() )
-           {
-            throw std::runtime_error{"Empty variable type"};
-           }
-        m_Type = sv;
-       }
-
-    [[nodiscard]] bool has_length() const noexcept { return m_Length>0; }
-    [[nodiscard]] std::size_t length() const noexcept { return m_Length; }
-    void set_length(const std::size_t len)
-       {
-        if( len<=1u )
-           {
-            throw std::runtime_error( fmt::format("Invalid length ({}) of variable \"{}\"", len, name()) );
-           }
-        m_Length = len;
-       }
-
-    [[nodiscard]] bool is_array() const noexcept { return m_ArrayDim>0; }
-    [[nodiscard]] std::size_t array_dim() const noexcept { return m_ArrayDim; }
-    [[nodiscard]] std::size_t array_startidx() const noexcept { return m_ArrayFirstIdx; }
-    [[nodiscard]] std::size_t array_lastidx() const noexcept { return m_ArrayFirstIdx + m_ArrayDim - 1u; }
-    void set_array_range(const std::size_t idx_start, const std::size_t idx_last)
-       {
-        if( idx_start>=idx_last )
-           {
-            throw std::runtime_error{ fmt::format("Invalid array range {}..{} of variable \"{}\"", idx_start, idx_last, name()) };
-           }
-        //if( idx_start!=0u ) throw std::runtime_error{ fmt::format("Invalid array start index {} of variable \"{}\"", start_idx, name()) };
-        m_ArrayFirstIdx = idx_start;
-        m_ArrayDim = idx_last - idx_start + 1u;
-       }
+    [[nodiscard]] Address& address() noexcept { return m_Address; }
+    [[nodiscard]] const Address& address() const noexcept { return m_Address; }
 
     [[nodiscard]] bool has_value() const noexcept { return not m_Value.empty(); }
     [[nodiscard]] std::string_view value() const noexcept { return m_Value; }
@@ -306,10 +295,38 @@ class Variables_Groups final
 // A struct
 class Struct final
 {
+ public:
+    /////////////////////////////////////////////////////////////////////////
+    class Member final
+    {
+     private:
+        std::string_view m_Name;
+        Type m_Type;
+        std::string_view m_Descr;
+
+     public:
+        [[nodiscard]] std::string_view name() const noexcept { return m_Name; }
+        void set_name(const std::string_view sv)
+           {
+            if( sv.empty() )
+               {
+                throw std::runtime_error{"Empty parameter name"};
+               }
+            m_Name = sv;
+           }
+
+        [[nodiscard]] Type& type() noexcept { return m_Type; }
+        [[nodiscard]] const Type& type() const noexcept { return m_Type; }
+
+        //[[nodiscard]] bool has_descr() const noexcept { return not m_Descr.empty(); }
+        [[nodiscard]] std::string_view descr() const noexcept { return m_Descr; }
+        void set_descr(const std::string_view sv) noexcept { m_Descr = sv; }
+    };
+
  private:
     std::string_view m_Name;
     std::string_view m_Descr;
-    std::vector<Variable> m_Members;
+    std::vector<Member> m_Members;
 
  public:
     [[nodiscard]] std::string_view name() const noexcept { return m_Name; }
@@ -326,18 +343,18 @@ class Struct final
     [[nodiscard]] std::string_view descr() const noexcept { return m_Descr; }
     void set_descr(const std::string_view sv) noexcept { m_Descr = sv; }
 
-    [[nodiscard]] const std::vector<Variable>& members() const noexcept { return m_Members; }
-    [[nodiscard]] bool members_contain(const std::string_view var_name) const noexcept
+    [[nodiscard]] const std::vector<Member>& members() const noexcept { return m_Members; }
+    [[nodiscard]] bool members_contain(const std::string_view nam) const noexcept
        {
-        return std::ranges::any_of(m_Members, [var_name](const Variable& var) noexcept { return var.name()==var_name; });
+        return std::ranges::any_of(m_Members, [nam](const Member& memb) noexcept { return memb.name()==nam; });
        }
-    void add_member(Variable&& var)
+    void add_member(Member&& memb)
        {
-        if( members_contain(var.name()) )
+        if( members_contain(memb.name()) )
            {
-            throw std::runtime_error{ fmt::format("Duplicate struct member \"{}\"", var.name()) };
+            throw std::runtime_error{ fmt::format("Duplicate struct member \"{}\"", memb.name()) };
            }
-        m_Members.push_back(std::move(var));
+        m_Members.push_back(std::move(memb));
        }
 };
 
@@ -349,43 +366,15 @@ class TypeDef final
 {
  private:
     std::string_view m_Name;
-    std::string_view m_Type;
-    std::size_t m_Length = 0;
-    std::size_t m_ArrayFirstIdx = 0;
-    std::size_t m_ArrayDim = 0;
+    Type m_Type;
     std::string_view m_Descr;
 
  public:
-    explicit TypeDef(const Variable& var)
-      : m_Name(var.name())
-      , m_Type(var.type())
-      , m_Length(var.length())
-      , m_ArrayFirstIdx(var.array_startidx())
-      , m_ArrayDim(var.array_dim())
-      , m_Descr(var.descr())
-       {
-        if( var.has_value() )
-           {
-            throw std::runtime_error{ fmt::format("Typedef \"{}\" cannot have a value ({})", var.name(), var.value()) };
-           }
-        if( var.has_address() )
-           {
-            throw std::runtime_error{ fmt::format("Typedef \"{}\" cannot have an address", var.name()) };
-           }
-        //if(m_Length>0) --m_Length; // WTF Ad un certo punto Axel ha deciso che nei typedef la dimensione è meno uno??
-       }
-
     [[nodiscard]] std::string_view name() const noexcept { return m_Name; }
+    void set_name(const std::string_view sv) noexcept { m_Name = sv; }
 
-    [[nodiscard]] std::string_view type() const noexcept { return m_Type; }
-
-    [[nodiscard]] bool has_length() const noexcept { return m_Length>0; }
-    [[nodiscard]] std::size_t length() const noexcept { return m_Length; }
-
-    [[nodiscard]] bool is_array() const noexcept { return m_ArrayDim>0; }
-    [[nodiscard]] std::size_t array_dim() const noexcept { return m_ArrayDim; }
-    [[nodiscard]] std::size_t array_startidx() const noexcept { return m_ArrayFirstIdx; }
-    [[nodiscard]] std::size_t array_lastidx() const noexcept { return m_ArrayFirstIdx + m_ArrayDim - 1u; }
+    [[nodiscard]] Type& type() noexcept { return m_Type; }
+    [[nodiscard]] const Type& type() const noexcept { return m_Type; }
 
     //[[nodiscard]] bool has_descr() const noexcept { return not m_Descr.empty(); }
     [[nodiscard]] std::string_view descr() const noexcept { return m_Descr; }
@@ -836,10 +825,28 @@ class Library final
 
 
 
-#ifdef TEST_UNITS
+/////////////////////////////////////////////////////////////////////////////
+// A specific vendor directive
+class Directive final
+{
+ private:
+    std::string_view m_Key;
+    std::string_view m_Value;
 
+ public:
+    [[nodiscard]] std::string_view key() const noexcept { return m_Key; }
+    void set_key(const std::string_view sv)
+       {
+        if( sv.empty() )
+           {
+            throw std::runtime_error{"Empty directive key"};
+           }
+        m_Key = sv;
+       }
 
-#endif // TEST_UNITS
+    [[nodiscard]] std::string_view value() const noexcept { return m_Value; }
+    void set_value(const std::string_view sv) noexcept { m_Value = sv; }
+};
 
 
 }//:::: buf :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -860,21 +867,32 @@ namespace plcb = plc::buf; // Objects that refer to an external buffer
 namespace plc{ namespace buf{
 
 //---------------------------------------------------------------------------
+std::string to_string(const plcb::Type& type)
+{
+    std::string s{ type.name() };
+
+    if( type.has_length() )
+       {
+        s += fmt::format("[{}]"sv, type.length());
+       }
+
+    if( type.is_array() )
+       {
+        s += fmt::format("[{}:{}]"sv, type.array_startidx(), type.array_lastidx());
+       }
+
+    return s;
+}
+
+//---------------------------------------------------------------------------
 std::string to_string(const plcb::Variable& var)
 {
-    std::string s = fmt::format("{} {}"sv, var.name() , var.type() );
+    std::string s = fmt::format("{} {}"sv, var.name(), to_string(var.type()));
 
-    if( var.has_length() )
+    if( var.has_descr() )
        {
-        s += fmt::format("[{}]"sv, var.length());
+        s += fmt::format(" '{}'"sv, var.descr() );
        }
-
-    if( var.is_array() )
-       {
-        s += fmt::format("[{}...{}]"sv, var.array_startidx(), var.array_lastidx());
-       }
-
-    s += fmt::format(" '{}'"sv, var.descr() );
 
     if( var.has_value() )
        {
@@ -884,7 +902,7 @@ std::string to_string(const plcb::Variable& var)
     if( var.has_address() )
        {
         s += fmt::format(" <{}{}{}.{}>"sv
-                        , var.address().type()
+                        , var.address().zone()
                         , var.address().typevar()
                         , var.address().index()
                         , var.address().subindex() );
@@ -894,9 +912,28 @@ std::string to_string(const plcb::Variable& var)
 }
 
 //---------------------------------------------------------------------------
+[[nodiscard]] Type make_type(const std::string_view nam,
+                             const std::size_t len_or_startidx =0u,
+                             const std::size_t endidx =0u )
+{
+    Type typ;
+
+    typ.set_name( nam );
+    if( endidx>0u )
+       {
+        typ.set_array_range(len_or_startidx, endidx);
+       }
+    else if( len_or_startidx>0u )
+       {
+        typ.set_length(len_or_startidx);
+       }
+
+    return typ;
+}
+
+//---------------------------------------------------------------------------
 [[nodiscard]] Variable make_var(const std::string_view nam,
-                                const std::string_view typ,
-                                const std::size_t len,
+                                Type&& typ,
                                 const std::string_view val,
                                 const std::string_view descr,
                                 const char addr_type ='\0',
@@ -907,12 +944,11 @@ std::string to_string(const plcb::Variable& var)
     Variable var;
 
     var.set_name( nam );
-    var.set_type( typ );
-    if(len>0) var.set_length( len );
+    var.type() = std::move(typ);
     if( not val.empty() ) var.set_value( val );
     var.set_descr( descr );
 
-    var.address().set_type( addr_type );
+    var.address().set_zone( addr_type );
     var.address().set_typevar( addr_typevar );
     var.address().set_index( addr_index );
     var.address().set_subindex( addr_subindex );

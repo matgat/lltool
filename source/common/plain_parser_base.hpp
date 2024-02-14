@@ -70,6 +70,12 @@ class ParserBase
            }
        }
 
+    // Prevent copy or move
+    ParserBase(const ParserBase&) =delete;
+    ParserBase& operator=(const ParserBase&) =delete;
+    ParserBase(ParserBase&&) =delete;
+    ParserBase& operator=(ParserBase&&) =delete;
+
     //-----------------------------------------------------------------------
     [[nodiscard]] constexpr std::size_t curr_line() const noexcept { return m_line; }
     [[nodiscard]] constexpr std::size_t curr_offset() const noexcept { return m_offset; }
@@ -261,6 +267,35 @@ class ParserBase
         while( get_next() );
         restore_context( start ); // Strong guarantee
         throw create_parse_error(fmt::format("Unclosed content (\"{}\" not found)",sv), start.line);
+       }
+
+    //-----------------------------------------------------------------------
+    [[nodiscard]] constexpr string_view get_until_newline_token(const string_view tok)
+       {
+        const auto start = save_context();
+        return get_until_newline_token(tok, start);
+       }
+    [[nodiscard]] constexpr string_view get_until_newline_token(const string_view tok, const context_t& start)
+       {
+        while( has_codepoint() ) [[likely]]
+           {
+            if( got_endline() )
+               {
+                get_next();
+                skip_blanks();
+                const std::size_t candidate_end = curr_offset();
+                if( eat_token(tok) )
+                   {
+                    return get_view_between(start.offset, candidate_end);
+                   }
+               }
+            else
+               {
+                get_next();
+               }
+           }
+        restore_context( start ); // Strong guarantee
+        throw create_parse_error(fmt::format("Unclosed content (\"{}\" not found)",tok), start.line);
        }
 
     constexpr void skip_blanks() noexcept { skip_while(ascii::is_blank<Char>); }
@@ -832,7 +867,28 @@ ut::test("getting functions") = []
    };
 
 
-ut::test("end line functions") = []
+ut::test("get_until_newline_token()") = []
+   {
+    plain::ParserBase<char> parser{ "start\n"
+                                    "123\n"
+                                    "endnot\n"
+                                    "\n"
+                                    "  end start2\n"
+                                    "not end\n"
+                                    "end"sv };
+
+    ut::expect( ut::throws([&parser] { [[maybe_unused]] auto n = parser.get_until_newline_token("xxx"sv); }) ) << "should complain for unclosed content\n";
+
+    ut::expect( ut::that % parser.get_until_newline_token("end"sv) == "start\n123\nendnot\n\n  "sv );
+    ut::expect( ut::that % parser.curr_line()==5u );
+
+    ut::expect( ut::that % parser.get_until_newline_token("end"sv) == " start2\nnot end\n"sv );
+    ut::expect( ut::that % parser.curr_line()==7u );
+    ut::expect( not parser.has_codepoint() );
+   };
+
+
+ut::test("endline functions") = []
    {
     plain::ParserBase<char> parser{"1  \n2  \n3  \n"sv};
 
@@ -909,11 +965,11 @@ ut::test("parsing numbers") = []
         ut::expect( ut::that % parser.extract_float() == 2.3E-2 );
        };
 
-    //ut::test("1.79769e+308") = []
-    //   {
-    //    plain::ParserBase<char> parser{"1.79769e+308"sv};
-    //    ut::expect( ut::that % parser.extract_float() == std::numeric_limits<double>::max() );
-    //   };
+    ut::test("std::numeric_limits<double>::max()") = []
+       {
+        plain::ParserBase<char> parser{"1.7976931348623157e+308"sv};
+        ut::expect( ut::that % parser.extract_float() == 1.7976931348623157e+308 );
+       };
 
     ut::test("-10300") = []
        {

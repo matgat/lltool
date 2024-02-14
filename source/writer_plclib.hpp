@@ -83,27 +83,29 @@ class SchemaVersion final
 };
 
 
+//---------------------------------------------------------------------------
+inline void write_type_attributes(MG::OutputStreamable auto& f, const plcb::Type& typ)
+{
+    f<< " type=\""sv << typ.name() << '\"';
+
+    if( typ.has_length() )
+       {
+        f<< " length=\""sv << std::to_string(typ.length()) << '\"';
+       }
+
+    if( typ.is_array() )
+       {
+        f<< " dim0=\""sv << std::to_string(typ.array_dim()) << '\"';
+       }
+}
 
 //---------------------------------------------------------------------------
 inline void write(MG::OutputStreamable auto& f, const plcb::Variable& var, const std::string_view tag, const std::size_t lvl)
 {
     assert( not var.name().empty() );
 
-    f<< ind(lvl) << '<' << tag << " name=\""sv << var.name() << "\" type=\""sv << var.type() << '\"';
-
-    if( var.has_length() )
-       {
-        f<< " length=\""sv << std::to_string(var.length()) << '\"';
-       }
-
-    if( var.is_array() )
-       {
-        if( var.array_startidx()!=0u )
-           {
-            throw std::runtime_error{ fmt::format("plclib doesn't support arrays with a not null start index in variable {}", var.name()) };
-           }
-        f<< " dim0=\""sv << std::to_string(var.array_dim()) << '\"';
-       }
+    f<< ind(lvl) << '<' << tag << " name=\""sv << var.name() << '\"';
+    write_type_attributes(f, var.type());
 
     if( var.has_descr() or var.has_value() or var.has_address() )
        {// Tag contains something
@@ -121,10 +123,10 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Variable& var, const
 
         if( var.has_address() )
            {
-            f<< ind(lvl+1) << "<address type=\""sv << var.address().type() << "\""
-             <<                       " typeVar=\""sv << var.address().typevar() << "\""
-             <<                       " index=\""sv << std::to_string(var.address().index()) << "\""
-             <<                       " subIndex=\""sv << std::to_string(var.address().subindex()) << "\""
+            f<< ind(lvl+1) << "<address type=\""sv << var.address().zone() << '\"'
+             <<                       " typeVar=\""sv << var.address().typevar() << '\"'
+             <<                       " index=\""sv << std::to_string(var.address().index()) << '\"'
+             <<                       " subIndex=\""sv << std::to_string(var.address().subindex()) << '\"'
              <<                       "/>\n"sv;
            }
 
@@ -261,16 +263,8 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Enum& enm, const std
 //---------------------------------------------------------------------------
 inline void write(MG::OutputStreamable auto& f, const plcb::TypeDef& tdef, const std::size_t lvl)
 {
-    f<< ind(lvl) << "<typedef name=\""sv << tdef.name() << "\" type=\""sv << tdef.type() << '\"';
-    if( tdef.has_length() ) f<< " length=\""sv << std::to_string(tdef.length()) << '\"';
-    if( tdef.is_array() )
-       {
-        if( tdef.array_startidx()!=0u )
-           {
-            throw std::runtime_error{ fmt::format("plclib doesn't support arrays with a not null start index in typedef {}",tdef.name()) };
-           }
-        f<< " dim0=\""sv << std::to_string(tdef.array_dim()) << '\"';
-       }
+    f<< ind(lvl) << "<typedef name=\""sv << tdef.name() << '\"';
+    write_type_attributes(f, tdef.type());
     f<< ">\n"sv;
     f<< ind(lvl+1) << "<iecDeclaration active=\"FALSE\"/>\n"sv;
     f<< ind(lvl+1) << "<descr>"sv << tdef.descr() << "</descr>\n"sv;
@@ -291,10 +285,12 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Struct& strct, const
     else
        {
         f<< ind(lvl+1) << "<vars>\n"sv;
-        for( const auto& var : strct.members() )
+        for( const auto& memb : strct.members() )
            {
-            f<< ind(lvl+2) << "<var name=\""sv << var.name() << "\" type=\""sv << var.type() << "\">\n"sv
-             << ind(lvl+3) << "<descr>"sv << var.descr() << "</descr>\n"sv
+            f<< ind(lvl+2) << "<var name=\""sv << memb.name() << '\"';
+            write_type_attributes(f, memb.type());
+            f << ">\n"sv;
+            f<< ind(lvl+3) << "<descr>"sv << memb.descr() << "</descr>\n"sv
              << ind(lvl+2) << "</var>\n"sv;
            }
         f<< ind(lvl+1) << "</vars>\n"sv;
@@ -522,7 +518,7 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
     f << ind(lvl) << "<!-- author=\"plclib::write()\""sv;
     if( not options.contains("no-timestamp") )
        {
-        f<< " date=\""sv << MG::get_human_readable_timestamp() << "\""sv;
+        f<< " date=\""sv << MG::get_human_readable_timestamp() << '\"';
        }
     f << " -->\n"sv;
     // Desc tag
@@ -579,7 +575,7 @@ ut::test("plclib:::write(plcb::Variable)") = []
 
     ut::should("write an INT variable") = [out]() mutable
        {
-        plclib::write(out, plcb::make_var("vn320"sv, "INT"sv, 0, ""sv, "testing variable"sv, 'M', 'W', 400, 320), "var"sv, 0);
+        plclib::write(out, plcb::make_var("vn320"sv, plcb::make_type("INT"sv), ""sv, "testing variable"sv, 'M', 'W', 400, 320), "var"sv, 0);
         const std::string_view expected =
             "<var name=\"vn320\" type=\"INT\">\n"
             "\t<descr>testing variable</descr>\n"
@@ -588,14 +584,24 @@ ut::test("plclib:::write(plcb::Variable)") = []
         ut::expect( ut::that % out.str() == expected );
        };
 
-
     ut::should("write a STRING variable") = [out]() mutable
        {
-        plclib::write(out, plcb::make_var("va0", "STRING", 80, ""sv, "testing array", 'M', 'B', 700, 0), "var"sv, 0);
+        plclib::write(out, plcb::make_var("va0"sv, plcb::make_type("STRING"sv,80), ""sv, "testing string", 'M', 'B', 700, 0), "var"sv, 0);
         const std::string_view expected =
             "<var name=\"va0\" type=\"STRING\" length=\"80\">\n"
-            "\t<descr>testing array</descr>\n"
+            "\t<descr>testing string</descr>\n"
             "\t<address type=\"M\" typeVar=\"B\" index=\"700\" subIndex=\"0\"/>\n"
+            "</var>\n"sv;
+        ut::expect( ut::that % out.str() == expected );
+       };
+
+    ut::should("write an ARRAY variable") = [out]() mutable
+       {
+        plclib::write(out, plcb::make_var("vbMsgs", plcb::make_type("BOOL"sv,0,9), ""sv, "testing array", 'M', 'B', 300, 6000), "var"sv, 0);
+        const std::string_view expected =
+            "<var name=\"vbMsgs\" type=\"BOOL\" dim0=\"10\">\n"
+            "\t<descr>testing array</descr>\n"
+            "\t<address type=\"M\" typeVar=\"B\" index=\"300\" subIndex=\"6000\"/>\n"
             "</var>\n"sv;
         ut::expect( ut::that % out.str() == expected );
        };
@@ -608,18 +614,18 @@ ut::test("plclib::write(plcb::Pou)") = []
     pou.set_name("pouname");
     pou.set_descr("testing pou");
     pou.set_return_type("INT");
-    pou.inout_vars() = { plcb::make_var("inout1", "DINT", 0u, ""sv, "inout1 descr"),
-                         plcb::make_var("inout2", "LREAL", 0u, ""sv, "inout2 descr") };
-    pou.input_vars() = { plcb::make_var("in1", "DINT", 0u, ""sv, "in1 descr"),
-                         plcb::make_var("in2", "LREAL", 0u, ""sv, "in2 descr") };
-    pou.output_vars() = { plcb::make_var("out1", "DINT", 0u, ""sv, "out1 descr"),
-                          plcb::make_var("out2", "LREAL", 0u, ""sv, "out2 descr") };
-    pou.external_vars() = { plcb::make_var("ext1", "DINT", 0u, ""sv, "ext1 descr"),
-                            plcb::make_var("ext2", "STRING", 80u, ""sv, "ext2 descr") };
-    pou.local_vars() = { plcb::make_var("loc1", "DINT", 0u, ""sv, "loc1 descr"),
-                         plcb::make_var("loc2", "LREAL", 0u, ""sv, "loc2 descr") };
-    pou.local_constants() = { plcb::make_var("const1", "DINT", 0u, "42"sv, "const1 descr"),
-                              plcb::make_var("const2", "LREAL", 0u, "1.5"sv, "const2 descr") };
+    pou.inout_vars() = { plcb::make_var("inout1"sv, plcb::make_type("DINT"sv), ""sv, "inout1 descr"),
+                         plcb::make_var("inout2"sv, plcb::make_type("LREAL"sv), ""sv, "inout2 descr") };
+    pou.input_vars() = { plcb::make_var("in1"sv, plcb::make_type("DINT"sv), ""sv, "in1 descr"),
+                         plcb::make_var("in2"sv, plcb::make_type("LREAL"sv), ""sv, "in2 descr") };
+    pou.output_vars() = { plcb::make_var("out1"sv, plcb::make_type("DINT"sv), ""sv, "out1 descr"),
+                          plcb::make_var("out2"sv, plcb::make_type("LREAL"sv), ""sv, "out2 descr") };
+    pou.external_vars() = { plcb::make_var("ext1"sv, plcb::make_type("DINT"sv), ""sv, "ext1 descr"),
+                            plcb::make_var("ext2"sv, plcb::make_type("STRING"sv,80u), ""sv, "ext2 descr") };
+    pou.local_vars() = { plcb::make_var("loc1"sv, plcb::make_type("DINT"sv), ""sv, "loc1 descr"),
+                         plcb::make_var("loc2"sv, plcb::make_type("LREAL"sv), ""sv, "loc2 descr") };
+    pou.local_constants() = { plcb::make_var("const1"sv, plcb::make_type("DINT"sv), "42"sv, "const1 descr"),
+                              plcb::make_var("const2"sv, plcb::make_type("LREAL"sv), "1.5"sv, "const2 descr") };
     pou.set_code_type("ST");
     pou.set_body("body");
 
@@ -723,9 +729,13 @@ ut::test("plclib::write(plcb::Enum)") = []
 
 ut::test("plclib::write(plcb::TypeDef)") = []
    {
-    plcb::TypeDef tdef{ plcb::make_var("typename", "LREAL", 0u, ""sv, "testing typedef") };
+    plcb::TypeDef tdef;
+    tdef.set_name("typename"sv);
+    tdef.type() = plcb::make_type("STRING"sv, 80u);
+    tdef.set_descr("testing typedef"sv);
+
     const std::string_view expected =
-        "<typedef name=\"typename\" type=\"LREAL\">\n"
+        "<typedef name=\"typename\" type=\"STRING\" length=\"80\">\n"
         "\t<iecDeclaration active=\"FALSE\"/>\n"
         "\t<descr>testing typedef</descr>\n"
         "</typedef>\n"sv;
@@ -741,8 +751,22 @@ ut::test("plclib::write(plcb::Struct)") = []
     plcb::Struct strct;
     strct.set_name("structname");
     strct.set_descr("testing struct");
-    strct.add_member( plcb::make_var("member1", "DINT", 0u, ""sv, "member1 descr")  );
-    strct.add_member( plcb::make_var("member2", "LREAL", 0u, ""sv, "member2 descr")  );
+    
+    plcb::Struct::Member memb;
+    memb.set_name("member1"sv);
+    memb.type() = plcb::make_type("DINT"sv);
+    memb.set_descr("member1 descr"sv);
+    strct.add_member( std::move(memb) );
+
+    memb.set_name("member2"sv);
+    memb.type() = plcb::make_type("STRING"sv,80u);
+    memb.set_descr("member2 descr"sv);
+    strct.add_member( std::move(memb) );
+
+    memb.set_name("member3"sv);
+    memb.type() = plcb::make_type("INT"sv,0u,11u);
+    memb.set_descr("array member"sv);
+    strct.add_member( std::move(memb) );
 
     const std::string_view expected =
         "<struct name=\"structname\" version=\"1.0.0\">\n"
@@ -751,8 +775,11 @@ ut::test("plclib::write(plcb::Struct)") = []
         "\t\t<var name=\"member1\" type=\"DINT\">\n"
         "\t\t\t<descr>member1 descr</descr>\n"
         "\t\t</var>\n"
-        "\t\t<var name=\"member2\" type=\"LREAL\">\n"
+        "\t\t<var name=\"member2\" type=\"STRING\" length=\"80\">\n"
         "\t\t\t<descr>member2 descr</descr>\n"
+        "\t\t</var>\n"
+        "\t\t<var name=\"member3\" type=\"INT\" dim0=\"12\">\n"
+        "\t\t\t<descr>array member</descr>\n"
         "\t\t</var>\n"
         "\t</vars>\n"
         "\t<iecDeclaration active=\"FALSE\"/>\n"
@@ -824,8 +851,8 @@ ut::test("plclib::write(plcb::Library)") = []
 
    {auto& grp = lib.global_variables().groups().emplace_back();
     grp.set_name("globs");
-    grp.mutable_variables() = { plcb::make_var("gvar1", "DINT", 0u, ""sv, "gvar1 descr"),
-                                plcb::make_var("gvar2", "LREAL", 0u, ""sv, "gvar2 descr") };
+    grp.mutable_variables() = { plcb::make_var("gvar1"sv, plcb::make_type("DINT"sv), ""sv, "gvar1 descr"),
+                                plcb::make_var("gvar2"sv, plcb::make_type("LREAL"sv), ""sv, "gvar2 descr") };
    }
     //lib.global_constants()
     //lib.global_retainvars()
@@ -833,8 +860,8 @@ ut::test("plclib::write(plcb::Library)") = []
    {auto& prg = lib.programs().emplace_back();
     prg.set_name("prgname");
     prg.set_descr("testing prg");
-    prg.local_vars() = { plcb::make_var("loc1", "DINT", 0u, ""sv, "loc1 descr"),
-                         plcb::make_var("loc2", "LREAL", 0u, ""sv, "loc2 descr") };
+    prg.local_vars() = { plcb::make_var("loc1"sv, plcb::make_type("DINT"sv), ""sv, "loc1 descr"),
+                         plcb::make_var("loc2"sv, plcb::make_type("LREAL"sv), ""sv, "loc2 descr") };
     prg.set_code_type("ST");
     prg.set_body("body");
    }
@@ -842,18 +869,18 @@ ut::test("plclib::write(plcb::Library)") = []
    {auto& fb = lib.function_blocks().emplace_back();
     fb.set_name("fbname");
     fb.set_descr("testing fb");
-    fb.inout_vars() = { plcb::make_var("inout1", "DINT", 0u, ""sv, "inout1 descr"),
-                        plcb::make_var("inout2", "LREAL", 0u, ""sv, "inout2 descr") };
-    fb.input_vars() = { plcb::make_var("in1", "DINT", 0u, ""sv, "in1 descr"),
-                        plcb::make_var("in2", "LREAL", 0u, ""sv, "in2 descr") };
-    fb.output_vars() = { plcb::make_var("out1", "DINT", 0u, ""sv, "out1 descr"),
-                         plcb::make_var("out2", "LREAL", 0u, ""sv, "out2 descr") };
-    fb.external_vars() = { plcb::make_var("ext1", "DINT", 0u, ""sv, "ext1 descr"),
-                           plcb::make_var("ext2", "STRING", 80u, ""sv, "ext2 descr") };
-    fb.local_vars() = { plcb::make_var("loc1", "DINT", 0u, ""sv, "loc1 descr"),
-                        plcb::make_var("loc2", "LREAL", 0u, ""sv, "loc2 descr") };
-    fb.local_constants() = { plcb::make_var("const1", "DINT", 0u, "42"sv, "const1 descr"),
-                             plcb::make_var("const2", "LREAL", 0u, "1.5"sv, "const2 descr") };
+    fb.inout_vars() = { plcb::make_var("inout1"sv, plcb::make_type("DINT"sv), ""sv, "inout1 descr"),
+                        plcb::make_var("inout2"sv, plcb::make_type("LREAL"sv), ""sv, "inout2 descr") };
+    fb.input_vars() = { plcb::make_var("in1"sv, plcb::make_type("DINT"sv), ""sv, "in1 descr"),
+                        plcb::make_var("in2"sv, plcb::make_type("LREAL"sv), ""sv, "in2 descr") };
+    fb.output_vars() = { plcb::make_var("out1"sv, plcb::make_type("DINT"sv), ""sv, "out1 descr"),
+                         plcb::make_var("out2"sv, plcb::make_type("LREAL"sv), ""sv, "out2 descr") };
+    fb.external_vars() = { plcb::make_var("ext1"sv, plcb::make_type("DINT"sv), ""sv, "ext1 descr"),
+                           plcb::make_var("ext2"sv, plcb::make_type("STRING"sv,80u), ""sv, "ext2 descr") };
+    fb.local_vars() = { plcb::make_var("loc1"sv, plcb::make_type("DINT"sv), ""sv, "loc1 descr"),
+                        plcb::make_var("loc2"sv, plcb::make_type("LREAL"sv), ""sv, "loc2 descr") };
+    fb.local_constants() = { plcb::make_var("const1"sv, plcb::make_type("DINT"sv), "42"sv, "const1 descr"),
+                             plcb::make_var("const2"sv, plcb::make_type("LREAL"sv), "1.5"sv, "const2 descr") };
     fb.set_code_type("ST");
     fb.set_body("body");
    }

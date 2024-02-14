@@ -247,7 +247,7 @@ declaring their *IEC 61131-3* type as in:
 #define PI 3.14159 // [LREAL] Circumference/diameter ratio
 ```
 
-The recognized types are:
+The supported types are:
 
 | type        | description                 | size | range                     |
 | ----------- | --------------------------- | ---- | ------------------------- |

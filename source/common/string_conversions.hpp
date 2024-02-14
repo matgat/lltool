@@ -58,20 +58,36 @@ static ut::suite<"string_conversions"> string_conversions_tests = []
 
 ut::test("str::to_num_or<>") = []
    {
-    if( const auto num = str::to_num_or<int>("123") )
+    if( const auto num = str::to_num_or<int>("-123") )
        {
-        ut::expect( ut::that % num.value()==123 );
+        ut::expect( ut::that % num.value()==-123 );
        }
     else
        {
         ut::log << num.error() << '\n';
-        ut::expect( false ) << "shouldn't be here";
+        ut::expect( false ) << "-123 should be a valid int";
        }
 
     if( const auto num = str::to_num_or<int>("123a") )
        {
         ut::log << "got value " << num.value() << '\n';
-        ut::expect( false ) << "shouldn't be here";
+        ut::expect( false ) << "123a shouldn't be a valid int";
+       }
+
+    if( const auto num = str::to_num_or<unsigned short>("42") )
+       {
+        ut::expect( ut::that % num.value()==42u );
+       }
+    else
+       {
+        ut::log << num.error() << '\n';
+        ut::expect( false ) << "42 should be a valid unsigned short";
+       }
+
+    if( const auto num = str::to_num_or<unsigned short>("-42") )
+       {
+        ut::log << "got value " << num.value() << '\n';
+        ut::expect( false ) << "-42 shouldn't be a valid unsigned short";
        }
    };
 

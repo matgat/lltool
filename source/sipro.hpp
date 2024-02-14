@@ -8,12 +8,34 @@
 #include <array>
 #include <string_view>
 
-#include "ascii_parsing_utils.hpp" // ascii::extract<>
+#include "string_conversions.hpp" // str::to_num_or<>()
 
 
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 namespace sipro
 {
+
+//---------------------------------------------------------------------------
+// Tell if a string is a supported IEC numerical type
+[[nodiscard]] bool is_supported_iec_type(const std::string_view sv)
+   {
+    static constexpr std::array supported_iec_types =
+       {
+        "BOOL"sv  // [1] BOOLean [FALSE|TRUE]
+       ,"SINT"sv  // [1] Short INTeger [-128 … 127]
+       ,"INT"sv   // [2] INTeger [-32768 … +32767]
+       ,"DINT"sv  // [4] Double INTeger [-2147483648 … 2147483647]
+       ,"USINT"sv // [1] Unsigned Short INTeger [0 … 255]
+       ,"UINT"sv  // [2] Unsigned INTeger [0 … 65535]
+       ,"UDINT"sv // [4] Unsigned Double INTeger [0 … 4294967295]
+       ,"LREAL"sv // [8] Long REAL number [±10^308]
+       ,"BYTE"sv  // [1] 1 byte
+       ,"WORD"sv  // [2] 2 bytes
+       ,"DWORD"sv // [4] 4 bytes
+       };
+    return std::ranges::contains(supported_iec_types, sv);
+   }
+
 
 /////////////////////////////////////////////////////////////////////////////
 class Register final
@@ -34,11 +56,11 @@ class Register final
     static constexpr std::array<std::string_view, std::to_underlying(type::size)>
     reg_iec_types =
        {
-        ""        // none
-       ,"BOOL"    // vb
-       ,"INT"     // vn
-       ,"DINT"    // vq
-       ,"LREAL"   // vd
+        ""       // none
+       ,"BOOL"   // vb
+       ,"INT"    // vn
+       ,"DINT"   // vq
+       ,"LREAL"  // vd
        ,"STRING" // va
        //,"BOOL"   // din
        //,"BOOL"   // dout
@@ -69,7 +91,7 @@ class Register final
        };
 
  private:
-    std::uint16_t m_index = 0;
+    std::uint16_t m_index = 0u;
     type m_type = type::none;
 
  public:
@@ -89,27 +111,20 @@ class Register final
             if( m_type!=type::none )
                {
                 sv.remove_prefix(2);
-                std::uint16_t candidate_index = 0xFFFF;
-                try{
-                    const auto [extracted, remaining] = ascii::extract<int>(sv);
-                    if( extracted>=0 and extracted<=9999 and remaining.empty() )
-                       {
-                        candidate_index = static_cast<std::uint16_t>(extracted);
-                       }
-                   } catch(...) {}
-                if( candidate_index!=0xFFFF )
+                if( const auto idx = str::to_num_or<std::uint16_t>(sv) )
                    {
-                    m_index = candidate_index;
+                    m_index = idx.value();
                    }
                 else
                    {
-                    m_type = type::none; // Not an index, invalidate
+                    m_type = type::none; // Not a valid register index, invalidate
                    }
                }
            }
        }
 
     [[nodiscard]] constexpr std::uint16_t index() const noexcept { return m_index; }
+    [[nodiscard]] constexpr bool has_index_out_of_range() const noexcept { return m_index>9999u; }
 
     [[nodiscard]] friend constexpr bool are_same_type(const Register& lhs, const Register& rhs) noexcept { return lhs.m_type==rhs.m_type; }
     [[nodiscard]] constexpr bool is_valid() const noexcept { return m_type!=type::none; }
@@ -127,7 +142,7 @@ class Register final
     [[nodiscard]] constexpr std::uint16_t iec_address_index() const noexcept { return plc_var_address[std::to_underlying(m_type)]; }
 };
 
-}//:::::::::::::::::::::::::::::::: sipro :::::::::::::::::::::::::::::::::::
+}//::::::::::::::::::::::::::::::::: sipro ::::::::::::::::::::::::::::::::::
 
 
 
@@ -154,7 +169,7 @@ ut::test("sipro::Register") = []
     ut::test("large index") = []
        {
         const sipro::Register vqbadidx{"vq10000"sv};
-        ut::expect( not vqbadidx.is_valid() );
+        ut::expect( vqbadidx.is_valid() and vqbadidx.has_index_out_of_range() );
        };
    };
 

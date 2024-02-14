@@ -20,16 +20,19 @@ void export_register(const sipro::Register& reg, const h::Define& def, std::vect
     plcb::Variable& var = vars.emplace_back();
 
     var.set_name( def.label() );
-    var.set_type( reg.iec_type() );
+
+    var.type().set_name( reg.iec_type() );
     if( reg.is_va() )
        {
-        var.set_length( reg.get_va_length() );
+        var.type().set_length( reg.get_va_length() );
        }
+
     if( def.has_comment() )
        {
         var.set_descr( def.comment() );
        }
-    var.address().set_type( reg.iec_address_type() );
+
+    var.address().set_zone( reg.iec_address_type() );
     var.address().set_typevar( reg.iec_address_vartype() );
     var.address().set_index( reg.iec_address_index() );
     var.address().set_subindex( reg.index() );
@@ -42,8 +45,7 @@ void export_constant(const h::Define& def, std::vector<plcb::Variable>& consts)
     plcb::Variable& var = consts.emplace_back();
 
     var.set_name( def.label() );
-    var.set_type( def.comment_predecl() );
-
+    var.type().set_name( def.comment_predecl() );
     var.set_value( def.value() );
     if( def.has_comment() )
        {
@@ -72,11 +74,23 @@ void h_parse(const std::string& file_path, const std::string_view buf, plcb::Lib
         if( const sipro::Register reg(def.value());
             reg.is_valid() )
            {// Got something like "vnName vn1782 // descr"
+            if( reg.has_index_out_of_range() )
+               {
+                notify_issue( fmt::format("Register with index ({}) out of range", reg.index()) );
+               }
             export_register(reg, def, vars.mutable_variables());
            }
-        else if( def.value_is_number() and plc::is_num_type(def.comment_predecl()) )
-           {// got something like "LABEL 123 // [INT] descr"
-            export_constant(def, consts.mutable_variables());
+        else if( def.value_is_number() )
+           {// Got something like "LABEL 123 // [INT] descr"
+            // plc::is_iec_num_type(def.comment_predecl())
+            if( sipro::is_supported_iec_type(def.comment_predecl()) )
+               {
+                export_constant(def, consts.mutable_variables());
+               }
+            else
+               {
+                notify_issue( fmt::format("Unsupported numerical type `{}`", def.comment_predecl()) );
+               }
            }
        }
 

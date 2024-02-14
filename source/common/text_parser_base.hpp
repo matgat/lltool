@@ -66,6 +66,12 @@ class ParserBase
         get_next(); // Read first codepoint
        }
 
+    // Prevent copy or move
+    ParserBase(const ParserBase&) =delete;
+    ParserBase& operator=(const ParserBase&) =delete;
+    ParserBase(ParserBase&&) =delete;
+    ParserBase& operator=(ParserBase&&) =delete;
+
     //-----------------------------------------------------------------------
     [[nodiscard]] constexpr bool has_bytes() const noexcept { return m_buf.has_bytes(); }
     [[nodiscard]] constexpr std::size_t curr_line() const noexcept { return m_line; }
