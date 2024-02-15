@@ -7,6 +7,9 @@
 //  #include "test_facilities.hpp" // test::*
 //  ---------------------------------------------
 #include <stdexcept>
+#include <cmath> // std::fabs
+#include <limits> // std::numeric_limits
+#include <algorithm> // std::max
 #include <vector>
 #include <cctype> // std::tolower
 #include <string>
@@ -27,6 +30,13 @@ using namespace std::literals; // "..."sv
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 namespace test //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 {
+
+//-----------------------------------------------------------------------
+[[nodiscard]] bool are_equal(const double a, const double b) noexcept
+{
+    return std::fabs(a - b) <= std::max(std::fabs(a), std::fabs(b)) * std::numeric_limits<double>::epsilon();
+}
+
 
 //-----------------------------------------------------------------------
 [[nodiscard]] bool compare_nocase(const std::string_view sv1, const std::string_view sv2) noexcept

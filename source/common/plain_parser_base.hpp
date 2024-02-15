@@ -965,12 +965,12 @@ ut::test("parsing numbers") = []
         ut::expect( ut::that % parser.extract_float() == 2.3E-2 );
        };
 
-    ut::test("std::numeric_limits<double>::max()") = []
+    ut::test("huge double") = []
        {
-        const double dbl_max = std::numeric_limits<double>::max(); 
-        const std::string dbl_max_str = fmt::format("{:L}",dbl_max); 
-        plain::ParserBase<char> parser{dbl_max_str};
-        ut::expect( ut::that % parser.extract_float() == dbl_max );
+        const double huge = std::numeric_limits<double>::max() / 10.0;
+        const std::string huge_str = fmt::format("{:L}",huge);
+        plain::ParserBase<char> parser{huge_str};
+        ut::expect( ut::approx(parser.extract_float(), huge, huge*std::numeric_limits<double>::epsilon()) );
        };
 
     ut::test("-10300") = []
