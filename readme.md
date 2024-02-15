@@ -277,11 +277,12 @@ The parser has the following limitations:
 * Is case sensitive: recognizes only uppercase keywords (`PROGRAM`, ...)
 * Tested only on pure Structured Text projects
 * Not supported:
-  * Multidimensional arrays like `ARRAY[1..2, 1..2]`
+  * Array values initialization (`ARRAY[0..1] OF INT := [1, 2];`)
+  * Multidimensional arrays (`ARRAY[0..2, 0..2]`)
   * `RETAIN` specifier
   * Pointers
-  * LogicLab extension for conditional compilation `{IFDEF}`
   * Latest standard (`INTERFACE`, `THIS`, `PUBLIC`, `IMPLEMENTS`, `METHOD`, …)
+  * LogicLab extension for conditional compilation `{IFDEF}`
 
 Authors are encouraged to embed custom additional library data in
 the first comment of the `.pll` file.

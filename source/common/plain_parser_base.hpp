@@ -955,45 +955,47 @@ ut::test("parsing numbers") = []
    {
     ut::test("1234") = []
        {
-        plain::ParserBase<char> parser{"1234"sv};
+        plain::ParserBase parser{"1234"sv};
         ut::expect( ut::that % parser.extract_index() == 1234u );
        };
 
     ut::test("+2.3E-2") = []
        {
-        plain::ParserBase<char> parser{"+2.3E-2"sv};
+        plain::ParserBase parser{"+2.3E-2"sv};
         ut::expect( ut::that % parser.extract_float() == 2.3E-2 );
        };
 
     ut::test("std::numeric_limits<double>::max()") = []
        {
-        plain::ParserBase<char> parser{"1.7976931348623157e+308"sv};
-        ut::expect( ut::that % parser.extract_float() == 1.7976931348623157e+308 );
+        const double dbl_max = std::numeric_limits<double>::max(); 
+        const std::string dbl_max_str = fmt::format("{:L}",dbl_max); 
+        plain::ParserBase<char> parser{dbl_max_str};
+        ut::expect( ut::that % parser.extract_float() == dbl_max );
        };
 
     ut::test("-10300") = []
        {
-        plain::ParserBase<char> parser{"-10300"sv};
-        ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto n = parser.extract_index(); }) ) << "index has no sign\n";
+        plain::ParserBase parser{"-10300"sv};
+        ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto n = parser.extract_index(); }) ) << "should complain for negative index\n";
         ut::expect( ut::that % parser.extract_integer() == -10'300 );
        };
 
     ut::test("65536 as std::uint32_t") = []
        {
-        plain::ParserBase<char> parser{"65536"sv};
+        plain::ParserBase parser{"65536"sv};
         ut::expect( ut::that % parser.extract_index<std::uint32_t>() == 65'536u );
        };
 
     ut::test("65536 as std::uint16_t") = []
        {
-        plain::ParserBase<char> parser{"65536"sv};
-        ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto n = parser.extract_index<std::uint16_t>(); }) ) << "std::uint16_t literal overflow\n";
+        plain::ParserBase parser{"65536"sv};
+        ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto n = parser.extract_index<std::uint16_t>(); }) ) << "should complain for std::uint16_t literal overflow\n";
        };
 
     ut::test("32768 as std::int16_t") = []
        {
-        plain::ParserBase<char> parser{"32768"sv};
-        ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto n = parser.extract_integer<std::int16_t>(); }) ) << "std::int16_t literal overflow\n";
+        plain::ParserBase parser{"32768"sv};
+        ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto n = parser.extract_integer<std::int16_t>(); }) ) << "should complain for std::int16_t literal overflow\n";
        };
    };
 

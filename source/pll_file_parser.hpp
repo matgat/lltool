@@ -5,18 +5,16 @@
 //  #include "pll_file_parser.hpp" // ll::pll_parse()
 //  ---------------------------------------------
 #include <cassert>
-#include <cstdint> // std::uint32_t
+#include <optional>
 
 #include "plain_parser_base.hpp" // plain::ParserBase
 #include "plc_library.hpp" // plcb::*
 #include "string_utilities.hpp" // str::trim_right()
 
 
-
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 namespace ll
 {
-
 
 /////////////////////////////////////////////////////////////////////////////
 class PllParser final : public plain::ParserBase<char>
@@ -204,6 +202,30 @@ class PllParser final : public plain::ParserBase<char>
         return dir;
        }
 
+    //-----------------------------------------------------------------------
+    [[nodiscard]] std::optional<std::string_view> collect_possible_description_and_endline()
+       {// { DE:"some string" }
+        std::optional<std::string_view> descr;
+
+        inherited::skip_blanks();
+        if( got_directive_start() )
+           {
+            const plcb::Directive dir = collect_directive();
+            if( dir.key()=="DE"sv )
+               {
+                descr = dir.value();
+               }
+            else
+               {
+                throw inherited::create_parse_error( fmt::format("Unexpected directive \"{}\"", dir.key()) );
+               }
+            inherited::skip_blanks();
+           }
+
+        inherited::check_and_eat_endline();
+
+        return descr;
+       }
 
     //-----------------------------------------------------------------------
     [[nodiscard]] plcb::Variable collect_variable()
@@ -227,7 +249,7 @@ class PllParser final : public plain::ParserBase<char>
             inherited::skip_blanks();
             if( not inherited::eat('%') )
                {
-                throw inherited::create_parse_error( fmt::format("Expected '%' in address of variable \"{}\" address", var.name()) );
+                throw inherited::create_parse_error( fmt::format("Missing '%' in address of variable \"{}\" address", var.name()) );
                }
             // Here expecting something like: MB300.6000
             var.address().set_zone( inherited::curr_codepoint() ); // Typically M or Q
@@ -237,7 +259,7 @@ class PllParser final : public plain::ParserBase<char>
             var.address().set_index( inherited::extract_index<decltype(var.address().index())>() );
             if( not inherited::eat('.') )
                {
-                throw inherited::create_parse_error( fmt::format("Expected '.' in variable \"{}\" address", var.name()) );
+                throw inherited::create_parse_error( fmt::format("Missing '.' in variable \"{}\" address", var.name()) );
                }
             var.address().set_subindex( inherited::extract_index<decltype(var.address().subindex())>() );
             inherited::skip_blanks();
@@ -246,7 +268,7 @@ class PllParser final : public plain::ParserBase<char>
         // [Name/Type separator]
         if( not inherited::eat(':') )
            {
-            throw inherited::create_parse_error( fmt::format("Expected ':' before variable \"{}\" type", var.name()) );
+            throw inherited::create_parse_error( fmt::format("Missing ':' before variable \"{}\" type", var.name()) );
            }
         collect_variable_data(var);
         return var;
@@ -256,7 +278,7 @@ class PllParser final : public plain::ParserBase<char>
     //-----------------------------------------------------------------------
     [[nodiscard]] plcb::Type collect_type()
        {// ARRAY[ 0..999 ] OF BOOL
-        // ARRAY[1..2, 1..2] OF DINT
+        // ARRAY[0..2, 0..2] OF DINT
         // STRING[ 80 ]
         // DINT
         plcb::Type type;
@@ -269,7 +291,7 @@ class PllParser final : public plain::ParserBase<char>
             inherited::skip_blanks();
             if( not inherited::eat('[') )
                {
-                throw inherited::create_parse_error("Expected '[' in array declaration");
+                throw inherited::create_parse_error("Missing '[' in array declaration");
                }
 
             inherited::skip_blanks();
@@ -277,7 +299,7 @@ class PllParser final : public plain::ParserBase<char>
             inherited::skip_blanks();
             if( not inherited::eat(".."sv) )
                {
-                throw inherited::create_parse_error("Expected \"..\" in array range declaration");
+                throw inherited::create_parse_error("Missing \"..\" in array range declaration");
                }
             inherited::skip_blanks();
             const auto idx_last = inherited::extract_index<decltype(type.array_lastidx())>();
@@ -289,12 +311,12 @@ class PllParser final : public plain::ParserBase<char>
             // ...Support multidimensional arrays?
             if( not inherited::eat(']') )
                {
-                throw inherited::create_parse_error("Expected ']' in array declaration");
+                throw inherited::create_parse_error("Missing ']' in array declaration");
                }
             inherited::skip_blanks();
             if( not inherited::eat_token("OF"sv) )
                {
-                throw inherited::create_parse_error("Expected \"OF\" in array declaration");
+                throw inherited::create_parse_error("Missing \"OF\" in array declaration");
                }
             type.set_array_range(idx_start, idx_last);
             inherited::skip_blanks();
@@ -310,9 +332,8 @@ class PllParser final : public plain::ParserBase<char>
             inherited::skip_blanks();
             if( not inherited::eat(']') )
                {
-                throw inherited::create_parse_error("Expected ']' in type length");
+                throw inherited::create_parse_error("Missing ']' in type length");
                }
-            inherited::skip_blanks();
            }
 
         return type;
@@ -322,12 +343,13 @@ class PllParser final : public plain::ParserBase<char>
     //-----------------------------------------------------------------------
     void collect_variable_data(plcb::Variable& var)
        {// ... ARRAY[ 0..999 ] OF BOOL; { DE:"descr" }
-        // ... ARRAY[1..2, 1..2] OF DINT := [1, 2, 3, 4]; { DE:"multidimensional array" }
+        // ... ARRAY[0..1, 0..1] OF INT := [1, 2, 3, 4]; { DE:"multidimensional array" }
         // ... STRING[ 80 ]; { DE:"descr" }
         // ... DINT; { DE:"descr" }
         var.type() = collect_type();
 
         // [Value]
+        inherited::skip_blanks();
         if( inherited::eat(':') )
            {
             if( not inherited::eat('=') )
@@ -345,26 +367,14 @@ class PllParser final : public plain::ParserBase<char>
 
         if( !inherited::eat(';') )
            {
-            throw inherited::create_parse_error( fmt::format("Truncated definition of variable \"{}\"", var.name()) );
+            throw inherited::create_parse_error( fmt::format("Missing ';' after variable \"{}\" definition", var.name()) );
            }
 
         // [Description]
-        inherited::skip_blanks();
-        if( got_directive_start() )
+        if( const auto descr = collect_possible_description_and_endline() )
            {
-            const plcb::Directive dir = collect_directive();
-            if( dir.key()=="DE"sv )
-               {
-                var.set_descr( dir.value() );
-               }
-            else
-               {
-                throw inherited::create_parse_error( fmt::format("Unexpected directive \"{}\" in variable \"{}\" declaration", dir.key(), var.name()) );
-               }
+            var.set_descr( descr.value() );
            }
-
-        // Expecting a line end now
-        inherited::check_and_eat_endline();
        }
 
 
@@ -499,7 +509,7 @@ class PllParser final : public plain::ParserBase<char>
                        {
                         if( contains(vars, var.name()) )
                            {
-                            throw std::runtime_error( fmt::format("Duplicate variable \"{}\"", var.name()) );
+                            throw std::runtime_error{ fmt::format("Duplicate variable \"{}\"", var.name()) };
                            }
                         vars.push_back( std::move(var) );
                         return vars.back();
@@ -529,7 +539,7 @@ class PllParser final : public plain::ParserBase<char>
                        }
                     else
                        {// Expected a variable entry
-                        const plcb::Variable& var = local::add_variable(vars, parser.collect_variable());
+                        /*const*/ plcb::Variable& var = local::add_variable(vars, parser.collect_variable());
 
                         if( value_needed and !var.has_value() )
                            {
@@ -554,14 +564,13 @@ class PllParser final : public plain::ParserBase<char>
                     else if( parser.got_endline() )
                        {
                         parser.get_next();
-                        continue;
                        }
                     else if( parser.got_directive_start() )
                        {
                         const plcb::Directive dir = parser.collect_directive();
                         if( dir.key()=="DE"sv )
                            {// Is a description
-                            if( not pou.descr().empty() )
+                            if( pou.has_descr() )
                                {
                                 throw parser.create_parse_error( fmt::format("{} has already a description: {}", start_tag, pou.descr()) );
                                }
@@ -683,21 +692,10 @@ class PllParser final : public plain::ParserBase<char>
                     throw parser.create_parse_error("Missing ';' after macro parameter");
                    }
 
-                parser.skip_blanks();
-                if( parser.got_directive_start() )
+                if( const auto descr = parser.collect_possible_description_and_endline() )
                    {
-                    const plcb::Directive dir = parser.collect_directive();
-                    if( dir.key()=="DE"sv )
-                       {
-                        par.set_descr( dir.value() );
-                       }
-                    else
-                       {
-                        throw parser.create_parse_error( fmt::format("Unexpected directive \"{}\" in macro parameter", dir.key()) );
-                       }
+                    par.set_descr( descr.value() );
                    }
-
-                parser.skip_endline();
 
                 return par;
                }
@@ -748,14 +746,13 @@ class PllParser final : public plain::ParserBase<char>
                     else if( parser.got_endline() )
                        {
                         parser.get_next();
-                        continue;
                        }
                     else if( parser.got_directive_start() )
                        {
                         const plcb::Directive dir = parser.collect_directive();
                         if( dir.key()=="DE"sv )
                            {// Is a description
-                            if( not macro.descr().empty() )
+                            if( macro.has_descr() )
                                {
                                 throw parser.create_parse_error( fmt::format("Macro {} has already a description: {}", macro.name(), macro.descr()) );
                                }
@@ -802,301 +799,279 @@ class PllParser final : public plain::ParserBase<char>
 
 
     //-----------------------------------------------------------------------
-    void collect_types(plcb::Library&){} // ###### TEMP #####################
+    void collect_types(plcb::Library& lib)
+       {
+        //    TYPE
+        //    struct_name : STRUCT { DE:"descr" } member : DINT; { DE:"member descr" } ... END_STRUCT;
+        //    typedef_name : STRING[ 80 ]; { DE:"descr" }
+        //    enum_name: ( { DE:"descr" } VAL1 := 0, { DE:"elem descr" } ... );
+        //    subrange_name : DINT (30..100);
+        //    END_TYPE
 
-    //void collect_types(plcb::Library& lib)
-    //   {
-    //    //    TYPE
-    //    //    struct_name : STRUCT { DE:"descr" } member : DINT; { DE:"member descr" } ... END_STRUCT;
-    //    //    type_name : STRING[ 80 ]; { DE:"descr" }
-    //    //    enum_name: ( { DE:"descr" } VAL1 := 0, { DE:"elem descr" } ... );
-    //    //    subrange_name : DINT (30..100);
-    //    //    END_TYPE
-    //
-    //    struct local final //////////////////////////////////////////////////
-    //       {
-    //        //-----------------------------------------------------------------------
-    //        static void collect_struct_body(ll::PllParser& parser, plcb::Struct& strct)
-    //           {// <name> : STRUCT { DE:"struct descr" }
-    //            //    x : DINT; { DE:"member descr" }
-    //            //    y : DINT; { DE:"member descr" }
-    //            //END_STRUCT;
-    //
-    //            // Name already collected, "STRUCT" already skipped
-    //            // Possible description
-    //            parser.skip_blanks();
-    //            if( got_directive_start() )
-    //               {
-    //                const plcb::Directive dir = collect_directive();
-    //                if( dir.key()=="DE"sv )
-    //                   {
-    //                    strct.set_descr( dir.value() );
-    //                   }
-    //                else
-    //                   {
-    //                    throw parser.create_parse_error( fmt::format("Unexpected directive \"{}\" in struct \"{}\"", dir.key(), strct.name()) );
-    //                   }
-    //               }
-    //
-    //            while( i<siz )
-    //               {
-    //                parser.skip_any_space();
-    //                if( parser.eat("END_STRUCT;"sv) )
-    //                   {
-    //                    break;
-    //                   }
-    //                else if( parser.got_endline() )
-    //                   {// Nella lista membri ammetto righe vuote
-    //                    parser.get_next();
-    //                    continue;
-    //                   }
-    //                else if( eat_block_comment_start() )
-    //                   {// Nella lista membri ammetto righe di commento
-    //                    skip_block_comment();
-    //                    continue;
-    //                   }
-    //
-    //                strct.add_member( collect_member() );
-    //
-    //                if( strct.members().back().has_address() )
-    //                   {
-    //                    throw parser.create_parse_error( fmt::format("Struct member \"{}\" cannot have an address", strct.members().back().name()) );
-    //                   }
-    //               }
-    //
-    //            // Expecting a line end now
-    //            parser.check_and_eat_endline(); // ("struct {}"sv, strct.name());
-    //           }
-    //
-    //        //-----------------------------------------------------------------------
-    //        //static [[nodiscard]] bool collect_enum_element(ll::PllParser& parser, plcb::Enum::Element& elem)
-    //        //   {// VAL1 := 0, { DE:"elem descr" }
-    //        //    // [Name]
-    //        //    parser.skip_any_space();
-    //        //    elem.set_name( parser.get_identifier() );
-    //        //
-    //        //    // [Value]
-    //        //    parser.skip_blanks();
-    //        //    if( not parser.eat(":="sv) )
-    //        //       {
-    //        //        throw parser.create_parse_error( fmt::format("Value not found in enum element \"{}\"", elem.name()) );
-    //        //       }
-    //        //    parser.skip_blanks();
-    //        //    elem.set_value( collect_numeric_value() );
-    //        //    parser.skip_blanks();
-    //        //
-    //        //    // Qui c'è una virgola se ci sono altri valori successivi
-    //        //    const bool has_next = i<siz and parser.eat(',');
-    //        //
-    //        //    // [Description]
-    //        //    parser.skip_blanks();
-    //        //    if( got_directive_start() )
-    //        //       {
-    //        //        const plcb::Directive dir = collect_directive();
-    //        //        if( dir.key()=="DE"sv )
-    //        //           {
-    //        //            elem.set_descr( dir.value() );
-    //        //           }
-    //        //        else
-    //        //           {
-    //        //            throw parser.create_parse_error( fmt::format("Unexpected directive \"{}\" in enum element \"{}\"", dir.key(), elem.name()) );
-    //        //           }
-    //        //       }
-    //        //
-    //        //    // Expecting a line end now
-    //        //    parser.check_and_eat_endline(); // ("enum element {}"sv, elem.name());
-    //        //    return has_next;
-    //        //   }
-    //
-    //
-    //        //-----------------------------------------------------------------------
-    //        //static void collect_enum_body(ll::PllParser& parser, plcb::Enum& en)
-    //        //   {// <name>: ( { DE:"enum descr" }
-    //        //    //     VAL1 := 0, { DE:"elem descr" }
-    //        //    //     VAL2 := -1 { DE:"elem desc" }
-    //        //    // );
-    //        //    // Name already collected, ": (" already skipped
-    //        //    // Possible description
-    //        //    parser.skip_blanks();
-    //        //    // Possibile interruzione di linea
-    //        //    if( parser.got_endline() )
-    //        //       {
-    //        //        parser.get_next();
-    //        //        parser.skip_blanks();
-    //        //       }
-    //        //    if( got_directive_start() )
-    //        //       {
-    //        //        const plcb::Directive dir = collect_directive();
-    //        //        if( dir.key()=="DE"sv )
-    //        //           {
-    //        //            en.set_descr( dir.value() );
-    //        //           }
-    //        //        else
-    //        //           {
-    //        //            throw parser.create_parse_error( fmt::format("Unexpected directive \"{}\" in enum \"{}\"", dir.key(), en.name()) );
-    //        //           }
-    //        //       }
-    //        //
-    //        //    // Elements
-    //        //    bool has_next;
-    //        //    do {
-    //        //        plcb::Enum::Element elem;
-    //        //        has_next = collect_enum_element(elem);
-    //        //        en.elements().push_back(elem);
-    //        //       }
-    //        //    while( has_next );
-    //        //
-    //        //    // End expected
-    //        //    parser.skip_blanks();
-    //        //    if( not parser.eat(");"sv) )
-    //        //       {
-    //        //        throw parser.create_parse_error( fmt::format("Expected termination \");\" after enum \"{}\"", en.name()) );
-    //        //       }
-    //        //
-    //        //    // Expecting a line end now
-    //        //    parser.check_and_eat_endline(); // ("enum {}"sv, en.name());
-    //        //   }
-    //
-    //
-    //        //-----------------------------------------------------------------------
-    //        //static void collect_subrange_body(ll::PllParser& parser, plcb::Subrange& subr)
-    //        //   {// <name> : DINT (5..23); { DE:"descr" }
-    //        //    // Name already collected, ':' already skipped
-    //        //
-    //        //    // [Type]
-    //        //    parser.skip_blanks();
-    //        //    subr.set_type(parser.get_identifier());
-    //        //
-    //        //    // [Min and Max]
-    //        //    parser.skip_blanks();
-    //        //    if( not parser.eat('(') )
-    //        //       {
-    //        //        throw parser.create_parse_error( fmt::format("Expected \"(min..max)\" in subrange \"{}\"", subr.name()) );
-    //        //       }
-    //        //    parser.skip_blanks();
-    //        //    const auto min_val = extract_integer(); // extract_double(); // Nah, Floating point numbers seems not supported
-    //        //    parser.skip_blanks();
-    //        //    if( not parser.eat(".."sv) )
-    //        //       {
-    //        //        throw parser.create_parse_error( fmt::format("Expected \"..\" in subrange \"{}\"", subr.name()) );
-    //        //       }
-    //        //    parser.skip_blanks();
-    //        //    const auto max_val = extract_integer();
-    //        //    parser.skip_blanks();
-    //        //    if( not parser.eat(')') )
-    //        //       {
-    //        //        throw parser.create_parse_error( fmt::format("Expected ')' in subrange \"{}\"", subr.name()) );
-    //        //       }
-    //        //
-    //        //    parser.skip_blanks();
-    //        //    if( not parser.eat(';') )
-    //        //       {
-    //        //        throw parser.create_parse_error( fmt::format("Expected ';' in subrange \"{}\"", subr.name()) );
-    //        //       }
-    //        //    subr.set_range(min_val, max_val);
-    //        //
-    //        //    // [Description]
-    //        //    parser.skip_blanks();
-    //        //    if( got_directive_start() )
-    //        //       {
-    //        //        const plcb::Directive dir = collect_directive();
-    //        //        if(dir.key()=="DE"sv)
-    //        //           {
-    //        //            subr.set_descr(dir.value());
-    //        //           }
-    //        //        else
-    //        //           {
-    //        //            throw parser.create_parse_error( fmt::format("Unexpected directive \"{}\" in subrange \"{}\" declaration", dir.key(), subr.name()) );
-    //        //           }
-    //        //       }
-    //        //
-    //        //    // Expecting a line end now
-    //        //    parser.check_and_eat_endline(); // ("subrange {}"sv, subr.name());
-    //        //   }
-    //
-    //       }; ///////////////////////////////////////////////////////////////
-    //
-    //    const auto start = parser.save_context();
-    //    while( true )
-    //       {
-    //        inherited::skip_blanks();
-    //        if( not inherited::has_codepoint() )
-    //           {
-    //            parser.restore_context( start ); // Strong guarantee
-    //            throw inherited::create_parse_error("TYPE not closed by END_TYPE", start.line );
-    //           }
-    //        else if( inherited::got_endline() )
-    //           {
-    //            inherited::get_next();
-    //            continue;
-    //           }
-    //        else if( inherited::eat_token("END_TYPE"sv) )
-    //           {
-    //            break;
-    //           }
-    //        else
-    //           {// Expected a type name token here
-    //            const std::string_view type_name = inherited::get_identifier();
-    //            if( type_name.empty() )
-    //               {
-    //                throw inherited::create_parse_error( fmt::format("Unexpected content in TYPE block: {}", str::escape(parser.get_rest_of_line())) );
-    //               }
-    //
-    //            // Expected a colon after the name
-    //            inherited::skip_blanks();
-    //            if( not inherited::eat(':') )
-    //               {
-    //                throw inherited::create_parse_error( fmt::format("Missing ':' after type name \"{}\"", type_name) );
-    //               }
-    //
-    //            // Check what it is (struct, typedef, enum, subrange)
-    //            inherited::skip_blanks();
-    //            if( inherited::eat_token("STRUCT"sv) )
-    //               {// <name> : STRUCT
-    //                plcb::Struct& strct = lib.structs().emplace_back();
-    //                strct.set_name(type_name);
-    //                collect_struct_body( parser, strct );
-    //               }
-    //            else if( inherited::eat('(') )
-    //               {// <name>: ( { DE:"an enum" } ...
-    //                plcb::Enum& en = lib.enums().emplace_back();
-    //                en.set_name(type_name);
-    //                collect_enum_body( en );
-    //               }
-    //            else
-    //               {// Could be a typedef or a subrange
-    //                // I have to peek to see which one
-    //                std::size_t j = i;
-    //                while(j<siz and buf[j]!=';' and buf[j]!='(' and buf[j]!='{' and buf[j]!='\n' ) ++j;
-    //                if( j<siz and buf[j]=='(' )
-    //                   {// <name> : <type> (<min>..<max>); { DE:"a subrange" }
-    //                    plcb::Subrange& subr = lib.subranges().emplace_back();
-    //                    subr.set_name(type_name);
-    //                    collect_subrange_body(subr);
-    //                   }
-    //                else
-    //                   {// <name> : <type>; { DE:"a typedef" }
-    //                    plcb::TypeDef& tdef = lib.typedefs().emplace_back();
-    //                    tdef.set_name(type_name);
-    //                    tdef.type() = collect_type();
-    //                    inherited::skip_blanks();
-    //                    if( parser.got_directive_start() )
-    //                       {
-    //                        const plcb::Directive dir = parser.collect_directive();
-    //                        if( dir.key()=="DE"sv )
-    //                           {
-    //                            tdef.set_descr( dir.value() );
-    //                           }
-    //                        else
-    //                           {
-    //                            throw parser.create_parse_error( fmt::format("Unexpected directive \"{}\" for typedef {}", dir.key(), tdef.name()) );
-    //                           }
-    //                       }
-    //                   }
-    //               }
-    //           }
-    //       }
-    //   }
+        struct local final //////////////////////////////////////////////////
+           {
+            //---------------------------------------------------------------
+            static [[nodiscard]] void collect_struct_member(ll::PllParser& parser, plcb::Struct::Member& memb)
+               {// member : DINT; { DE:"member descr" }
+                // [Name]
+                parser.skip_any_space();
+                memb.set_name( parser.get_identifier() );
+
+                // Expected a colon after the name
+                parser.skip_blanks();
+                if( not parser.eat(':') )
+                   {
+                    throw parser.create_parse_error( fmt::format("Missing ':' after member name \"{}\"", memb.name()) );
+                   }
+
+                // [Type]
+                parser.skip_blanks();
+                memb.type() = parser.collect_type();
+                parser.skip_blanks();
+                if( !parser.eat(';') )
+                   {
+                    throw parser.create_parse_error( fmt::format("Missing ';' after member \"{}\" definition", memb.name()) );
+                   }
+
+                // [Description]
+                if( const auto descr = parser.collect_possible_description_and_endline() )
+                   {
+                    memb.set_descr( descr.value() );
+                   }
+               }
+
+            //---------------------------------------------------------------
+            static void collect_struct_body(ll::PllParser& parser, plcb::Struct& strct)
+               {// <name> : STRUCT { DE:"struct descr" }
+                //    x : DINT; { DE:"member descr" }
+                //    y : DINT; { DE:"member descr" }
+                //END_STRUCT;
+
+                // Name already collected, "STRUCT" already skipped
+                if( const auto descr = parser.collect_possible_description_and_endline() )
+                   {
+                    strct.set_descr( descr.value() );
+                   }
+
+                const auto start = parser.save_context();
+                while( true )
+                   {
+                    parser.skip_any_space();
+                    if( not parser.has_codepoint() )
+                       {
+                        parser.restore_context( start ); // Strong guarantee
+                        throw parser.create_parse_error("STRUCT not closed by END_STRUCT", start.line);
+                       }
+                    else if( parser.got_endline() )
+                       {
+                        parser.get_next();
+                       }
+                    else if( parser.eat_block_comment_start() )
+                       {
+                        parser.skip_block_comment();
+                       }
+                    else if( parser.eat_token("END_STRUCT"sv) )
+                       {
+                        parser.skip_blanks();
+                        if( !parser.eat(';') )
+                           {
+                            throw parser.create_parse_error("Missing ';' after END_STRUCT");
+                           }
+                        break;
+                       }
+                    else
+                       {// Expected a struct member here
+                        plcb::Struct::Member& memb = strct.members().emplace_back();
+                        collect_struct_member(parser, memb);
+                        if( strct.is_last_member_name_not_unique() )
+                           {
+                            throw parser.create_parse_error( fmt::format("Duplicate struct member \"{}\"", memb.name()) );
+                           }
+                       }
+                   }
+
+                parser.skip_line();
+               }
+
+            //---------------------------------------------------------------
+            static [[nodiscard]] bool collect_enum_element(ll::PllParser& parser, plcb::Enum::Element& elem)
+               {// VAL1 := 0, { DE:"elem descr" }
+                // [Name]
+                parser.skip_any_space();
+                elem.set_name( parser.get_identifier() );
+
+                // [Value]
+                parser.skip_blanks();
+                if( not parser.eat(":="sv) )
+                   {
+                    throw parser.create_parse_error( fmt::format("Value not found in enum element \"{}\"", elem.name()) );
+                   }
+                parser.skip_blanks();
+                elem.set_value( parser.get_float() );
+
+                // Qui c'è una virgola se ci sono altri valori successivi
+                parser.skip_blanks();
+                const bool has_next = parser.eat(',');
+
+                // [Description]
+                if( const auto descr = parser.collect_possible_description_and_endline() )
+                   {
+                    elem.set_descr( descr.value() );
+                   }
+
+                return has_next;
+               }
+
+            //---------------------------------------------------------------
+            static void collect_enum_body(ll::PllParser& parser, plcb::Enum& enm)
+               {// <name>: ( { DE:"enum descr" }
+                //     VAL1 := 0, { DE:"elem descr" }
+                //     VAL2 := -1 { DE:"elem desc" }
+                // );
+                // Name already collected, '(' already skipped
+                if( const auto descr = parser.collect_possible_description_and_endline() )
+                   {
+                    enm.set_descr( descr.value() );
+                   }
+
+                // [Elements]
+                while( true )
+                   {
+                    plcb::Enum::Element& elem = enm.elements().emplace_back();
+                    if( not collect_enum_element(parser, elem) )
+                       {// No next item
+                        break;
+                       }
+                   }
+
+                parser.skip_blanks();
+                if( not parser.eat(");"sv) )
+                   {
+                    throw parser.create_parse_error( fmt::format("Expected termination \");\" after enum \"{}\"", enm.name()) );
+                   }
+
+                parser.skip_line();
+               }
+
+            //---------------------------------------------------------------
+            static void collect_typedef_body(ll::PllParser& parser, plcb::TypeDef& tdef)
+               {// <name> : <type>; { DE:"a typedef" }
+                // Name and type already collected, ';' already skipped
+                if( const auto descr = parser.collect_possible_description_and_endline() )
+                   {
+                    tdef.set_descr( descr.value() );
+                   }
+               }
+
+            //---------------------------------------------------------------
+            static void collect_subrange_body(ll::PllParser& parser, plcb::Subrange& subrng)
+               {// <name> : DINT (5..23); { DE:"descr" }
+                // Name and type already collected, '(' already skipped
+
+                // [Min and Max]
+                parser.skip_blanks();
+                const auto min_val = parser.extract_integer<decltype(subrng.min_value())>();
+                parser.skip_blanks();
+                if( not parser.eat(".."sv) )
+                   {
+                    throw parser.create_parse_error( fmt::format("Missing \"..\" in subrange \"{}\"", subrng.name()) );
+                   }
+                parser.skip_blanks();
+                const auto max_val = parser.extract_integer<decltype(subrng.max_value())>();
+                parser.skip_blanks();
+                if( not parser.eat(')') )
+                   {
+                    throw parser.create_parse_error( fmt::format("Missing closing ')' in subrange \"{}\" definition", subrng.name()) );
+                   }
+                subrng.set_range(min_val, max_val);
+
+                parser.skip_blanks();
+                if( not parser.eat(';') )
+                   {
+                    throw parser.create_parse_error( fmt::format("Missing ';' after subrange \"{}\" definition", subrng.name()) );
+                   }
+
+                // [Description]
+                if( const auto descr = parser.collect_possible_description_and_endline() )
+                   {
+                    subrng.set_descr( descr.value() );
+                   }
+               }
+
+           }; ///////////////////////////////////////////////////////////////
+
+        const auto start = save_context();
+        while( true )
+           {
+            inherited::skip_any_space();
+            if( not inherited::has_codepoint() )
+               {
+                restore_context( start ); // Strong guarantee
+                throw inherited::create_parse_error("TYPE not closed by END_TYPE", start.line );
+               }
+            else if( inherited::eat_token("END_TYPE"sv) )
+               {
+                break;
+               }
+            else
+               {// Expected a type name token here
+                const std::string_view type_name = inherited::get_identifier();
+                if( type_name.empty() )
+                   {
+                    throw inherited::create_parse_error( fmt::format("Unexpected content in TYPE block: {}", str::escape(inherited::get_rest_of_line())) );
+                   }
+
+                // Expected a colon after the name
+                inherited::skip_blanks();
+                if( not inherited::eat(':') )
+                   {
+                    throw inherited::create_parse_error( fmt::format("Missing ':' after type name \"{}\"", type_name) );
+                   }
+
+                // Check what it is (struct, typedef, enum, subrange)
+                inherited::skip_blanks();
+                if( inherited::eat_token("STRUCT"sv) )
+                   {// <name> : STRUCT ...
+                    plcb::Struct& strct = lib.structs().emplace_back();
+                    strct.set_name(type_name);
+                    local::collect_struct_body(*this, strct);
+                   }
+                else if( inherited::eat('(') )
+                   {// <name> : ( ...
+                    plcb::Enum& enm = lib.enums().emplace_back();
+                    enm.set_name(type_name);
+                    local::collect_enum_body(*this, enm);
+                   }
+                else
+                   {// Could be a typedef or a subrange:
+                    // <name> : <type>; { DE:"a typedef" }
+                    // <name> : <type> (<min>..<max>); { DE:"a subrange" }
+                    // Either way I expect a type
+                    const plcb::Type type = collect_type();
+
+                    inherited::skip_blanks();
+                    if( inherited::eat(';') )
+                       {// <name> : <type>; { DE:"a typedef" }
+                        plcb::TypeDef& tdef = lib.typedefs().emplace_back();
+                        tdef.set_name(type_name);
+                        tdef.type() = type;
+                        local::collect_typedef_body(*this, tdef);
+                       }
+                    else if( inherited::eat('(') )
+                       {// <name> : <type> (<min>..<max>); { DE:"a subrange" }
+                        plcb::Subrange& subrng = lib.subranges().emplace_back();
+                        subrng.set_name(type_name);
+                        subrng.set_type_name(type);
+                        local::collect_subrange_body(*this, subrng);
+                       }
+                    else
+                       {
+                        throw inherited::create_parse_error("Invalid type definition (not struct, enum, typedef or subrange)");
+                       }
+                   }
+               }
+           }
+       }
 
     //-----------------------------------------------------------------------
     void skip_endline()
@@ -1229,8 +1204,17 @@ ut::test("ll::PllParser::collect_global_vars()") = []
         "        din      AT %IX100.0 : ARRAY[ 0..511 ] OF BOOL; {DE:\"Digital Inputs\"}\n"
         "        va1      AT %MB700.1 : STRING[ 80 ]; {DE:\"a string\"}\n"
         "    END_VAR\n"sv};
+
     std::vector<plcb::Variables_Group> gvars_groups;
-    parser.collect_global_vars( gvars_groups );
+
+    try{
+        parser.collect_global_vars( gvars_groups );
+       }
+    catch( std::exception& e )
+       {
+        ut::log << "\033[95m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(line " << parser.curr_line() << ':' << parser.curr_offset() << ")\n";
+        throw;
+       }
 
     ut::expect( ut::fatal(gvars_groups.size() == 2u) );
 
@@ -1258,8 +1242,17 @@ ut::test("ll::PllParser::collect_global_constants()") = []
         "        GlassDensity : DINT := 2600; { DE:\"a dint constant\" }\n"
         "        PI : LREAL := 3.14; { DE:\"[rad] π\" }\n"
         "    END_VAR\n"sv};
+
     std::vector<plcb::Variables_Group> gconsts_groups;
-    parser.collect_global_constants( gconsts_groups );
+
+    try{
+        parser.collect_global_constants( gconsts_groups );
+       }
+    catch( std::exception& e )
+       {
+        ut::log << "\033[95m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(line " << parser.curr_line() << ':' << parser.curr_offset() << ")\n";
+        throw;
+       }
 
     ut::expect( ut::fatal(gconsts_groups.size() == 1u) );
     const plcb::Variables_Group& gconsts_group = gconsts_groups.at(0);
@@ -1293,7 +1286,14 @@ ut::test("ll::PllParser::collect_pou()") = []
             "END_FUNCTION\n"sv};
 
         plcb::Pou fn;
-        parser.collect_pou(fn, "FUNCTION"sv, "END_FUNCTION"sv, true);
+        try{
+            parser.collect_pou(fn, "FUNCTION"sv, "END_FUNCTION"sv, true);
+           }
+        catch( std::exception& e )
+           {
+            ut::log << "\033[95m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(line " << parser.curr_line() << ':' << parser.curr_offset() << ")\n";
+            throw;
+           }
 
         ut::expect( ut::that % fn.name() == "fnDist"sv );
         ut::expect( ut::that % fn.descr() == "Applies the Pythagorean theorem"sv );
@@ -1349,7 +1349,14 @@ ut::test("ll::PllParser::collect_pou()") = []
             "END_FUNCTION_BLOCK  \n"sv};
 
         plcb::Pou fb;
-        parser.collect_pou(fb, "FUNCTION_BLOCK"sv, "END_FUNCTION_BLOCK"sv);
+        try{
+            parser.collect_pou(fb, "FUNCTION_BLOCK"sv, "END_FUNCTION_BLOCK"sv);
+           }
+        catch( std::exception& e )
+           {
+            ut::log << "\033[95m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(line " << parser.curr_line() << ':' << parser.curr_offset() << ")\n";
+            throw;
+           }
 
         ut::expect( ut::that % fb.name() == "fbSheetStack"sv );
         ut::expect( ut::that % fb.descr() == "A stack data container of glass sheets"sv );
@@ -1397,7 +1404,14 @@ ut::test("ll::PllParser::collect_macro()") = []
         "END_MACRO\n"sv};
 
     plcb::Macro macro;
-    parser.collect_macro(macro);
+    try{
+        parser.collect_macro(macro);
+       }
+    catch( std::exception& e )
+       {
+        ut::log << "\033[95m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(line " << parser.curr_line() << ':' << parser.curr_offset() << ")\n";
+        throw;
+       }
 
     ut::expect( ut::that % macro.name() == "MACRO_NAME"sv );
     ut::expect( ut::that % macro.descr() == "Macro description"sv );
@@ -1405,39 +1419,330 @@ ut::test("ll::PllParser::collect_macro()") = []
     ut::expect( ut::that % macro.body() == "\n"
                                            "(* Macro body *)\n"sv );
     ut::expect( ut::that % macro.parameters().size() == 2u );
-    const plcb::Macro::Parameter& p1 = macro.parameters().at(0);
-    ut::expect( ut::that % p1.name() == "WHAT1"sv );
-    ut::expect( ut::that % p1.descr() == "Parameter 1"sv );
-    const plcb::Macro::Parameter& p2 = macro.parameters().at(1);
-    ut::expect( ut::that % p2.name() == "WHAT2"sv );
-    ut::expect( ut::that % p2.descr() == ""sv );
+    {   const plcb::Macro::Parameter& par = macro.parameters().at(0);
+        ut::expect( ut::that % par.name() == "WHAT1"sv );
+        ut::expect( ut::that % par.descr() == "Parameter 1"sv );
+    }
+    {   const plcb::Macro::Parameter& par = macro.parameters().at(1);
+        ut::expect( ut::that % par.name() == "WHAT2"sv );
+        ut::expect( ut::that % par.descr() == ""sv );
+    }
    };
 
 
 ut::test("ll::PllParser::collect_types()") = []
    {
-    //const std::string_view expected =
-    //    "\tstructname : STRUCT { DE:\"testing struct\" }\n"
-    //    "\t\tmember1 : DINT; { DE:\"member1 descr\" }\n"
-    //    "\t\tmember2 : STRING[ 80 ]; { DE:\"member2 descr\" }\n"
-    //    "\t\tmember3 : ARRAY[ 0..11 ] OF INT; { DE:\"array member\" }\n"
-    //    "\tEND_STRUCT;\n"sv;
+    ll::PllParser parser
+       {//"TYPE\n"
+        "\n"
+        "    ST_SHEET : STRUCT { DE:\"Sheet structure\" }\n"
+        "        Width : DINT; { DE:\"X dimension [um]\" }\n"
+        "        Height : DINT; { DE:\"Y dimension [um]\" }\n"
+        "        Ids : ARRAY[ 0..99 ] OF INT; { DE:\"Identificative numbers\" }\n"
+        "    END_STRUCT;\n"
+        "\n"
+        "    EN_CMD: (    { DE:\"Commands\" }\n"
+        "        CMD_STOP := 0,    { DE:\"Abort operation\" }\n"
+        "        CMD_MOVE := 2,    { DE:\"Start movement\" }\n"
+        "        CMD_TAKE := 5    { DE:\"Deliver piece\" }\n"
+        "    );\n"
+        "\n"
+        "    VASTR : STRING[ 80 ]; { DE:\"Sipro string (va)\" }\n"
+        "\n"
+        "    INCLINATION : INT (15..85); { DE:\"Tilting angle [deg]\" }\n"
+        "\n"
+        "END_TYPE\n"sv };
 
-    //"\ttypename : STRING[ 80 ]; { DE:\"testing typedef\" }\n"sv
-    //"\tsubrangename : INT (1..12); { DE:\"testing subrange\" }\n"sv
+    plcb::Library lib("types");
+    ut::expect( lib.structs().empty() and
+                lib.enums().empty() and
+                lib.typedefs().empty() and
+                lib.subranges().empty() );
 
-    //const std::string_view expected =
-    //    "\n\tenumname: (\n"
-    //    "\t\t{ DE:\"testing enum\" }\n"
-    //    "\t\telm1 := 1, { DE:\"elm1 descr\" }\n"
-    //    "\t\telm2 := 42 { DE:\"elm2 descr\" }\n"
-    //    "\t);\n"sv;
+    try{
+        parser.collect_types(lib);
+       }
+    catch( std::exception& e )
+       {
+        ut::log << "\033[95m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(line " << parser.curr_line() << ':' << parser.curr_offset() << ")\n";
+        throw;
+       }
+
+    ut::expect( ut::that % lib.structs().size() == 1u );
+    const plcb::Struct& strct = lib.structs().at(0);
+    ut::expect( ut::that % strct.name() == "ST_SHEET"sv );
+    ut::expect( ut::that % strct.descr() == "Sheet structure"sv );
+    ut::expect( ut::that % strct.members().size() == 3u );
+    {   const plcb::Struct::Member& memb = strct.members().at(0);
+        ut::expect( ut::that % memb.name() == "Width"sv );
+        ut::expect( ut::that % plcb::to_string(memb.type()) == "DINT"sv );
+        ut::expect( ut::that % memb.descr() == "X dimension [um]"sv );
+    }
+    {   const plcb::Struct::Member& memb = strct.members().at(1);
+        ut::expect( ut::that % memb.name() == "Height"sv );
+        ut::expect( ut::that % plcb::to_string(memb.type()) == "DINT"sv );
+        ut::expect( ut::that % memb.descr() == "Y dimension [um]"sv );
+    }
+    {   const plcb::Struct::Member& memb = strct.members().at(2);
+        ut::expect( ut::that % memb.name() == "Ids"sv );
+        ut::expect( ut::that % plcb::to_string(memb.type()) == "INT[0:99]"sv );
+        ut::expect( ut::that % memb.descr() == "Identificative numbers"sv );
+    }
+
+    ut::expect( ut::that % lib.enums().size() == 1u );
+    const plcb::Enum& enm = lib.enums().at(0);
+    ut::expect( ut::that % enm.name() == "EN_CMD"sv );
+    ut::expect( ut::that % enm.descr() == "Commands"sv );
+    ut::expect( ut::that % enm.elements().size() == 3u );
+    {   const plcb::Enum::Element& elem = enm.elements().at(0);
+        ut::expect( ut::that % elem.name() == "CMD_STOP"sv );
+        ut::expect( ut::that % elem.value() == "0"sv );
+        ut::expect( ut::that % elem.descr() == "Abort operation"sv );
+    }
+    {   const plcb::Enum::Element& elem = enm.elements().at(1);
+        ut::expect( ut::that % elem.name() == "CMD_MOVE"sv );
+        ut::expect( ut::that % elem.value() == "2"sv );
+        ut::expect( ut::that % elem.descr() == "Start movement"sv );
+    }
+    {   const plcb::Enum::Element& elem = enm.elements().at(2);
+        ut::expect( ut::that % elem.name() == "CMD_TAKE"sv );
+        ut::expect( ut::that % elem.value() == "5"sv );
+        ut::expect( ut::that % elem.descr() == "Deliver piece"sv );
+    }
+
+    ut::expect( ut::that % lib.typedefs().size() == 1u );
+    const plcb::TypeDef& tdef = lib.typedefs().at(0);
+    ut::expect( ut::that % tdef.name() == "VASTR"sv );
+    ut::expect( ut::that % plcb::to_string(tdef.type()) == "STRING[80]"sv );
+    ut::expect( ut::that % tdef.descr() == "Sipro string (va)"sv );
+
+    ut::expect( ut::that % lib.subranges().size() == 1u );
+    const plcb::Subrange& subrng = lib.subranges().at(0);
+    ut::expect( ut::that % subrng.name() == "INCLINATION"sv );
+    ut::expect( ut::that % subrng.type_name() == "INT"sv );
+    ut::expect( ut::that % subrng.min_value() == 15 );
+    ut::expect( ut::that % subrng.max_value() == 85 );
+    ut::expect( ut::that % subrng.descr() == "Tilting angle [deg]"sv );
    };
 
 
 ut::test("ll::pll_parse()") = []
    {
-    ut::expect( true );
+    const std::string_view buf =
+        "(*\n"
+        "	descr: test lib\n"
+        "	version: 1.2.3\n"
+        "	author: llconv pll::write()\n"
+        "	date: 2024-02-15 10:05:33\n"
+        "\n"
+        "	global-variables: 1770\n"
+        "	global-constants: 925\n"
+        "*)\n"
+        "\n"
+        "\n"
+        "	VAR_GLOBAL\n"
+        "	{G:\"Header_Variables\"}\n"
+        "	vbHeartBeat AT %MB300.2 : BOOL; { DE:\"Battito di vita ogni secondo\" }\n"
+        "	vdExpDate AT %ML600.255 : LREAL; { DE:\"Expiration date of scheduled maintenance\" }\n"
+        "	END_VAR\n"
+        "\n"
+        "	VAR_GLOBAL CONSTANT\n"
+        "	{G:\"Header_Constants\"}\n"
+        "	SW_VER : LREAL := 34.4; { DE:\"Versione del software\" }\n"
+        "	END_VAR\n"
+        "\n"
+        "	(*** PROGRAMS ***)\n"
+        "PROGRAM Init\n"
+        "\n"
+        "	{ DE:\"Startup operations\" }\n"
+        "\n"
+        "	{ CODE:ST }(*    Machine initialization\n"
+        "      ----------------------------------------------\n"
+        "\n"
+        "      OVERVIEW\n"
+        "      ----------------------------------------------\n"
+        "      Executed once on PLC boot\n"
+        "*)\n"
+        "InitTask();\n"
+        "\n"
+        "END_PROGRAM\n"
+        "\n"
+        "	(*** FUNCTIONS ***)\n"
+        "FUNCTION ExecPlcFun : DINT\n"
+        "\n"
+        "    VAR_INPUT\n"
+        "        FunCode : DINT;\n"
+        "        Par1    : INT;\n"
+        "        Par2    : INT;\n"
+        "    END_VAR\n"
+        "\n"
+        "    { CODE:EMBEDDED }\n"
+        "END_FUNCTION\n"
+        "\n"
+        "FUNCTION fnOppSign : BOOL\n"
+        "\n"
+        "	VAR_INPUT\n"
+        "	Value1 : DINT; { DE:\"Value1\" }\n"
+        "	Value2 : DINT; { DE:\"Value2\" }\n"
+        "	END_VAR\n"
+        "\n"
+        "	{ CODE:ST }(*   Tells if two values have opposite sign\n"
+        "      ----------------------------------------------\n"
+        "\n"
+        "      DETAILS\n"
+        "      ----------------------------------------------\n"
+        "      Zero is neutral\n"
+        "\n"
+        "      EXAMPLE\n"
+        "      ----------------------------------------------\n"
+        "      IF fnOppSign(vq[1], Xr.CurrPos) THEN ...\n"
+        "*)\n"
+        "fnOppSign := (Value1>0 AND Value2<0) OR (Value1<0 AND Value2>0);\n"
+        "\n"
+        "END_FUNCTION\n"
+        "\n"
+        "\n"
+        "	(*** FUNCTION BLOCKS ***)\n"
+        "\n"
+        "FUNCTION_BLOCK fbEdges\n"
+        "\n"
+        "{ DE:\"Detect signal edges\" }\n"
+        "\n"
+        "	VAR_INPUT\n"
+        "	in : BOOL; { DE:\"Boolean input\" }\n"
+        "	END_VAR\n"
+        "\n"
+        "	VAR_OUTPUT\n"
+        "	rise : BOOL; { DE:\"Input is rising in this PLC cycle\" }\n"
+        "	fall : BOOL; { DE:\"Input is falling in this PLC cycle\" }\n"
+        "	END_VAR\n"
+        "\n"
+        "	VAR\n"
+        "	in_prev : BOOL; { DE:\"Input previous value\" }\n"
+        "	END_VAR\n"
+        "\n"
+        "	{ CODE:ST }(*    fbEdges (M-series)\n"
+        "      ----------------------------------------------\n"
+        "\n"
+        "      OVERVIEW\n"
+        "      ----------------------------------------------\n"
+        "      Rileva cambiamento di stato di un booleano\n"
+        "\n"
+        "      SIGNALS\n"
+        "      ----------------------------------------------\n"
+        "        in ____‾‾‾‾‾‾‾‾‾‾‾‾___|____‾‾‾‾‾‾‾‾_____\n"
+        "      rise ___|_______________|___|_____________\n"
+        "      fall _______________|___|___________|_____\n"
+        "\n"
+        "      EXAMPLE OF USAGE\n"
+        "      ----------------------------------------------\n"
+        "      edgSignal : fbEdges; { DE:\"Signal changes\" }\n"
+        "\n"
+        "      edgSignal( in:=Signal );\n"
+        "      IF edgSignal.rise THEN\n"
+        "          MESSAGE('Signal is just risen');\n"
+        "      ELSIF edgSignal.fall THEN\n"
+        "          MESSAGE('Signal is just fallen');\n"
+        "      ELSE\n"
+        "          MESSAGE('Signal stationary');\n"
+        "      END_IF;\n"
+        "*)\n"
+        "rise := in AND NOT in_prev;\n"
+        "fall := NOT in AND in_prev;\n"
+        "(* changed := rise OR fall; *)\n"
+        "in_prev := in;\n"
+        "\n"
+        "END_FUNCTION_BLOCK\n"
+        "\n"
+        "	(*** MACROS ***)\n"
+        "\n"
+        "MACRO ASSERT\n"
+        "\n"
+        "	PAR_MACRO\n"
+        "	COND; { DE:\"Condition to be validated (BOOL)\" }\n"
+        "	MSG; { DE:\"Condition not met message (STRING)\" }\n"
+        "	END_PAR\n"
+        "\n"
+        "	{ CODE:ST }\n"
+        "(* IF NOT (COND) THEN Log(txt:=MSG, lvl:=1); END_IF; *)\n"
+        "END_MACRO\n"
+        "\n"
+        "	(*** STRUCTURES ***)\n"
+        "\n"
+        "TYPE\n"
+        "\n"
+        "	ST_RECT : STRUCT { DE:\"Descrittore rettangolo\" }\n"
+        "		Left : DINT; { DE:\"Ascissa minore [um]\" }\n"
+        "		Right : DINT; { DE:\"Ascissa maggiore [um]\" }\n"
+        "		Bottom : DINT; { DE:\"Ordinata minore [um]\" }\n"
+        "		Top : DINT; { DE:\"Ordinata maggiore [um]\" }\n"
+        "	END_STRUCT;\n"
+        "\n"
+        "	ST_SHEET : STRUCT { DE:\"Descrittore sottolastra\" }\n"
+        "		Width : DINT; { DE:\"Larghezza [um]\" }\n"
+        "		Height : DINT; { DE:\"Altezza [um]\" }\n"
+        "		Id : INT; { DE:\"pos:piece 0:scrap neg:cuts\" }\n"
+        "	END_STRUCT;\n"
+        "\n"
+        "END_TYPE\n"
+        "\n"
+        "	(*** ENUMS ***)\n"
+        "\n"
+        "TYPE\n"
+        "\n"
+        "	EN_AXIS_MV_CMD: (	{ DE:\"Enum for MoveTo axis movements local service\" }\n"
+        "		MV_ERROR := -1,	{ DE:\"Mov Svc: errore\" }\n"
+        "		MV_DONE := 0,	{ DE:\"Mov Svc: movim completato\" }\n"
+        "		MV_WAITSTOP := 1,	{ DE:\"Mov Svc: attendi stop asse\" }\n"
+        "		MV_FREEMOVE := 2,	{ DE:\"Mov Svc: prepara mov libero\" }\n"
+        "		MV_TOOLMOVE := 3,	{ DE:\"Mov Svc: prepara mov con utensile\" }\n"
+        "		MV_LOCKMOVE := 4,	{ DE:\"Mov Svc: prepara agganciamento\" }\n"
+        "		MV_LOCKED := 5,		{ DE:\"Mov Svc: stato agganciato\" }\n"
+        "		MV_SUSPENDED := 6,	{ DE:\"Mov Svc: movimento sospeso\" }\n"
+        "		MV_WAITMOVE := 7	{ DE:\"Mov Svc: attendi movim\" }\n"
+        "	);\n"
+        "\n"
+        "	EN_OUTZONE_CMD: (	{ DE:\"Enum for fbOutZone.NewPiece commands\" }\n"
+        "		OZ_NONE := 0,	{ DE:\"No command\" }\n"
+        "		OZ_NOTIFY := 1,	{ DE:\"Just notify that a piece is going to be delivered\" }\n"
+        "		OZ_UPDATE := 2,	{ DE:\"A piece released somewhere, just update the busy zone\" }\n"
+        "		OZ_TAKE := 3	{ DE:\"Take care of the delivered piece\" }\n"
+        "	);\n"
+        "\n"
+        "END_TYPE\n"
+        "\n"
+        "	(*** TYPEDEFS ***)\n"
+        "TYPE\n"
+        "	VASTR : STRING[ 80 ]; { DE:\"Sipro string (va)\" }\n"
+        "END_TYPE\n"sv;
+
+    plcb::Library lib("test");
+
+    try{
+        struct issues_t final { int num=0; void operator()(std::string&&) noexcept {++num;}; } issues;
+        ll::pll_parse(lib.name(), buf, lib, std::ref(issues));
+        ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
+       }
+    catch( parse::error& e )
+       {
+        ut::log << "\033[95m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(line " << e.line() << ")\n";
+        throw;
+       }
+
+    ut::expect( ut::that % lib.version() == "1.2.3"sv );
+    ut::expect( ut::that % lib.descr() == "test lib"sv );
+
+    ut::expect( ut::that % lib.global_constants().vars_count() == 1u );
+    ut::expect( ut::that % lib.global_retainvars().vars_count() == 0u );
+    ut::expect( ut::that % lib.global_variables().vars_count() == 2u );
+    ut::expect( ut::that % lib.functions().size() == 2u );
+    ut::expect( ut::that % lib.function_blocks().size() == 1u );
+    ut::expect( ut::that % lib.programs().size() == 1u );
+    ut::expect( ut::that % lib.macros().size() == 1u );
+    ut::expect( ut::that % lib.structs().size() == 2u );
+    ut::expect( ut::that % lib.typedefs().size() == 1u );
+    ut::expect( ut::that % lib.enums().size() == 2u );
+    ut::expect( ut::that % lib.subranges().size() == 0u );
    };
 
 };///////////////////////////////////////////////////////////////////////////

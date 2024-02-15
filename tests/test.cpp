@@ -36,7 +36,7 @@ namespace ut = boost::ut;
 #include "writer_pll.hpp" // pll::write_lib()
 #include "writer_plclib.hpp" // plclib::write_lib()
 #include "project_updater.hpp" // ll::update_project_libraries()
-//#include "libraries_converter.hpp" // ll::convert_libraries()
+#include "libraries_converter.hpp" // ll::convert_libraries()
 
 int main()
 {

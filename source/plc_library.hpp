@@ -7,6 +7,7 @@
 #include <concepts> // std::convertible_to<>
 #include <stdexcept> // std::runtime_error
 #include <cstdint> // std::uint16_t
+#include <ranges> // std::views::take
 #include <algorithm> // std::ranges::sort, std::ranges::find
 #include <string>
 #include <string_view>
@@ -259,7 +260,7 @@ class Variables_Groups final
         return true;
        }
 
-    [[nodiscard]] std::size_t size() const noexcept
+    [[nodiscard]] std::size_t vars_count() const noexcept
        {
         std::size_t tot_siz = 0;
         // cppcheck-suppress useStlAlgorithm
@@ -318,7 +319,7 @@ class Struct final
         [[nodiscard]] Type& type() noexcept { return m_Type; }
         [[nodiscard]] const Type& type() const noexcept { return m_Type; }
 
-        //[[nodiscard]] bool has_descr() const noexcept { return not m_Descr.empty(); }
+        [[nodiscard]] bool has_descr() const noexcept { return not m_Descr.empty(); }
         [[nodiscard]] std::string_view descr() const noexcept { return m_Descr; }
         void set_descr(const std::string_view sv) noexcept { m_Descr = sv; }
     };
@@ -339,46 +340,26 @@ class Struct final
         m_Name = sv;
        }
 
-    //[[nodiscard]] bool has_descr() const noexcept { return not m_Descr.empty(); }
+    [[nodiscard]] bool has_descr() const noexcept { return not m_Descr.empty(); }
     [[nodiscard]] std::string_view descr() const noexcept { return m_Descr; }
     void set_descr(const std::string_view sv) noexcept { m_Descr = sv; }
 
     [[nodiscard]] const std::vector<Member>& members() const noexcept { return m_Members; }
-    [[nodiscard]] bool members_contain(const std::string_view nam) const noexcept
+    [[nodiscard]] std::vector<Member>& members() noexcept { return m_Members; }
+    //[[nodiscard]] bool members_contain(const std::string_view nam) const noexcept
+    //   {
+    //    return std::ranges::any_of(members(), [nam](const Member& memb) noexcept { return memb.name()==nam; });
+    //   }
+    [[nodiscard]] bool is_last_member_name_not_unique() const noexcept
        {
-        return std::ranges::any_of(m_Members, [nam](const Member& memb) noexcept { return memb.name()==nam; });
-       }
-    void add_member(Member&& memb)
-       {
-        if( members_contain(memb.name()) )
+        if( members().size()<=1 )
            {
-            throw std::runtime_error{ fmt::format("Duplicate struct member \"{}\"", memb.name()) };
+            return false;
            }
-        m_Members.push_back(std::move(memb));
+        const std::string_view last_name = members().back().name();
+        return std::ranges::any_of(members() | std::views::take(members().size()-1u), [last_name](const Member& memb) noexcept { return memb.name()==last_name; });
+        //return std::ranges::contains(members() | std::views::take(members().size()-1u), last_name, [](const Member& memb) noexcept {return memb.name();});
        }
-};
-
-
-
-/////////////////////////////////////////////////////////////////////////////
-// A type declaration
-class TypeDef final
-{
- private:
-    std::string_view m_Name;
-    Type m_Type;
-    std::string_view m_Descr;
-
- public:
-    [[nodiscard]] std::string_view name() const noexcept { return m_Name; }
-    void set_name(const std::string_view sv) noexcept { m_Name = sv; }
-
-    [[nodiscard]] Type& type() noexcept { return m_Type; }
-    [[nodiscard]] const Type& type() const noexcept { return m_Type; }
-
-    //[[nodiscard]] bool has_descr() const noexcept { return not m_Descr.empty(); }
-    [[nodiscard]] std::string_view descr() const noexcept { return m_Descr; }
-    void set_descr(const std::string_view sv) noexcept { m_Descr = sv; }
 };
 
 
@@ -417,6 +398,7 @@ class Enum final
              m_Value = sv;
             }
 
+        [[nodiscard]] bool has_descr() const noexcept { return not m_Descr.empty(); }
         [[nodiscard]] std::string_view descr() const noexcept { return m_Descr; }
         void set_descr(const std::string_view sv) noexcept { m_Descr = sv; }
     };
@@ -437,6 +419,7 @@ class Enum final
         m_Name = sv;
        }
 
+    [[nodiscard]] bool has_descr() const noexcept { return not m_Descr.empty(); }
     [[nodiscard]] std::string_view descr() const noexcept { return m_Descr; }
     void set_descr(const std::string_view sv) noexcept { m_Descr = sv; }
 
@@ -447,13 +430,36 @@ class Enum final
 
 
 /////////////////////////////////////////////////////////////////////////////
+// A type declaration
+class TypeDef final
+{
+ private:
+    std::string_view m_Name;
+    Type m_Type;
+    std::string_view m_Descr;
+
+ public:
+    [[nodiscard]] std::string_view name() const noexcept { return m_Name; }
+    void set_name(const std::string_view sv) noexcept { m_Name = sv; }
+
+    [[nodiscard]] Type& type() noexcept { return m_Type; }
+    [[nodiscard]] const Type& type() const noexcept { return m_Type; }
+
+    [[nodiscard]] bool has_descr() const noexcept { return not m_Descr.empty(); }
+    [[nodiscard]] std::string_view descr() const noexcept { return m_Descr; }
+    void set_descr(const std::string_view sv) noexcept { m_Descr = sv; }
+};
+
+
+
+/////////////////////////////////////////////////////////////////////////////
 // A subrange declaration
 class Subrange final
 {
  private:
     std::string_view m_Name;
-    std::string_view m_Type;
-    int m_MinVal = 0;
+    std::string_view m_TypeName;
+    int m_MinVal = 0; // Floating point numbers seems not supported
     int m_MaxVal = 0;
     std::string_view m_Descr;
 
@@ -468,14 +474,14 @@ class Subrange final
         m_Name = sv;
        }
 
-   [[nodiscard]]  std::string_view type() const noexcept { return m_Type; }
-    void set_type(const std::string_view sv)
+   [[nodiscard]] std::string_view type_name() const noexcept { return m_TypeName; }
+    void set_type_name(const Type& type)
        {
-        if( sv.empty() )
+        if( type.has_length() or type.is_array() )
            {
-            throw std::runtime_error{"Empty subrange type"};
+            throw std::runtime_error{"Cannot define a subrange with an array type"};
            }
-        m_Type = sv;
+        m_TypeName = type.name();
        }
 
     [[nodiscard]] int min_value() const noexcept { return m_MinVal; }
@@ -595,7 +601,7 @@ class Macro final
             m_Name = sv;
            }
 
-        //[[nodiscard]] bool has_descr() const noexcept { return not m_Descr.empty(); }
+        [[nodiscard]] bool has_descr() const noexcept { return not m_Descr.empty(); }
         [[nodiscard]] std::string_view descr() const noexcept { return m_Descr; }
         void set_descr(const std::string_view sv) noexcept { m_Descr = sv; }
     };
@@ -666,7 +672,7 @@ class Library final
     [[nodiscard]] const std::string& version() const noexcept { return m_Version; }
     void set_version(const std::string_view sv) noexcept { m_Version = sv; }
 
-    //[[nodiscard]] bool has_descr() const noexcept { return not m_Descr.empty(); }
+    [[nodiscard]] bool has_descr() const noexcept { return not m_Description.empty(); }
     [[nodiscard]] const std::string& descr() const noexcept { return m_Description; }
     void set_descr(const std::string_view sv) noexcept { m_Description = sv; }
 
@@ -807,9 +813,9 @@ class Library final
         std::string s;
         s.reserve(512);
         s += fmt::format("Library \"{}\"", name());
-        if( not global_constants().is_empty() ) s += fmt::format(", {} global constants", global_constants().size());
-        if( not global_retainvars().is_empty() ) s += fmt::format(", {} global retain vars", global_retainvars().size());
-        if( not global_variables().is_empty() ) s += fmt::format(", {} global vars", global_variables().size());
+        if( not global_constants().is_empty() ) s += fmt::format(", {} global constants", global_constants().vars_count());
+        if( not global_retainvars().is_empty() ) s += fmt::format(", {} global retain vars", global_retainvars().vars_count());
+        if( not global_variables().is_empty() ) s += fmt::format(", {} global vars", global_variables().vars_count());
         if( not functions().empty() ) s += fmt::format(", {} functions", functions().size());
         if( not function_blocks().empty() ) s += fmt::format(", {} function blocks", function_blocks().size());
         if( not programs().empty() ) s += fmt::format(", {} programs", programs().size());

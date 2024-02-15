@@ -117,7 +117,7 @@ ut::test("write and verify") = []
        {sys::file_write out{ file.path().string().c_str() };
         out << content; }
 
-    ut::expect( file.has_content( content) );
+    ut::expect( ut::that % file.content() == content );
    };
 
 };///////////////////////////////////////////////////////////////////////////

@@ -410,10 +410,9 @@ ut::test("ll::update_project_libraries()") = []
     ut::should("Updating a project with no libs") = []
        {
         test::TemporaryFile nolibs_prj("~nolibs.ppjs", "<plcProject>\n<libraries>\n</libraries>\n</plcProject>\n");
-        int num_issues = 0;
-        auto notify_issue = [&num_issues](std::string&&) noexcept { ++num_issues; };
-        ll::update_project_libraries(nolibs_prj.path(), {}, notify_issue);
-        ut::expect( ut::that % num_issues==1 ) << "should raise an issue\n";
+        struct issues_t final { int num=0; void operator()(std::string&&) noexcept {++num;}; } issues;
+        ll::update_project_libraries(nolibs_prj.path(), {}, std::ref(issues));
+        ut::expect( ut::that % issues.num==1 ) << "should raise an issue\n";
        };
 
     ut::should("Using the project itself as output") = []
@@ -450,10 +449,9 @@ ut::test("ll::update_project_libraries()") = []
                                                 "        <lib link=\"true\" name=\"not-existing.pll\"></lib>\n"
                                                 "    </libraries>\n"
                                                 "</plcProject>\n");
-        int num_issues = 0;
-        auto notify_issue = [&num_issues](std::string&&) noexcept { ++num_issues; };
-        ll::update_project_libraries(prj_with_nonextlib.path(), {}, notify_issue);
-        ut::expect( ut::that % num_issues==1 ) << "should raise an issue\n";
+        struct issues_t final { int num=0; void operator()(std::string&&) noexcept {++num;}; } issues;
+        ll::update_project_libraries(prj_with_nonextlib.path(), {}, std::ref(issues));
+        ut::expect( ut::that % issues.num==1 ) << "should raise an issue\n";
        };
 
     ut::should("update simple") = []
@@ -481,7 +479,7 @@ ut::test("ll::update_project_libraries()") = []
 
         ll::update_project_libraries(prj_file.path(), {}, [](std::string&&)noexcept{});
 
-        ut::expect( ut::that % prj_file.has_content(expected) );
+        ut::expect( ut::that % prj_file.content() == expected );
        };
    };
 

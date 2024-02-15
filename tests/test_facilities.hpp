@@ -143,9 +143,9 @@ class File
         return m_path;
        }
 
-    [[nodiscard]] bool has_content(const std::string_view given_content) const
+    [[nodiscard]] std::string content() const
        {
-        return read_file_content(m_path.string()) == given_content;
+        return read_file_content(m_path.string());
        }
 
     void operator<<(const std::string_view content) const
@@ -234,6 +234,11 @@ class TemporaryDirectory final
     [[nodiscard]] fs::path build_file_path(const std::string_view name) const
        {
         return m_dirpath / name;
+       }
+
+    [[maybe_unused]] File add_file(const std::string_view name) const
+       {
+        return File(build_file_path(name));
        }
 
     [[maybe_unused]] File add_file(const std::string_view name, const std::string_view content) const

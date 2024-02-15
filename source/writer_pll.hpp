@@ -137,7 +137,7 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Pou& pou, const std:
 inline void write(MG::OutputStreamable auto& f, const plcb::Enum& enm)
 {
     f<< "\n\t"sv << enm.name() << ": (\n"sv;
-    if( not enm.descr().empty() )
+    if( enm.has_descr() )
        {
         f<< "\t\t{ DE:\""sv << enm.descr() << "\" }\n"sv;
        }
@@ -147,7 +147,7 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Enum& enm)
         for( auto it=enm.elements().cbegin(); it!=it_last; ++it )
            {
             f<< "\t\t"sv << it->name() << " := "sv << it->value() << ',';
-            if( not it->descr().empty() )
+            if( it->has_descr() )
                {
                 f<< " { DE:\""sv << it->descr() << "\" }"sv;
                }
@@ -155,7 +155,7 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Enum& enm)
            }
         // Last element
         f<< "\t\t"sv << it_last->name() << " := "sv << it_last->value();
-        if( not it_last->descr().empty() )
+        if( it_last->has_descr() )
            {
             f<< " { DE:\""sv << it_last->descr() << "\" }"sv;
            }
@@ -172,7 +172,7 @@ inline void write(MG::OutputStreamable auto& f, const plcb::TypeDef& tdef)
     f<< '\t' << tdef.name() << " : "sv;
     write(f, tdef.type());
     f<< ';';
-    if( not tdef.descr().empty() )
+    if( tdef.has_descr() )
        {
         f<< " { DE:\""sv << tdef.descr() << "\" }"sv;
        }
@@ -186,7 +186,7 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Struct& strct)
 {
     f<< '\t' << strct.name() << " : STRUCT"sv;
 
-    if( not strct.descr().empty() )
+    if( strct.has_descr() )
        {
         f<< " { DE:\""sv << strct.descr() << "\" }"sv;
        }
@@ -198,7 +198,7 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Struct& strct)
         write(f, memb.type());
         f<< ';';
 
-        if( not memb.descr().empty() )
+        if( memb.has_descr() )
            {
             f<< " { DE:\""sv << memb.descr() << "\" }"sv;
            }
@@ -212,13 +212,13 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Struct& strct)
 //---------------------------------------------------------------------------
 inline void write(MG::OutputStreamable auto& f, const plcb::Subrange& subrng)
 {
-    f<< '\t' << subrng.name() << " : "sv << subrng.type()
+    f<< '\t' << subrng.name() << " : "sv << subrng.type_name()
      << " ("sv
      << std::to_string(subrng.min_value()) << ".."sv
      << std::to_string(subrng.max_value())
      << ");"sv;
 
-    if( not subrng.descr().empty() )
+    if( subrng.has_descr() )
        {
         f<< " { DE:\""sv << subrng.descr() << "\" }"sv;
        }
@@ -277,9 +277,9 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
        }
 
     // Content summary
-    if( not lib.global_variables().is_empty() )  f<< "\tglobal-variables: "sv << std::to_string(lib.global_variables().size()) << '\n';
-    if( not lib.global_constants().is_empty() )  f<< "\tglobal-constants: "sv << std::to_string(lib.global_constants().size()) << '\n';
-    if( not lib.global_retainvars().is_empty() ) f<< "\tglobal-retain-vars: "sv << std::to_string(lib.global_retainvars().size()) << '\n';
+    if( not lib.global_variables().is_empty() )  f<< "\tglobal-variables: "sv << std::to_string(lib.global_variables().vars_count()) << '\n';
+    if( not lib.global_constants().is_empty() )  f<< "\tglobal-constants: "sv << std::to_string(lib.global_constants().vars_count()) << '\n';
+    if( not lib.global_retainvars().is_empty() ) f<< "\tglobal-retain-vars: "sv << std::to_string(lib.global_retainvars().vars_count()) << '\n';
     if( not lib.functions().empty() )            f<< "\tfunctions: "sv << std::to_string(lib.functions().size()) << '\n';
     if( not lib.function_blocks().empty() )      f<< "\tfunction blocks: "sv << std::to_string(lib.function_blocks().size()) << '\n';
     if( not lib.programs().empty() )             f<< "\tprograms: "sv << std::to_string(lib.programs().size()) << '\n';
@@ -628,21 +628,18 @@ ut::test("pll::write(plcb::Struct)") = []
     strct.set_name("structname");
     strct.set_descr("testing struct");
 
-    plcb::Struct::Member memb;
-    memb.set_name("member1"sv);
-    memb.type() = plcb::make_type("DINT"sv);
-    memb.set_descr("member1 descr"sv);
-    strct.add_member( std::move(memb) );
-
-    memb.set_name("member2"sv);
-    memb.type() = plcb::make_type("STRING"sv,80u);
-    memb.set_descr("member2 descr"sv);
-    strct.add_member( std::move(memb) );
-
-    memb.set_name("member3"sv);
-    memb.type() = plcb::make_type("INT"sv,0u,11u);
-    memb.set_descr("array member"sv);
-    strct.add_member( std::move(memb) );
+    {   plcb::Struct::Member& memb = strct.members().emplace_back();
+        memb.set_name("member1"sv);
+        memb.type() = plcb::make_type("DINT"sv);
+        memb.set_descr("member1 descr"sv);   }
+    {   plcb::Struct::Member& memb = strct.members().emplace_back();
+        memb.set_name("member2"sv);
+        memb.type() = plcb::make_type("STRING"sv,80u);
+        memb.set_descr("member2 descr"sv);   }
+    {   plcb::Struct::Member& memb = strct.members().emplace_back();
+        memb.set_name("member3"sv);
+        memb.type() = plcb::make_type("INT"sv,0u,11u);
+        memb.set_descr("array member"sv);   }
 
     const std::string_view expected =
         "\tstructname : STRUCT { DE:\"testing struct\" }\n"
@@ -661,7 +658,7 @@ ut::test("pll::write(plcb::Subrange)") = []
    {
     plcb::Subrange subrng;
     subrng.set_name("subrangename");
-    subrng.set_type("INT");
+    subrng.set_type_name( plcb::make_type("INT") );
     subrng.set_range(1,12);
     subrng.set_descr("testing subrange");
 

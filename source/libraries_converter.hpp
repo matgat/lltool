@@ -275,6 +275,43 @@ void convert_library(const fs::path& input_file_path, fs::path output_path, cons
 static ut::suite<"libraries_converter"> libraries_converter_tests = []
 {
 
+ut::test("ll::convert_library()") = []
+   {
+    ut::should("try to convert a nonexistent pll") = []
+       {
+        test::TemporaryFile in_pll("~not-existent.pll");
+        test::TemporaryFile out_plclib("~out.plclib");
+        ut::expect( ut::throws([&]{ ll::convert_library(in_pll.path().string(), out_plclib.path(), false, {}, [](std::string&&)noexcept{}); }) ) << "should throw\n";
+       };
+
+    ut::should("try to convert to existent file without overwrite") = []
+       {
+        test::TemporaryDirectory dir;
+        auto in_pll = dir.add_file("~in.pll",
+                                    "PROGRAM Prg\n"
+                                    "    { CODE:ST }Body\n"
+                                    "END_PROGRAM\n"sv);
+        auto out_plclib = dir.add_file("~out.plclib",
+                                        "<lib>\n"
+                                        "</lib>\n"sv);
+        ut::expect( ut::throws([&]{ ll::convert_library(in_pll.path().string(), out_plclib.path(), false, {}, [](std::string&&)noexcept{}); }) ) << "should throw\n";
+       };
+
+    //ut::should("convert a simple pll") = []
+    //   {
+    //    test::TemporaryDirectory dir;
+    //    auto in_pll = dir.add_file("~in.pll",
+    //                                "PROGRAM Prg\n"
+    //                                "    { CODE:ST }Body\n"
+    //                                "END_PROGRAM\n"sv);
+    //    auto out_plclib = dir.add_file("~out.plclib");
+    //    struct issues_t final { int num=0; void operator()(std::string&&) noexcept {++num;}; } issues;
+    //    ll::convert_library(in_pll.path().string(), out_plclib.path(), false, {}, std::ref(issues));
+    //    ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
+    //    ut::expect( fs::exists(out_plclib.path()) );
+    //    ut::expect( ut::that % out_plclib.content() == ""sv );
+    //   };
+   };
 
 };///////////////////////////////////////////////////////////////////////////
 #endif // TEST_UNITS ////////////////////////////////////////////////////////

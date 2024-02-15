@@ -304,7 +304,7 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Struct& strct, const
 //---------------------------------------------------------------------------
 inline void write(MG::OutputStreamable auto& f, const plcb::Subrange& subrng, const std::size_t lvl)
 {
-    f<< ind(lvl) << "<subrange name=\""sv << subrng.name() << "\" version=\"1.0.0\" type=\""sv << subrng.type() << "\">\n"sv;
+    f<< ind(lvl) << "<subrange name=\""sv << subrng.name() << "\" version=\"1.0.0\" type=\""sv << subrng.type_name() << "\">\n"sv;
     //f<< ind(lvl+1) << "<title>"sv << subrng.title() << "</title>\n"sv;
     f<< ind(lvl+1) << "<descr>"sv << subrng.descr() << "</descr>\n"sv;
     f<< ind(lvl+1) << "<minValue>"sv << std::to_string(subrng.min_value()) << "</minValue>\n"sv;
@@ -525,18 +525,18 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
     f << ind(lvl) << "<descr>"sv << lib.descr() << "</descr>\n"sv;
     // Content summary
     f << ind(lvl) << "<!--\n"sv;
-    if( not lib.global_variables().is_empty() )  f<< ind(lvl+1) << "global-variables: "sv << std::to_string(lib.global_variables().size())  << '\n';
-    if( not lib.global_constants().is_empty() )  f<< ind(lvl+1) << "global-constants: "sv << std::to_string(lib.global_constants().size())  << '\n';
-    if( not lib.global_retainvars().is_empty() ) f<< ind(lvl+1) << "global-retain-vars: "sv << std::to_string(lib.global_retainvars().size())  << '\n';
-    if( not lib.functions().empty() )            f<< ind(lvl+1) << "functions: "sv << std::to_string(lib.functions().size())  << '\n';
-    if( not lib.function_blocks().empty() )      f<< ind(lvl+1) << "function blocks: "sv << std::to_string(lib.function_blocks().size())  << '\n';
-    if( not lib.programs().empty() )             f<< ind(lvl+1) << "programs: "sv << std::to_string(lib.programs().size())  << '\n';
-    if( not lib.macros().empty() )               f<< ind(lvl+1) << "macros: "sv << std::to_string(lib.macros().size())  << '\n';
-    if( not lib.structs().empty() )              f<< ind(lvl+1) << "structs: "sv << std::to_string(lib.structs().size())  << '\n';
-    if( not lib.typedefs().empty() )             f<< ind(lvl+1) << "typedefs: "sv << std::to_string(lib.typedefs().size())  << '\n';
-    if( not lib.enums().empty() )                f<< ind(lvl+1) << "enums: "sv << std::to_string(lib.enums().size())  << '\n';
-    if( not lib.subranges().empty() )            f<< ind(lvl+1) << "subranges: "sv << std::to_string(lib.subranges().size())  << '\n';
-    //if( not lib.interfaces().empty() )           f<< ind(lvl+1) << "interfaces: "sv << std::to_string(lib.interfaces().size())  << '\n';
+    if( not lib.global_variables().is_empty() )  f<< ind(lvl+1) << "global-variables: "sv << std::to_string(lib.global_variables().vars_count()) << '\n';
+    if( not lib.global_constants().is_empty() )  f<< ind(lvl+1) << "global-constants: "sv << std::to_string(lib.global_constants().vars_count()) << '\n';
+    if( not lib.global_retainvars().is_empty() ) f<< ind(lvl+1) << "global-retain-vars: "sv << std::to_string(lib.global_retainvars().vars_count()) << '\n';
+    if( not lib.functions().empty() )            f<< ind(lvl+1) << "functions: "sv << std::to_string(lib.functions().size()) << '\n';
+    if( not lib.function_blocks().empty() )      f<< ind(lvl+1) << "function blocks: "sv << std::to_string(lib.function_blocks().size()) << '\n';
+    if( not lib.programs().empty() )             f<< ind(lvl+1) << "programs: "sv << std::to_string(lib.programs().size()) << '\n';
+    if( not lib.macros().empty() )               f<< ind(lvl+1) << "macros: "sv << std::to_string(lib.macros().size()) << '\n';
+    if( not lib.structs().empty() )              f<< ind(lvl+1) << "structs: "sv << std::to_string(lib.structs().size()) << '\n';
+    if( not lib.typedefs().empty() )             f<< ind(lvl+1) << "typedefs: "sv << std::to_string(lib.typedefs().size()) << '\n';
+    if( not lib.enums().empty() )                f<< ind(lvl+1) << "enums: "sv << std::to_string(lib.enums().size()) << '\n';
+    if( not lib.subranges().empty() )            f<< ind(lvl+1) << "subranges: "sv << std::to_string(lib.subranges().size()) << '\n';
+    //if( not lib.interfaces().empty() )           f<< ind(lvl+1) << "interfaces: "sv << std::to_string(lib.interfaces().size()) << '\n';
     f << ind(lvl) << "-->\n"sv;
 
     write_preamble(f, lib, lvl);
@@ -751,22 +751,19 @@ ut::test("plclib::write(plcb::Struct)") = []
     plcb::Struct strct;
     strct.set_name("structname");
     strct.set_descr("testing struct");
-    
-    plcb::Struct::Member memb;
-    memb.set_name("member1"sv);
-    memb.type() = plcb::make_type("DINT"sv);
-    memb.set_descr("member1 descr"sv);
-    strct.add_member( std::move(memb) );
 
-    memb.set_name("member2"sv);
-    memb.type() = plcb::make_type("STRING"sv,80u);
-    memb.set_descr("member2 descr"sv);
-    strct.add_member( std::move(memb) );
-
-    memb.set_name("member3"sv);
-    memb.type() = plcb::make_type("INT"sv,0u,11u);
-    memb.set_descr("array member"sv);
-    strct.add_member( std::move(memb) );
+    {   plcb::Struct::Member& memb = strct.members().emplace_back();
+        memb.set_name("member1"sv);
+        memb.type() = plcb::make_type("DINT"sv);
+        memb.set_descr("member1 descr"sv);   }
+    {   plcb::Struct::Member& memb = strct.members().emplace_back();
+        memb.set_name("member2"sv);
+        memb.type() = plcb::make_type("STRING"sv,80u);
+        memb.set_descr("member2 descr"sv);   }
+    {   plcb::Struct::Member& memb = strct.members().emplace_back();
+        memb.set_name("member3"sv);
+        memb.type() = plcb::make_type("INT"sv,0u,11u);
+        memb.set_descr("array member"sv);   }
 
     const std::string_view expected =
         "<struct name=\"structname\" version=\"1.0.0\">\n"
@@ -795,7 +792,7 @@ ut::test("plclib::write(plcb::Subrange)") = []
    {
     plcb::Subrange subrng;
     subrng.set_name("subrangename");
-    subrng.set_type("INT");
+    subrng.set_type_name( plcb::make_type("INT") );
     subrng.set_range(1,12);
     subrng.set_descr("testing subrange");
 
