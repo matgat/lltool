@@ -1118,7 +1118,7 @@ std::string to_string(const plcb::Variable& var)
 
 
 //---------------------------------------------------------------------------
-[[nodiscard]] bool operator==(const Address& addr1, const Address& addr2) noexcept
+[[nodiscard]] bool operator==(Address const& addr1, Address const& addr2) noexcept
 {
     return addr1.zone()     == addr2.zone()
        and addr1.typevar()  == addr2.typevar()
@@ -1127,7 +1127,7 @@ std::string to_string(const plcb::Variable& var)
 }
 
 //---------------------------------------------------------------------------
-[[nodiscard]] bool operator==(const Type& typ1, const Type& typ2) noexcept
+[[nodiscard]] bool operator==(Type const& typ1, Type const& typ2) noexcept
 {
     return typ1.name()           == typ2.name()
        and typ1.length()         == typ2.length()
@@ -1136,7 +1136,7 @@ std::string to_string(const plcb::Variable& var)
 }
 
 //---------------------------------------------------------------------------
-[[nodiscard]] bool operator==(const Variable& var1, const Variable& var2) noexcept
+[[nodiscard]] bool operator==(Variable const& var1, Variable const& var2) noexcept
 {
     return var1.name()    == var2.name()
        and var1.type()    == var2.type()
@@ -1146,20 +1146,20 @@ std::string to_string(const plcb::Variable& var)
 }
 
 //---------------------------------------------------------------------------
-[[nodiscard]] bool operator==(const Variables_Group& grp1, const Variables_Group& grp2) noexcept
+[[nodiscard]] bool operator==(Variables_Group const& vgrp1, Variables_Group const& vgrp2) noexcept
 {
-    return grp1.name()      == grp2.name()
-       and grp1.variables() == grp2.variables();
+    return vgrp1.name()      == vgrp2.name()
+       and vgrp1.variables() == vgrp2.variables();
 }
 
 //---------------------------------------------------------------------------
-[[nodiscard]] bool operator==(const Variables_Groups& grps1, const Variables_Groups& grps2) noexcept
+[[nodiscard]] bool operator==(Variables_Groups const& grps1, Variables_Groups const& grps2) noexcept
 {
     return grps1.groups() == grps2.groups();
 }
 
 //---------------------------------------------------------------------------
-[[nodiscard]] bool operator==(const Struct::Member& memb1, const Struct::Member& memb2) noexcept
+[[nodiscard]] bool operator==(Struct::Member const& memb1, Struct::Member const& memb2) noexcept
 {
     return memb1.name()  == memb2.name()
        and memb1.type()  == memb2.type()
@@ -1167,7 +1167,7 @@ std::string to_string(const plcb::Variable& var)
 }
 
 //---------------------------------------------------------------------------
-[[nodiscard]] bool operator==(const Struct& strct1, const Struct& strct2) noexcept
+[[nodiscard]] bool operator==(Struct const& strct1, Struct const& strct2) noexcept
 {
     return strct1.name()    == strct2.name()
        and strct1.descr()   == strct2.descr()
@@ -1175,7 +1175,7 @@ std::string to_string(const plcb::Variable& var)
 }
 
 //---------------------------------------------------------------------------
-[[nodiscard]] bool operator==(const Enum::Element& elem1, const Enum::Element& elem2) noexcept
+[[nodiscard]] bool operator==(Enum::Element const& elem1, Enum::Element const& elem2) noexcept
 {
     return elem1.name()  == elem2.name()
        and elem1.value() == elem2.value()
@@ -1183,7 +1183,7 @@ std::string to_string(const plcb::Variable& var)
 }
 
 //---------------------------------------------------------------------------
-[[nodiscard]] bool operator==(const Enum& enm1, const Enum& enm2) noexcept
+[[nodiscard]] bool operator==(Enum const& enm1, Enum const& enm2) noexcept
 {
     return enm1.name()     == enm2.name()
        and enm1.descr()    == enm2.descr()
@@ -1191,7 +1191,7 @@ std::string to_string(const plcb::Variable& var)
 }
 
 //---------------------------------------------------------------------------
-[[nodiscard]] bool operator==(const TypeDef& tdef1, const TypeDef& tdef2) noexcept
+[[nodiscard]] bool operator==(TypeDef const& tdef1, TypeDef const& tdef2) noexcept
 {
     return tdef1.name()  == tdef2.name()
        and tdef1.type()  == tdef2.type()
@@ -1199,7 +1199,7 @@ std::string to_string(const plcb::Variable& var)
 }
 
 //---------------------------------------------------------------------------
-[[nodiscard]] bool operator==(const Subrange& subrng1, const Subrange& subrng2) noexcept
+[[nodiscard]] bool operator==(Subrange const& subrng1, Subrange const& subrng2) noexcept
 {
     return subrng1.name()      == subrng2.name()
        and subrng1.type_name() == subrng2.type_name()
@@ -1209,7 +1209,7 @@ std::string to_string(const plcb::Variable& var)
 }
 
 //---------------------------------------------------------------------------
-[[nodiscard]] bool operator==(const Pou& pou1, const Pou& pou2) noexcept
+[[nodiscard]] bool operator==(Pou const& pou1, Pou const& pou2) noexcept
 {
     return pou1.name()            == pou2.name()
        and pou1.descr()           == pou2.descr()
@@ -1225,14 +1225,14 @@ std::string to_string(const plcb::Variable& var)
 }
 
 //---------------------------------------------------------------------------
-[[nodiscard]] bool operator==(const Macro::Parameter& param1, const Macro::Parameter& param2) noexcept
+[[nodiscard]] bool operator==(Macro::Parameter const& param1, Macro::Parameter const& param2) noexcept
 {
     return param1.name()  == param2.name()
        and param1.descr() == param2.descr();
 }
 
 //---------------------------------------------------------------------------
-[[nodiscard]] bool operator==(const Macro& macro1, const Macro& macro2) noexcept
+[[nodiscard]] bool operator==(Macro const& macro1, Macro const& macro2) noexcept
 {
     return macro1.name()       == macro2.name()
        and macro1.descr()      == macro2.descr()
@@ -1242,7 +1242,7 @@ std::string to_string(const plcb::Variable& var)
 }
 
 //---------------------------------------------------------------------------
-[[nodiscard]] bool operator==(const Library& lib1, const Library& lib2) noexcept
+[[nodiscard]] bool operator==(Library const& lib1, Library const& lib2) noexcept
 {
     return //lib1.name()             == lib2.name()
             lib1.version()           == lib2.version()
