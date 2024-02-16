@@ -6,16 +6,15 @@
 //  ---------------------------------------------
 //  #include "test_facilities.hpp" // test::*
 //  ---------------------------------------------
+//#include <cmath> // std::fabs
+//#include <limits> // std::numeric_limits
 #include <stdexcept>
-#include <cmath> // std::fabs
-#include <limits> // std::numeric_limits
-#include <algorithm> // std::max
 #include <vector>
 #include <cctype> // std::tolower
 #include <string>
 #include <string_view>
 #include <ranges> // std::ranges::sort
-#include <algorithm> // std::ranges::transform
+#include <algorithm> // std::ranges::transform, std::max
 #include <thread> // std::this_thread
 #include <chrono> // std::chrono::*
 #include <fstream> // std::ifstream, std::ofstream
@@ -32,10 +31,10 @@ namespace test //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 {
 
 //-----------------------------------------------------------------------
-[[nodiscard]] bool are_equal(const double a, const double b) noexcept
-{
-    return std::fabs(a - b) <= std::max(std::fabs(a), std::fabs(b)) * std::numeric_limits<double>::epsilon();
-}
+//[[nodiscard]] bool are_approx_equal(const double a, const double b) noexcept
+//{
+//    return std::fabs(a - b) <= std::max(std::fabs(a), std::fabs(b)) * std::numeric_limits<double>::epsilon();
+//}
 
 
 //-----------------------------------------------------------------------
@@ -47,6 +46,7 @@ namespace test //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
             std::tolower(static_cast<unsigned char>(sv2[i])) ) return false;
     return true;
 }
+
 
 //-----------------------------------------------------------------------
 [[nodiscard]] constexpr std::string tolower(std::string s) noexcept
@@ -106,21 +106,23 @@ void sleep_for_seconds(const unsigned int t_s)
 //---------------------------------------------------------------------------
 [[nodiscard]] std::string read_file_content(const std::string& file_name)
 {
-    std::ifstream file(file_name);
+    std::ifstream file(file_name, std::ios::binary);
     return std::string{ std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>() };
 }
+
 
 //---------------------------------------------------------------------------
 void write_to_file(const std::string& file_name, const std::string_view content)
 {
-    std::ofstream file(file_name);
+    std::ofstream file(file_name, std::ios::binary);
     file << content;
 }
+
 
 //---------------------------------------------------------------------------
 void append_to_file(const std::string& file_name, const std::string_view content)
 {
-    std::ofstream file(file_name, std::ios::app);
+    std::ofstream file(file_name, std::ios::binary | std::ios::app);
     file << content;
 }
 
@@ -135,12 +137,7 @@ class File
  public:
     explicit File(fs::path&& pth)
       : m_path( std::move(pth) )
-       {
-        if( fs::exists(m_path) )
-           {
-            throw std::runtime_error( fmt::format("Temporary file {} already existing!", m_path.string()) );
-           }
-       }
+       {}
 
     explicit File(fs::path&& pth, const std::string_view content)
       : File(std::move(pth))
@@ -215,6 +212,7 @@ class TemporaryDirectory final
 {
  private:
     fs::path m_dirpath;
+    bool m_cleanup_on_exit = true;
 
  public:
     explicit TemporaryDirectory()
@@ -229,8 +227,11 @@ class TemporaryDirectory final
 
     ~TemporaryDirectory() noexcept
        {
-        std::error_code ec;
-        fs::remove_all(m_dirpath, ec);
+        if( m_cleanup_on_exit )
+           {
+            std::error_code ec;
+            fs::remove_all(m_dirpath, ec);
+           }
        }
 
     TemporaryDirectory(const TemporaryDirectory&) = delete; // Prevent copy
@@ -255,6 +256,8 @@ class TemporaryDirectory final
        {
         return File(build_file_path(name), content);
        }
+
+    void set_cleanup_on_exit(const bool b) { m_cleanup_on_exit = b; }
 };
 
-}//::::::::::::::::::::::::::::::::::: test :::::::::::::::::::::::::::::::::
+}//::::::::::::::::::::::::::::::::: test :::::::::::::::::::::::::::::::::::

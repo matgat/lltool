@@ -37,7 +37,7 @@ class file_write final
        {
         if( not m_fstream )
            {
-            throw std::runtime_error{ fmt::format("Cannot write to file {}", pth_cstr) };
+            throw std::runtime_error{ fmt::format("Cannot write to file `{}`", pth_cstr) };
            }
        }
 

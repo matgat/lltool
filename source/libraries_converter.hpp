@@ -93,7 +93,8 @@ void prepare_output_dir(const fs::path& dir, const bool clear, fnotify_t const& 
 //---------------------------------------------------------------------------
 struct outpaths_t final
 {
-    fs::path pll, plclib;
+    fs::path pll;
+    fs::path plclib;
 
     void set_pll(const fs::path& path)
        {
@@ -154,7 +155,7 @@ struct outpaths_t final
                 break;
 
             default:
-                throw std::runtime_error{ fmt::format("Unhandled output file type {}"sv, output_path.filename().string()) };
+                throw std::runtime_error{ fmt::format("Unhandled output file type: {}"sv, output_path.filename().string()) };
            }
        }
 
@@ -219,7 +220,7 @@ void parse_library(plcb::Library& lib, const std::string& input_file_fullpath, c
 
 
 //---------------------------------------------------------------------------
-bool write_library(const plcb::Library& lib, const fs::path& out_pll, const fs::path& out_plclib, const MG::keyvals& conv_options)
+bool write_library(const plcb::Library& lib, const fs::path& out_pll, const fs::path& out, const MG::keyvals& conv_options)
 {
     bool something_done = false;
 
@@ -231,9 +232,9 @@ bool write_library(const plcb::Library& lib, const fs::path& out_pll, const fs::
         something_done = true;
        }
 
-    if( not out_plclib.empty() )
+    if( not out.empty() )
        {
-        sys::file_write out_file{ out_pll.string().c_str() };
+        sys::file_write out_file{ out.string().c_str() };
         out_file.set_buffer_size(4_MB);
         plclib::write_lib(out_file, lib, conv_options);
         something_done = true;
@@ -250,17 +251,18 @@ void convert_library(const fs::path& input_file_path, fs::path output_path, cons
     const std::string input_file_basename{ input_file_path.stem().string() };
 
     const file_type input_file_type = recognize_file_type( input_file_fullpath );
-    const auto [out_pll, out_plclib] = set_output_paths(input_file_path, input_file_type, output_path, can_overwrite);
+    const auto [out_pll, out] = set_output_paths(input_file_path, input_file_type, output_path, can_overwrite);
+    //fmt::print("{} => `{}`, `{}`"sv, input_file_basename, out_pll.filename().string(), out.filename().string());
 
     plcb::Library lib( input_file_basename );
     const sys::memory_mapped_file input_file_mapped{ input_file_fullpath.c_str() }; // This must live until the end
     parse_library(lib, input_file_fullpath, input_file_type, input_file_mapped.as_string_view(), conv_options, notify_issue);
     lib.throw_if_incoherent();
 
-    const bool something_done = write_library(lib, out_pll, out_plclib, conv_options);
+    const bool something_done = write_library(lib, out_pll, out, conv_options);
     if( not something_done )
        {
-        notify_issue( fmt::format("Nothing to do for {}"sv, input_file_fullpath) );
+        notify_issue( fmt::format("Nothing to do for: {}"sv, input_file_fullpath) );
        }
 }
 
@@ -275,42 +277,182 @@ void convert_library(const fs::path& input_file_path, fs::path output_path, cons
 static ut::suite<"libraries_converter"> libraries_converter_tests = []
 {
 
+ut::test("reparse a header") = []
+   {
+    // Parse a defines header
+    plcb::Library parsed_lib("sample_def_header"sv);
+    sipro::h_parse(parsed_lib.name(), sample_def_header, parsed_lib, [](std::string&&)noexcept{});
+    // Write to pll
+    MG::string_write out;
+    pll::write_lib(out, parsed_lib, {});
+    // Parse written pll
+    plcb::Library parsed_lib2(parsed_lib.name());
+    ll::pll_parse(parsed_lib2.name(), out.str(), parsed_lib2, [](std::string&&)noexcept{});
+    // Compare
+    ut::expect( parsed_lib == parsed_lib2 );
+   };
+
+
+ut::test("reparse a pll") = []
+   {
+    // Parse a pll
+    plcb::Library parsed_lib("sample-lib"sv);
+    ll::pll_parse(parsed_lib.name(), sample_lib_pll, parsed_lib, [](std::string&&)noexcept{});
+    // Rewrite to pll
+    MG::string_write out;
+    pll::write_lib(out, parsed_lib, {});
+    // Parse written pll
+    plcb::Library parsed_lib2(parsed_lib.name());
+    ll::pll_parse(parsed_lib2.name(), out.str(), parsed_lib2, [](std::string&&)noexcept{});
+    // Compare
+    ut::expect( parsed_lib == parsed_lib2 );
+   };
+
+
 ut::test("ll::convert_library()") = []
    {
-    ut::should("try to convert a nonexistent pll") = []
+    ut::should("converting a nonexistent pll") = []
        {
-        test::TemporaryFile in_pll("~not-existent.pll");
-        test::TemporaryFile out_plclib("~out.plclib");
-        ut::expect( ut::throws([&]{ ll::convert_library(in_pll.path().string(), out_plclib.path(), false, {}, [](std::string&&)noexcept{}); }) ) << "should throw\n";
+        test::TemporaryFile in("~not-existent.pll");
+        test::TemporaryFile out("~out.plclib");
+        ut::expect( ut::throws([&]{ ll::convert_library(in.path().string(), out.path(), false, {}, [](std::string&&)noexcept{}); }) ) << "should throw\n";
        };
 
-    ut::should("try to convert to existent file without overwrite") = []
+    ut::should("converting an unknown library") = []
+       {
+        test::TemporaryFile in("~unknown.xxx");
+        test::TemporaryFile out("~out.plclib");
+        ut::expect( ut::throws([&]{ ll::convert_library(in.path().string(), out.path(), false, {}, [](std::string&&)noexcept{}); }) ) << "should throw\n";
+       };
+
+    ut::should("converting to unknown format") = []
+       {
+        test::TemporaryFile in("~in.pll");
+        test::TemporaryFile out("~out.xxx");
+        ut::expect( ut::throws([&]{ ll::convert_library(in.path().string(), out.path(), false, {}, [](std::string&&)noexcept{}); }) ) << "should throw\n";
+       };
+
+    ut::should("writing to original file") = []
+       {
+        test::TemporaryFile in("~in.pll",   "PROGRAM Prg\n"
+                                            "    { CODE:ST }Body\n"
+                                            "END_PROGRAM\n"sv);
+        ut::expect( ut::throws([&]{ ll::convert_library(in.path().string(), in.path(), false, {}, [](std::string&&)noexcept{}); }) ) << "should throw\n";
+       };
+
+    ut::should("writing to existent file") = []
        {
         test::TemporaryDirectory dir;
-        auto in_pll = dir.add_file("~in.pll",
-                                    "PROGRAM Prg\n"
-                                    "    { CODE:ST }Body\n"
-                                    "END_PROGRAM\n"sv);
-        auto out_plclib = dir.add_file("~out.plclib",
-                                        "<lib>\n"
-                                        "</lib>\n"sv);
-        ut::expect( ut::throws([&]{ ll::convert_library(in_pll.path().string(), out_plclib.path(), false, {}, [](std::string&&)noexcept{}); }) ) << "should throw\n";
+        auto in = dir.add_file("~in.pll",   "PROGRAM Prg\n"
+                                            "    { CODE:ST }Body\n"
+                                            "END_PROGRAM\n"sv);
+        auto out = dir.add_file("~out.plclib", "<lib>\n</lib>\n"sv);
+        ut::expect( ut::throws([&]{ ll::convert_library(in.path().string(), out.path(), false, {}, [](std::string&&)noexcept{}); }) ) << "should throw\n";
        };
 
-    //ut::should("convert a simple pll") = []
-    //   {
-    //    test::TemporaryDirectory dir;
-    //    auto in_pll = dir.add_file("~in.pll",
-    //                                "PROGRAM Prg\n"
-    //                                "    { CODE:ST }Body\n"
-    //                                "END_PROGRAM\n"sv);
-    //    auto out_plclib = dir.add_file("~out.plclib");
-    //    struct issues_t final { int num=0; void operator()(std::string&&) noexcept {++num;}; } issues;
-    //    ll::convert_library(in_pll.path().string(), out_plclib.path(), false, {}, std::ref(issues));
-    //    ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
-    //    ut::expect( fs::exists(out_plclib.path()) );
-    //    ut::expect( ut::that % out_plclib.content() == ""sv );
-    //   };
+    ut::should("converting an empty pll") = []
+       {
+        test::TemporaryDirectory dir;
+        auto in = dir.add_file("~empty.pll", "\n"sv);
+        struct issues_t final { int num=0; void operator()(std::string&&) noexcept {++num;}; } issues;
+        ll::convert_library(in.path().string(), {}, false, MG::keyvals{"no-timestamp"sv}, std::ref(issues));
+        ut::expect( ut::that % issues.num==1 ) << "should rise an issue related to empty lib\n";
+        auto out = dir.add_file("~empty.plclib");
+        ut::expect( fs::exists(out.path()) );
+        ut::expect( ut::that % out.content() == "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n"
+                                                "<plcLibrary schemaVersion=\"2.8\">\n"
+                                                "\t<lib version=\"1.0.0\" name=\"~empty\" fullXml=\"true\">\n"
+                                                "\t\t<!-- author=\"plclib::write()\" -->\n"
+                                                "\t\t<descr>PLC library</descr>\n"
+                                                "\t\t<libWorkspace>\n"
+                                                "\t\t\t<folder name=\"~empty\" id=\"2386\">\n"
+                                                "\t\t\t</folder>\n"
+                                                "\t\t</libWorkspace>\n"
+                                                "\t\t<globalVars/>\n"
+                                                "\t\t<retainVars/>\n"
+                                                "\t\t<constantVars/>\n"
+                                                "\t\t<functions/>\n"
+                                                "\t\t<functionBlocks/>\n"
+                                                "\t\t<programs/>\n"
+                                                "\t\t<macros/>\n"
+                                                "\t\t<structs/>\n"
+                                                "\t\t<typedefs/>\n"
+                                                "\t\t<enums/>\n"
+                                                "\t\t<subranges/>\n"
+                                                "\t</lib>\n"
+                                                "</plcLibrary>\n"sv );
+       };
+
+
+    ut::should("converting a simple pll specifying output") = []
+       {
+        test::TemporaryDirectory dir;
+        auto in = dir.add_file("~in.pll",   "PROGRAM Prg\n"
+                                            "    { CODE:ST }Body\n"
+                                            "END_PROGRAM\n"sv);
+        auto out = dir.add_file("~out.plclib");
+        struct issues_t final { int num=0; void operator()(std::string&&) noexcept {++num;}; } issues;
+        ll::convert_library(in.path().string(), out.path(), false, MG::keyvals{"no-timestamp"sv}, std::ref(issues));
+        ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
+        ut::expect( fs::exists(out.path()) );
+        ut::expect( ut::that % out.content() == "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n"
+                                                "<plcLibrary schemaVersion=\"2.8\">\n"
+                                                "\t<lib version=\"1.0.0\" name=\"~in\" fullXml=\"true\">\n"
+                                                "\t\t<!-- author=\"plclib::write()\" -->\n"
+                                                "\t\t<descr>PLC library</descr>\n"
+                                                "\t\t<!--\n"
+                                                "\t\t\tprograms: 1\n"
+                                                "\t\t-->\n"
+                                                "\t\t<libWorkspace>\n"
+                                                "\t\t\t<folder name=\"~in\" id=\"698\">\n"
+                                                "\t\t\t\t<Pou name=\"Prg\"/>\n"
+                                                "\t\t\t</folder>\n"
+                                                "\t\t</libWorkspace>\n"
+                                                "\t\t<globalVars/>\n"
+                                                "\t\t<retainVars/>\n"
+                                                "\t\t<constantVars/>\n"
+                                                "\t\t<functions/>\n"
+                                                "\t\t<functionBlocks/>\n"
+                                                "\t\t<programs>\n"
+                                                "\t\t\t<program name=\"Prg\" version=\"1.0.0\" creationDate=\"0\" lastModifiedDate=\"0\" excludeFromBuild=\"FALSE\" excludeFromBuildIfNotDef=\"\">\n"
+                                                "\t\t\t\t<vars/>\n"
+                                                "\t\t\t\t<iecDeclaration active=\"FALSE\"/>\n"
+                                                "\t\t\t\t<sourceCode type=\"ST\">\n"
+                                                "\t\t\t\t\t<![CDATA[Body]]>\n"
+                                                "\t\t\t\t</sourceCode>\n"
+                                                "\t\t\t</program>\n"
+                                                "\t\t</programs>\n"
+                                                "\t\t<macros/>\n"
+                                                "\t\t<structs/>\n"
+                                                "\t\t<typedefs/>\n"
+                                                "\t\t<enums/>\n"
+                                                "\t\t<subranges/>\n"
+                                                "\t</lib>\n"
+                                                "</plcLibrary>\n"sv );
+       };
+
+
+    ut::should("converting sample pll") = []
+       {
+        test::TemporaryDirectory dir;
+        auto in = dir.add_file("sample-lib.pll", sample_lib_pll);
+
+        try{
+            struct issues_t final { int num=0; void operator()(std::string&&) noexcept {++num;}; } issues;
+            ll::convert_library(in.path().string(), {}, false, MG::keyvals{"no-timestamp"sv}, std::ref(issues));
+            ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
+           }
+        catch( parse::error& e )
+           {
+            ut::log << "\033[95m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(line " << e.line() << ")\n";
+            throw;
+           }
+
+        auto out = dir.add_file("sample-lib.plclib");
+        ut::expect( fs::exists(out.path()) );
+        ut::expect( ut::that % out.content() == sample_lib_plclib );
+        //dir.set_cleanup_on_exit(false);
+       };
    };
 
 };///////////////////////////////////////////////////////////////////////////

@@ -109,24 +109,28 @@ void h_parse(const std::string& file_path, const std::string_view buf, plcb::Lib
 /////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
+inline static constexpr std::string_view sample_def_header =
+    "// Sample header\n"
+    "#define vbSample vb123 // A vb var\n"
+    "#define vnSample vn123 // A vn var\n"
+    "#define vqSample vq123 // A vq var\n"
+    "#define vaSample va123 // A va var\n"
+    "#define vdSample vd123 // A vd var\n"
+    "//#define vqSample2 vq42 // A commented vq\n"
+    "#define macro value // A not exported define\n"
+    "#define int 42 // [INT] An int constant\n"
+    "#define dint 100 // [DINT] A dint constant\n"
+    "#define double 12.3 // [LREAL] A double constant\n"
+    "#define num 43 // A local number\n"
+    "\n"sv;
+    
+/////////////////////////////////////////////////////////////////////////////
 static ut::suite<"h_file_parser"> h_file_parser_tests = []
 {////////////////////////////////////////////////////////////////////////////
 ut::test("sipro::h_parse()") = []
    {
-    plcb::Library lib("test"sv);
-    const std::string_view buf =
-        "#define vbSample vb123 // A vb var\n"
-        "#define vnSample vn123 // A vn var\n"
-        "#define vqSample vq123 // A vq var\n"
-        "#define vaSample va123 // A va var\n"
-        "#define vdSample vd123 // A vd var\n"
-        "#define macro value // A not exported define\n"
-        "#define int 42 // [INT] An int constant\n"
-        "#define dint 100 // [DINT] A dint constant\n"
-        "#define double 12.3 // [LREAL] A double constant\n"
-        "#define num 43 // A not exported number\n"
-        "\n"sv;
-    sipro::h_parse("", buf, lib, [](std::string&&)noexcept{});
+    plcb::Library lib("sample_def_header"sv);
+    sipro::h_parse(lib.name(), sample_def_header, lib, [](std::string&&)noexcept{});
 
     ut::expect( lib.global_retainvars().is_empty() );
     ut::expect( lib.functions().empty() );

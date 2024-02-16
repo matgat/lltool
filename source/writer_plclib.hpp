@@ -241,6 +241,34 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Pou& pou, const std:
 
 
 //---------------------------------------------------------------------------
+inline void write(MG::OutputStreamable auto& f, const plcb::Struct& strct, const std::size_t lvl)
+{
+    f<< ind(lvl) << "<struct name=\""sv << strct.name() << "\" version=\"1.0.0\">\n"sv;
+    f<< ind(lvl+1) << "<descr>"sv << strct.descr() << "</descr>\n"sv;
+    if( strct.members().empty() )
+       {
+        f<< ind(lvl+1) << "<vars/>\n"sv;
+       }
+    else
+       {
+        f<< ind(lvl+1) << "<vars>\n"sv;
+        for( const auto& memb : strct.members() )
+           {
+            f<< ind(lvl+2) << "<var name=\""sv << memb.name() << '\"';
+            write_type_attributes(f, memb.type());
+            f<< ">\n"sv;
+            f<< ind(lvl+3) << "<descr>"sv << memb.descr() << "</descr>\n"sv
+             << ind(lvl+2) << "</var>\n"sv;
+           }
+        f<< ind(lvl+1) << "</vars>\n"sv;
+       }
+    f<< ind(lvl+1) << "<iecDeclaration active=\"FALSE\"/>\n"sv;
+    f<< ind(lvl) << "</struct>\n"sv;
+}
+
+
+
+//---------------------------------------------------------------------------
 inline void write(MG::OutputStreamable auto& f, const plcb::Enum& enm, const std::size_t lvl)
 {
     f<< ind(lvl) << "<enum name=\""sv << enm.name() << "\" version=\"1.0.0\">\n"sv;
@@ -269,34 +297,6 @@ inline void write(MG::OutputStreamable auto& f, const plcb::TypeDef& tdef, const
     f<< ind(lvl+1) << "<iecDeclaration active=\"FALSE\"/>\n"sv;
     f<< ind(lvl+1) << "<descr>"sv << tdef.descr() << "</descr>\n"sv;
     f<< ind(lvl) << "</typedef>\n"sv;
-}
-
-
-
-//---------------------------------------------------------------------------
-inline void write(MG::OutputStreamable auto& f, const plcb::Struct& strct, const std::size_t lvl)
-{
-    f<< ind(lvl) << "<struct name=\""sv << strct.name() << "\" version=\"1.0.0\">\n"sv;
-    f<< ind(lvl+1) << "<descr>"sv << strct.descr() << "</descr>\n"sv;
-    if( strct.members().empty() )
-       {
-        f<< ind(lvl+1) << "<vars/>\n"sv;
-       }
-    else
-       {
-        f<< ind(lvl+1) << "<vars>\n"sv;
-        for( const auto& memb : strct.members() )
-           {
-            f<< ind(lvl+2) << "<var name=\""sv << memb.name() << '\"';
-            write_type_attributes(f, memb.type());
-            f << ">\n"sv;
-            f<< ind(lvl+3) << "<descr>"sv << memb.descr() << "</descr>\n"sv
-             << ind(lvl+2) << "</var>\n"sv;
-           }
-        f<< ind(lvl+1) << "</vars>\n"sv;
-       }
-    f<< ind(lvl+1) << "<iecDeclaration active=\"FALSE\"/>\n"sv;
-    f<< ind(lvl) << "</struct>\n"sv;
 }
 
 
@@ -456,7 +456,7 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
     const auto get_indent = [](const MG::keyvals& opts) -> std::size_t
        {
         const std::string_view sv = opts.value_or("plclib-indent", "2"sv);
-        if( const auto num=str::to_num_or<std::size_t>(sv) )
+        if( const auto num = str::to_num_or<std::size_t>(sv) )
            {
             return num.value();
            }
@@ -510,34 +510,37 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
        }
     const std::size_t lvl = get_indent(options);
 
-    // [Heading]
-    f << "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n"sv
-      << "<plcLibrary schemaVersion=\""sv << schema_ver.string() << "\">\n"sv
-      << ind(1) << "<lib version=\""sv << lib.version() << "\" name=\""sv << lib.name() << "\" fullXml=\"true\">\n"sv;
-    // Comment
-    f << ind(lvl) << "<!-- author=\"plclib::write()\""sv;
+    f<< "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n"sv
+     << "<plcLibrary schemaVersion=\""sv << schema_ver.string() << "\">\n"sv;
+    f<< ind(1) << "<lib version=\""sv << lib.version() << "\" name=\""sv << lib.name() << "\" fullXml=\"true\">\n"sv;
+
+    f<< ind(lvl) << "<!-- author=\"plclib::write()\""sv;
     if( not options.contains("no-timestamp") )
        {
         f<< " date=\""sv << MG::get_human_readable_timestamp() << '\"';
        }
-    f << " -->\n"sv;
-    // Desc tag
-    f << ind(lvl) << "<descr>"sv << lib.descr() << "</descr>\n"sv;
-    // Content summary
-    f << ind(lvl) << "<!--\n"sv;
-    if( not lib.global_variables().is_empty() )  f<< ind(lvl+1) << "global-variables: "sv << std::to_string(lib.global_variables().vars_count()) << '\n';
-    if( not lib.global_constants().is_empty() )  f<< ind(lvl+1) << "global-constants: "sv << std::to_string(lib.global_constants().vars_count()) << '\n';
-    if( not lib.global_retainvars().is_empty() ) f<< ind(lvl+1) << "global-retain-vars: "sv << std::to_string(lib.global_retainvars().vars_count()) << '\n';
-    if( not lib.functions().empty() )            f<< ind(lvl+1) << "functions: "sv << std::to_string(lib.functions().size()) << '\n';
-    if( not lib.function_blocks().empty() )      f<< ind(lvl+1) << "function blocks: "sv << std::to_string(lib.function_blocks().size()) << '\n';
-    if( not lib.programs().empty() )             f<< ind(lvl+1) << "programs: "sv << std::to_string(lib.programs().size()) << '\n';
-    if( not lib.macros().empty() )               f<< ind(lvl+1) << "macros: "sv << std::to_string(lib.macros().size()) << '\n';
-    if( not lib.structs().empty() )              f<< ind(lvl+1) << "structs: "sv << std::to_string(lib.structs().size()) << '\n';
-    if( not lib.typedefs().empty() )             f<< ind(lvl+1) << "typedefs: "sv << std::to_string(lib.typedefs().size()) << '\n';
-    if( not lib.enums().empty() )                f<< ind(lvl+1) << "enums: "sv << std::to_string(lib.enums().size()) << '\n';
-    if( not lib.subranges().empty() )            f<< ind(lvl+1) << "subranges: "sv << std::to_string(lib.subranges().size()) << '\n';
-    //if( not lib.interfaces().empty() )           f<< ind(lvl+1) << "interfaces: "sv << std::to_string(lib.interfaces().size()) << '\n';
-    f << ind(lvl) << "-->\n"sv;
+    f<< " -->\n"sv;
+
+    f<< ind(lvl) << "<descr>"sv << lib.descr() << "</descr>\n"sv;
+
+    // [Content summary]
+    if( not lib.is_empty() )
+       {
+        f<< ind(lvl) << "<!--\n"sv;
+        if( not lib.global_variables().is_empty() )  f<< ind(lvl+1) << "global-variables: "sv << std::to_string(lib.global_variables().vars_count()) << '\n';
+        if( not lib.global_constants().is_empty() )  f<< ind(lvl+1) << "global-constants: "sv << std::to_string(lib.global_constants().vars_count()) << '\n';
+        if( not lib.global_retainvars().is_empty() ) f<< ind(lvl+1) << "global-retain-vars: "sv << std::to_string(lib.global_retainvars().vars_count()) << '\n';
+        if( not lib.functions().empty() )            f<< ind(lvl+1) << "functions: "sv << std::to_string(lib.functions().size()) << '\n';
+        if( not lib.function_blocks().empty() )      f<< ind(lvl+1) << "function blocks: "sv << std::to_string(lib.function_blocks().size()) << '\n';
+        if( not lib.programs().empty() )             f<< ind(lvl+1) << "programs: "sv << std::to_string(lib.programs().size()) << '\n';
+        if( not lib.macros().empty() )               f<< ind(lvl+1) << "macros: "sv << std::to_string(lib.macros().size()) << '\n';
+        if( not lib.structs().empty() )              f<< ind(lvl+1) << "structs: "sv << std::to_string(lib.structs().size()) << '\n';
+        if( not lib.typedefs().empty() )             f<< ind(lvl+1) << "typedefs: "sv << std::to_string(lib.typedefs().size()) << '\n';
+        if( not lib.enums().empty() )                f<< ind(lvl+1) << "enums: "sv << std::to_string(lib.enums().size()) << '\n';
+        if( not lib.subranges().empty() )            f<< ind(lvl+1) << "subranges: "sv << std::to_string(lib.subranges().size()) << '\n';
+        //if( not lib.interfaces().empty() )           f<< ind(lvl+1) << "interfaces: "sv << std::to_string(lib.interfaces().size()) << '\n';
+        f<< ind(lvl) << "-->\n"sv;
+       }
 
     write_preamble(f, lib, lvl);
 
@@ -565,6 +568,262 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
 /////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
 #include "string_write.hpp" // MG::string_write
+/////////////////////////////////////////////////////////////////////////////
+inline static constexpr std::string_view sample_lib_plclib =
+    "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n"
+    "<plcLibrary schemaVersion=\"2.8\">\n"
+    "\t<lib version=\"1.0.2\" name=\"sample-lib\" fullXml=\"true\">\n"
+    "\t\t<!-- author=\"plclib::write()\" -->\n"
+    "\t\t<descr>sample library</descr>\n"
+    "\t\t<!--\n"
+    "\t\t\tglobal-variables: 2\n"
+    "\t\t\tglobal-constants: 2\n"
+    "\t\t\tfunctions: 1\n"
+    "\t\t\tfunction blocks: 1\n"
+    "\t\t\tprograms: 2\n"
+    "\t\t\tmacros: 1\n"
+    "\t\t\tstructs: 1\n"
+    "\t\t\ttypedefs: 2\n"
+    "\t\t\tenums: 1\n"
+    "\t\t\tsubranges: 1\n"
+    "\t\t-->\n"
+    "\t\t<libWorkspace>\n"
+    "\t\t\t<folder name=\"sample-lib\" id=\"5644\">\n"
+    "\t\t\t\t<GlobalVars name=\"globs\"/>\n"
+    "\t\t\t\t<Pou name=\"fb_name\"/>\n"
+    "\t\t\t\t<Pou name=\"fn_name\"/>\n"
+    "\t\t\t\t<Pou name=\"prg_name1\"/>\n"
+    "\t\t\t\t<Pou name=\"prg_name2\"/>\n"
+    "\t\t\t\t<Definition name=\"macroname\"/>\n"
+    "\t\t\t\t<Definition name=\"structname\"/>\n"
+    "\t\t\t\t<Definition name=\"typename1\"/>\n"
+    "\t\t\t\t<Definition name=\"typename2\"/>\n"
+    "\t\t\t\t<Definition name=\"enumname\"/>\n"
+    "\t\t\t\t<Definition name=\"subrangename\"/>\n"
+    "\t\t\t</folder>\n"
+    "\t\t</libWorkspace>\n"
+    "\t\t<globalVars>\n"
+    "\t\t\t<group name=\"globs\" excludeFromBuild=\"FALSE\" excludeFromBuildIfNotDef=\"\" version=\"1.0.0\">\n"
+    "\t\t\t\t<var name=\"gvar1\" type=\"DINT\">\n"
+    "\t\t\t\t\t<descr>gvar1 descr</descr>\n"
+    "\t\t\t\t</var>\n"
+    "\t\t\t\t<var name=\"gvar2\" type=\"INT\" dim0=\"100\">\n"
+    "\t\t\t\t\t<descr>gvar2 descr</descr>\n"
+    "\t\t\t\t</var>\n"
+    "\t\t\t</group>\n"
+    "\t\t</globalVars>\n"
+    "\t\t<retainVars/>\n"
+    "\t\t<constantVars>\n"
+    "\t\t\t<group name=\"\" excludeFromBuild=\"FALSE\" excludeFromBuildIfNotDef=\"\" version=\"1.0.0\">\n"
+    "\t\t\t\t<const name=\"const1\" type=\"INT\">\n"
+    "\t\t\t\t\t<descr>gvar1 descr</descr>\n"
+    "\t\t\t\t\t<initValue>42</initValue>\n"
+    "\t\t\t\t</const>\n"
+    "\t\t\t\t<const name=\"const2\" type=\"LREAL\">\n"
+    "\t\t\t\t\t<descr>gvar2 descr</descr>\n"
+    "\t\t\t\t\t<initValue>3.14</initValue>\n"
+    "\t\t\t\t</const>\n"
+    "\t\t\t</group>\n"
+    "\t\t</constantVars>\n"
+    "\t\t<iecVarsDeclaration>\n"
+    "\t\t\t<group name=\"globs\">\n"
+    "\t\t\t\t<iecDeclaration active=\"FALSE\"/>\n"
+    "\t\t\t</group>\n"
+    "\t\t</iecVarsDeclaration>\n"
+    "\t\t<functions>\n"
+    "\t\t\t<function name=\"fn_name\" version=\"1.0.0\" creationDate=\"0\" lastModifiedDate=\"0\" excludeFromBuild=\"FALSE\" excludeFromBuildIfNotDef=\"\">\n"
+    "\t\t\t\t<descr>testing fn</descr>\n"
+    "\t\t\t\t<returnValue>INT</returnValue>\n"
+    "\t\t\t\t<vars>\n"
+    "\t\t\t\t\t<inputVars>\n"
+    "\t\t\t\t\t\t<var name=\"in1\" type=\"DINT\">\n"
+    "\t\t\t\t\t\t\t<descr>in1 descr</descr>\n"
+    "\t\t\t\t\t\t</var>\n"
+    "\t\t\t\t\t\t<var name=\"in2\" type=\"LREAL\">\n"
+    "\t\t\t\t\t\t\t<descr>in2 descr</descr>\n"
+    "\t\t\t\t\t\t</var>\n"
+    "\t\t\t\t\t</inputVars>\n"
+    "\t\t\t\t\t<localConsts>\n"
+    "\t\t\t\t\t\t<const name=\"const1\" type=\"DINT\">\n"
+    "\t\t\t\t\t\t\t<descr>const1 descr</descr>\n"
+    "\t\t\t\t\t\t\t<initValue>42</initValue>\n"
+    "\t\t\t\t\t\t</const>\n"
+    "\t\t\t\t\t</localConsts>\n"
+    "\t\t\t\t</vars>\n"
+    "\t\t\t\t<iecDeclaration active=\"FALSE\"/>\n"
+    "\t\t\t\t<sourceCode type=\"ST\">\n"
+    "\t\t\t\t\t<![CDATA[body]]>\n"
+    "\t\t\t\t</sourceCode>\n"
+    "\t\t\t</function>\n"
+    "\t\t</functions>\n"
+    "\t\t<functionBlocks>\n"
+    "\t\t\t<functionBlock name=\"fb_name\" version=\"1.0.0\" creationDate=\"0\" lastModifiedDate=\"0\" excludeFromBuild=\"FALSE\" excludeFromBuildIfNotDef=\"\">\n"
+    "\t\t\t\t<descr>testing fb</descr>\n"
+    "\t\t\t\t<vars>\n"
+    "\t\t\t\t\t<inoutVars>\n"
+    "\t\t\t\t\t\t<var name=\"inout1\" type=\"DINT\">\n"
+    "\t\t\t\t\t\t\t<descr>inout1 descr</descr>\n"
+    "\t\t\t\t\t\t</var>\n"
+    "\t\t\t\t\t\t<var name=\"inout2\" type=\"LREAL\">\n"
+    "\t\t\t\t\t\t\t<descr>inout2 descr</descr>\n"
+    "\t\t\t\t\t\t</var>\n"
+    "\t\t\t\t\t</inoutVars>\n"
+    "\t\t\t\t\t<inputVars>\n"
+    "\t\t\t\t\t\t<var name=\"in1\" type=\"DINT\">\n"
+    "\t\t\t\t\t\t\t<descr>in1 descr</descr>\n"
+    "\t\t\t\t\t\t</var>\n"
+    "\t\t\t\t\t\t<var name=\"in2\" type=\"LREAL\">\n"
+    "\t\t\t\t\t\t\t<descr>in2 descr</descr>\n"
+    "\t\t\t\t\t\t</var>\n"
+    "\t\t\t\t\t</inputVars>\n"
+    "\t\t\t\t\t<outputVars>\n"
+    "\t\t\t\t\t\t<var name=\"out1\" type=\"DINT\">\n"
+    "\t\t\t\t\t\t\t<descr>out1 descr</descr>\n"
+    "\t\t\t\t\t\t</var>\n"
+    "\t\t\t\t\t\t<var name=\"out2\" type=\"LREAL\">\n"
+    "\t\t\t\t\t\t\t<descr>out2 descr</descr>\n"
+    "\t\t\t\t\t\t</var>\n"
+    "\t\t\t\t\t</outputVars>\n"
+    "\t\t\t\t\t<externalVars>\n"
+    "\t\t\t\t\t\t<var name=\"ext1\" type=\"DINT\">\n"
+    "\t\t\t\t\t\t\t<descr>ext1 descr</descr>\n"
+    "\t\t\t\t\t\t</var>\n"
+    "\t\t\t\t\t\t<var name=\"ext2\" type=\"STRING\" length=\"80\">\n"
+    "\t\t\t\t\t\t\t<descr>ext2 descr</descr>\n"
+    "\t\t\t\t\t\t</var>\n"
+    "\t\t\t\t\t</externalVars>\n"
+    "\t\t\t\t\t<localVars>\n"
+    "\t\t\t\t\t\t<var name=\"loc1\" type=\"DINT\">\n"
+    "\t\t\t\t\t\t\t<descr>loc1 descr</descr>\n"
+    "\t\t\t\t\t\t</var>\n"
+    "\t\t\t\t\t\t<var name=\"loc2\" type=\"LREAL\">\n"
+    "\t\t\t\t\t\t\t<descr>loc2 descr</descr>\n"
+    "\t\t\t\t\t\t</var>\n"
+    "\t\t\t\t\t</localVars>\n"
+    "\t\t\t\t\t<localConsts>\n"
+    "\t\t\t\t\t\t<const name=\"const1\" type=\"DINT\">\n"
+    "\t\t\t\t\t\t\t<descr>const1 descr</descr>\n"
+    "\t\t\t\t\t\t\t<initValue>42</initValue>\n"
+    "\t\t\t\t\t\t</const>\n"
+    "\t\t\t\t\t\t<const name=\"const2\" type=\"LREAL\">\n"
+    "\t\t\t\t\t\t\t<descr>const2 descr</descr>\n"
+    "\t\t\t\t\t\t\t<initValue>1.5</initValue>\n"
+    "\t\t\t\t\t\t</const>\n"
+    "\t\t\t\t\t</localConsts>\n"
+    "\t\t\t\t</vars>\n"
+    "\t\t\t\t<iecDeclaration active=\"FALSE\"/>\n"
+    "\t\t\t\t<interfaces/>\n"
+    "\t\t\t\t<methods/>\n"
+    "\t\t\t\t<sourceCode type=\"ST\">\n"
+    "\t\t\t\t\t<![CDATA[body]]>\n"
+    "\t\t\t\t</sourceCode>\n"
+    "\t\t\t</functionBlock>\n"
+    "\t\t</functionBlocks>\n"
+    "\t\t<programs>\n"
+    "\t\t\t<program name=\"prg_name1\" version=\"1.0.0\" creationDate=\"0\" lastModifiedDate=\"0\" excludeFromBuild=\"FALSE\" excludeFromBuildIfNotDef=\"\">\n"
+    "\t\t\t\t<descr>testing prg 1</descr>\n"
+    "\t\t\t\t<vars>\n"
+    "\t\t\t\t\t<localVars>\n"
+    "\t\t\t\t\t\t<var name=\"loc1\" type=\"DINT\">\n"
+    "\t\t\t\t\t\t\t<descr>loc1 descr</descr>\n"
+    "\t\t\t\t\t\t</var>\n"
+    "\t\t\t\t\t\t<var name=\"loc2\" type=\"LREAL\">\n"
+    "\t\t\t\t\t\t\t<descr>loc2 descr</descr>\n"
+    "\t\t\t\t\t\t</var>\n"
+    "\t\t\t\t\t</localVars>\n"
+    "\t\t\t\t</vars>\n"
+    "\t\t\t\t<iecDeclaration active=\"FALSE\"/>\n"
+    "\t\t\t\t<sourceCode type=\"ST\">\n"
+    "\t\t\t\t\t<![CDATA[body]]>\n"
+    "\t\t\t\t</sourceCode>\n"
+    "\t\t\t</program>\n"
+    "\t\t\t<program name=\"prg_name2\" version=\"1.0.0\" creationDate=\"0\" lastModifiedDate=\"0\" excludeFromBuild=\"FALSE\" excludeFromBuildIfNotDef=\"\">\n"
+    "\t\t\t\t<descr>testing prg 2</descr>\n"
+    "\t\t\t\t<vars>\n"
+    "\t\t\t\t\t<localVars>\n"
+    "\t\t\t\t\t\t<var name=\"loc1\" type=\"DINT\">\n"
+    "\t\t\t\t\t\t\t<descr>loc1 descr</descr>\n"
+    "\t\t\t\t\t\t</var>\n"
+    "\t\t\t\t\t\t<var name=\"loc2\" type=\"LREAL\">\n"
+    "\t\t\t\t\t\t\t<descr>loc2 descr</descr>\n"
+    "\t\t\t\t\t\t</var>\n"
+    "\t\t\t\t\t</localVars>\n"
+    "\t\t\t\t</vars>\n"
+    "\t\t\t\t<iecDeclaration active=\"FALSE\"/>\n"
+    "\t\t\t\t<sourceCode type=\"ST\">\n"
+    "\t\t\t\t\t<![CDATA[body]]>\n"
+    "\t\t\t\t</sourceCode>\n"
+    "\t\t\t</program>\n"
+    "\t\t</programs>\n"
+    "\t\t<macros>\n"
+    "\t\t\t<macro name=\"macroname\">\n"
+    "\t\t\t\t<descr>testing macro</descr>\n"
+    "\t\t\t\t<sourceCode type=\"ST\">\n"
+    "\t\t\t\t\t<![CDATA[body]]>\n"
+    "\t\t\t\t</sourceCode>\n"
+    "\t\t\t\t<parameters>\n"
+    "\t\t\t\t\t<parameter name=\"par1\">\n"
+    "\t\t\t\t\t\t<descr>par1 descr</descr>\n"
+    "\t\t\t\t\t</parameter>\n"
+    "\t\t\t\t\t<parameter name=\"par2\">\n"
+    "\t\t\t\t\t\t<descr>par2 descr</descr>\n"
+    "\t\t\t\t\t</parameter>\n"
+    "\t\t\t\t</parameters>\n"
+    "\t\t\t</macro>\n"
+    "\t\t</macros>\n"
+    "\t\t<structs>\n"
+    "\t\t\t<struct name=\"structname\" version=\"1.0.0\">\n"
+    "\t\t\t\t<descr>testing struct</descr>\n"
+    "\t\t\t\t<vars>\n"
+    "\t\t\t\t\t<var name=\"member1\" type=\"DINT\">\n"
+    "\t\t\t\t\t\t<descr>member1 descr</descr>\n"
+    "\t\t\t\t\t</var>\n"
+    "\t\t\t\t\t<var name=\"member2\" type=\"STRING\" length=\"80\">\n"
+    "\t\t\t\t\t\t<descr>member2 descr</descr>\n"
+    "\t\t\t\t\t</var>\n"
+    "\t\t\t\t\t<var name=\"member3\" type=\"INT\" dim0=\"12\">\n"
+    "\t\t\t\t\t\t<descr>array member</descr>\n"
+    "\t\t\t\t\t</var>\n"
+    "\t\t\t\t</vars>\n"
+    "\t\t\t\t<iecDeclaration active=\"FALSE\"/>\n"
+    "\t\t\t</struct>\n"
+    "\t\t</structs>\n"
+    "\t\t<typedefs>\n"
+    "\t\t\t<typedef name=\"typename1\" type=\"STRING\" length=\"80\">\n"
+    "\t\t\t\t<iecDeclaration active=\"FALSE\"/>\n"
+    "\t\t\t\t<descr>testing typedef</descr>\n"
+    "\t\t\t</typedef>\n"
+    "\t\t\t<typedef name=\"typename2\" type=\"INT\" dim0=\"10\">\n"
+    "\t\t\t\t<iecDeclaration active=\"FALSE\"/>\n"
+    "\t\t\t\t<descr>testing typedef 2</descr>\n"
+    "\t\t\t</typedef>\n"
+    "\t\t</typedefs>\n"
+    "\t\t<enums>\n"
+    "\t\t\t<enum name=\"enumname\" version=\"1.0.0\">\n"
+    "\t\t\t\t<descr>testing enum</descr>\n"
+    "\t\t\t\t<elements>\n"
+    "\t\t\t\t\t<element name=\"elm1\">\n"
+    "\t\t\t\t\t\t<descr>elm1 descr</descr>\n"
+    "\t\t\t\t\t\t<value>1</value>\n"
+    "\t\t\t\t\t</element>\n"
+    "\t\t\t\t\t<element name=\"elm2\">\n"
+    "\t\t\t\t\t\t<descr>elm2 descr</descr>\n"
+    "\t\t\t\t\t\t<value>42</value>\n"
+    "\t\t\t\t\t</element>\n"
+    "\t\t\t\t</elements>\n"
+    "\t\t\t\t<iecDeclaration active=\"FALSE\"/>\n"
+    "\t\t\t</enum>\n"
+    "\t\t</enums>\n"
+    "\t\t<subranges>\n"
+    "\t\t\t<subrange name=\"subrangename\" version=\"1.0.0\" type=\"INT\">\n"
+    "\t\t\t\t<descr>testing subrange</descr>\n"
+    "\t\t\t\t<minValue>1</minValue>\n"
+    "\t\t\t\t<maxValue>12</maxValue>\n"
+    "\t\t\t\t<iecDeclaration active=\"FALSE\"/>\n"
+    "\t\t\t</subrange>\n"
+    "\t\t</subranges>\n"
+    "\t</lib>\n"
+    "</plcLibrary>\n"sv;
 /////////////////////////////////////////////////////////////////////////////
 static ut::suite<"writer_plclib"> writer_plclib_tests = []
 {
@@ -697,6 +956,48 @@ ut::test("plclib::write(plcb::Pou)") = []
    };
 
 
+ut::test("plclib::write(plcb::Struct)") = []
+   {
+    plcb::Struct strct;
+    strct.set_name("structname");
+    strct.set_descr("testing struct");
+
+    {   plcb::Struct::Member& memb = strct.members().emplace_back();
+        memb.set_name("member1"sv);
+        memb.type() = plcb::make_type("DINT"sv);
+        memb.set_descr("member1 descr"sv);   }
+    {   plcb::Struct::Member& memb = strct.members().emplace_back();
+        memb.set_name("member2"sv);
+        memb.type() = plcb::make_type("STRING"sv,80u);
+        memb.set_descr("member2 descr"sv);   }
+    {   plcb::Struct::Member& memb = strct.members().emplace_back();
+        memb.set_name("member3"sv);
+        memb.type() = plcb::make_type("INT"sv,0u,11u);
+        memb.set_descr("array member"sv);   }
+
+    const std::string_view expected =
+        "<struct name=\"structname\" version=\"1.0.0\">\n"
+        "\t<descr>testing struct</descr>\n"
+        "\t<vars>\n"
+        "\t\t<var name=\"member1\" type=\"DINT\">\n"
+        "\t\t\t<descr>member1 descr</descr>\n"
+        "\t\t</var>\n"
+        "\t\t<var name=\"member2\" type=\"STRING\" length=\"80\">\n"
+        "\t\t\t<descr>member2 descr</descr>\n"
+        "\t\t</var>\n"
+        "\t\t<var name=\"member3\" type=\"INT\" dim0=\"12\">\n"
+        "\t\t\t<descr>array member</descr>\n"
+        "\t\t</var>\n"
+        "\t</vars>\n"
+        "\t<iecDeclaration active=\"FALSE\"/>\n"
+        "</struct>\n"sv;
+
+    MG::string_write out;
+    plclib::write(out, strct, 0);
+    ut::expect( ut::that % out.str() == expected );
+   };
+
+
 ut::test("plclib::write(plcb::Enum)") = []
    {
     plcb::Enum enm;
@@ -742,48 +1043,6 @@ ut::test("plclib::write(plcb::TypeDef)") = []
 
     MG::string_write out;
     plclib::write(out, tdef, 0);
-    ut::expect( ut::that % out.str() == expected );
-   };
-
-
-ut::test("plclib::write(plcb::Struct)") = []
-   {
-    plcb::Struct strct;
-    strct.set_name("structname");
-    strct.set_descr("testing struct");
-
-    {   plcb::Struct::Member& memb = strct.members().emplace_back();
-        memb.set_name("member1"sv);
-        memb.type() = plcb::make_type("DINT"sv);
-        memb.set_descr("member1 descr"sv);   }
-    {   plcb::Struct::Member& memb = strct.members().emplace_back();
-        memb.set_name("member2"sv);
-        memb.type() = plcb::make_type("STRING"sv,80u);
-        memb.set_descr("member2 descr"sv);   }
-    {   plcb::Struct::Member& memb = strct.members().emplace_back();
-        memb.set_name("member3"sv);
-        memb.type() = plcb::make_type("INT"sv,0u,11u);
-        memb.set_descr("array member"sv);   }
-
-    const std::string_view expected =
-        "<struct name=\"structname\" version=\"1.0.0\">\n"
-        "\t<descr>testing struct</descr>\n"
-        "\t<vars>\n"
-        "\t\t<var name=\"member1\" type=\"DINT\">\n"
-        "\t\t\t<descr>member1 descr</descr>\n"
-        "\t\t</var>\n"
-        "\t\t<var name=\"member2\" type=\"STRING\" length=\"80\">\n"
-        "\t\t\t<descr>member2 descr</descr>\n"
-        "\t\t</var>\n"
-        "\t\t<var name=\"member3\" type=\"INT\" dim0=\"12\">\n"
-        "\t\t\t<descr>array member</descr>\n"
-        "\t\t</var>\n"
-        "\t</vars>\n"
-        "\t<iecDeclaration active=\"FALSE\"/>\n"
-        "</struct>\n"sv;
-
-    MG::string_write out;
-    plclib::write(out, strct, 0);
     ut::expect( ut::that % out.str() == expected );
    };
 
@@ -844,182 +1103,11 @@ ut::test("plclib::write(plcb::Macro)") = []
 
 ut::test("plclib::write(plcb::Library)") = []
    {
-    plcb::Library lib{"testlib"sv};
-
-   {auto& grp = lib.global_variables().groups().emplace_back();
-    grp.set_name("globs");
-    grp.mutable_variables() = { plcb::make_var("gvar1"sv, plcb::make_type("DINT"sv), ""sv, "gvar1 descr"),
-                                plcb::make_var("gvar2"sv, plcb::make_type("LREAL"sv), ""sv, "gvar2 descr") };
-   }
-    //lib.global_constants()
-    //lib.global_retainvars()
-
-   {auto& prg = lib.programs().emplace_back();
-    prg.set_name("prgname");
-    prg.set_descr("testing prg");
-    prg.local_vars() = { plcb::make_var("loc1"sv, plcb::make_type("DINT"sv), ""sv, "loc1 descr"),
-                         plcb::make_var("loc2"sv, plcb::make_type("LREAL"sv), ""sv, "loc2 descr") };
-    prg.set_code_type("ST");
-    prg.set_body("body");
-   }
-
-   {auto& fb = lib.function_blocks().emplace_back();
-    fb.set_name("fbname");
-    fb.set_descr("testing fb");
-    fb.inout_vars() = { plcb::make_var("inout1"sv, plcb::make_type("DINT"sv), ""sv, "inout1 descr"),
-                        plcb::make_var("inout2"sv, plcb::make_type("LREAL"sv), ""sv, "inout2 descr") };
-    fb.input_vars() = { plcb::make_var("in1"sv, plcb::make_type("DINT"sv), ""sv, "in1 descr"),
-                        plcb::make_var("in2"sv, plcb::make_type("LREAL"sv), ""sv, "in2 descr") };
-    fb.output_vars() = { plcb::make_var("out1"sv, plcb::make_type("DINT"sv), ""sv, "out1 descr"),
-                         plcb::make_var("out2"sv, plcb::make_type("LREAL"sv), ""sv, "out2 descr") };
-    fb.external_vars() = { plcb::make_var("ext1"sv, plcb::make_type("DINT"sv), ""sv, "ext1 descr"),
-                           plcb::make_var("ext2"sv, plcb::make_type("STRING"sv,80u), ""sv, "ext2 descr") };
-    fb.local_vars() = { plcb::make_var("loc1"sv, plcb::make_type("DINT"sv), ""sv, "loc1 descr"),
-                        plcb::make_var("loc2"sv, plcb::make_type("LREAL"sv), ""sv, "loc2 descr") };
-    fb.local_constants() = { plcb::make_var("const1"sv, plcb::make_type("DINT"sv), "42"sv, "const1 descr"),
-                             plcb::make_var("const2"sv, plcb::make_type("LREAL"sv), "1.5"sv, "const2 descr") };
-    fb.set_code_type("ST");
-    fb.set_body("body");
-   }
-
-    //lib.functions()
-    //lib.function_blocks()
-    //lib.macros()
-    //lib.structs()
-    //lib.typedefs()
-    //lib.enums()
-    //lib.subranges()
-
-    const std::string_view expected =
-        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n"
-        "<plcLibrary schemaVersion=\"2.8\">\n"
-        "\t<lib version=\"1.0.0\" name=\"testlib\" fullXml=\"true\">\n"
-        "\t\t<!-- author=\"plclib::write()\" -->\n"
-        "\t\t<descr>PLC library</descr>\n"
-        "\t\t<!--\n"
-        "\t\t\tglobal-variables: 2\n"
-        "\t\t\tfunction blocks: 1\n"
-        "\t\t\tprograms: 1\n"
-        "\t\t-->\n"
-        "\t\t<libWorkspace>\n"
-        "\t\t\t<folder name=\"testlib\" id=\"3089\">\n"
-        "\t\t\t\t<GlobalVars name=\"globs\"/>\n"
-        "\t\t\t\t<Pou name=\"fbname\"/>\n"
-        "\t\t\t\t<Pou name=\"prgname\"/>\n"
-        "\t\t\t</folder>\n"
-        "\t\t</libWorkspace>\n"
-        "\t\t<globalVars>\n"
-        "\t\t\t<group name=\"globs\" excludeFromBuild=\"FALSE\" excludeFromBuildIfNotDef=\"\" version=\"1.0.0\">\n"
-        "\t\t\t\t<var name=\"gvar1\" type=\"DINT\">\n"
-        "\t\t\t\t\t<descr>gvar1 descr</descr>\n"
-        "\t\t\t\t</var>\n"
-        "\t\t\t\t<var name=\"gvar2\" type=\"LREAL\">\n"
-        "\t\t\t\t\t<descr>gvar2 descr</descr>\n"
-        "\t\t\t\t</var>\n"
-        "\t\t\t</group>\n"
-        "\t\t</globalVars>\n"
-        "\t\t<retainVars/>\n"
-        "\t\t<constantVars/>\n"
-        "\t\t<iecVarsDeclaration>\n"
-        "\t\t\t<group name=\"globs\">\n"
-        "\t\t\t\t<iecDeclaration active=\"FALSE\"/>\n"
-        "\t\t\t</group>\n"
-        "\t\t</iecVarsDeclaration>\n"
-        "\t\t<functions/>\n"
-        "\t\t<functionBlocks>\n"
-        "\t\t\t<functionBlock name=\"fbname\" version=\"1.0.0\" creationDate=\"0\" lastModifiedDate=\"0\" excludeFromBuild=\"FALSE\" excludeFromBuildIfNotDef=\"\">\n"
-        "\t\t\t\t<descr>testing fb</descr>\n"
-        "\t\t\t\t<vars>\n"
-        "\t\t\t\t\t<inoutVars>\n"
-        "\t\t\t\t\t\t<var name=\"inout1\" type=\"DINT\">\n"
-        "\t\t\t\t\t\t\t<descr>inout1 descr</descr>\n"
-        "\t\t\t\t\t\t</var>\n"
-        "\t\t\t\t\t\t<var name=\"inout2\" type=\"LREAL\">\n"
-        "\t\t\t\t\t\t\t<descr>inout2 descr</descr>\n"
-        "\t\t\t\t\t\t</var>\n"
-        "\t\t\t\t\t</inoutVars>\n"
-        "\t\t\t\t\t<inputVars>\n"
-        "\t\t\t\t\t\t<var name=\"in1\" type=\"DINT\">\n"
-        "\t\t\t\t\t\t\t<descr>in1 descr</descr>\n"
-        "\t\t\t\t\t\t</var>\n"
-        "\t\t\t\t\t\t<var name=\"in2\" type=\"LREAL\">\n"
-        "\t\t\t\t\t\t\t<descr>in2 descr</descr>\n"
-        "\t\t\t\t\t\t</var>\n"
-        "\t\t\t\t\t</inputVars>\n"
-        "\t\t\t\t\t<outputVars>\n"
-        "\t\t\t\t\t\t<var name=\"out1\" type=\"DINT\">\n"
-        "\t\t\t\t\t\t\t<descr>out1 descr</descr>\n"
-        "\t\t\t\t\t\t</var>\n"
-        "\t\t\t\t\t\t<var name=\"out2\" type=\"LREAL\">\n"
-        "\t\t\t\t\t\t\t<descr>out2 descr</descr>\n"
-        "\t\t\t\t\t\t</var>\n"
-        "\t\t\t\t\t</outputVars>\n"
-        "\t\t\t\t\t<externalVars>\n"
-        "\t\t\t\t\t\t<var name=\"ext1\" type=\"DINT\">\n"
-        "\t\t\t\t\t\t\t<descr>ext1 descr</descr>\n"
-        "\t\t\t\t\t\t</var>\n"
-        "\t\t\t\t\t\t<var name=\"ext2\" type=\"STRING\" length=\"80\">\n"
-        "\t\t\t\t\t\t\t<descr>ext2 descr</descr>\n"
-        "\t\t\t\t\t\t</var>\n"
-        "\t\t\t\t\t</externalVars>\n"
-        "\t\t\t\t\t<localVars>\n"
-        "\t\t\t\t\t\t<var name=\"loc1\" type=\"DINT\">\n"
-        "\t\t\t\t\t\t\t<descr>loc1 descr</descr>\n"
-        "\t\t\t\t\t\t</var>\n"
-        "\t\t\t\t\t\t<var name=\"loc2\" type=\"LREAL\">\n"
-        "\t\t\t\t\t\t\t<descr>loc2 descr</descr>\n"
-        "\t\t\t\t\t\t</var>\n"
-        "\t\t\t\t\t</localVars>\n"
-        "\t\t\t\t\t<localConsts>\n"
-        "\t\t\t\t\t\t<const name=\"const1\" type=\"DINT\">\n"
-        "\t\t\t\t\t\t\t<descr>const1 descr</descr>\n"
-        "\t\t\t\t\t\t\t<initValue>42</initValue>\n"
-        "\t\t\t\t\t\t</const>\n"
-        "\t\t\t\t\t\t<const name=\"const2\" type=\"LREAL\">\n"
-        "\t\t\t\t\t\t\t<descr>const2 descr</descr>\n"
-        "\t\t\t\t\t\t\t<initValue>1.5</initValue>\n"
-        "\t\t\t\t\t\t</const>\n"
-        "\t\t\t\t\t</localConsts>\n"
-        "\t\t\t\t</vars>\n"
-        "\t\t\t\t<iecDeclaration active=\"FALSE\"/>\n"
-        "\t\t\t\t<interfaces/>\n"
-        "\t\t\t\t<methods/>\n"
-        "\t\t\t\t<sourceCode type=\"ST\">\n"
-        "\t\t\t\t\t<![CDATA[body]]>\n"
-        "\t\t\t\t</sourceCode>\n"
-        "\t\t\t</functionBlock>\n"
-        "\t\t</functionBlocks>\n"
-        "\t\t<programs>\n"
-        "\t\t\t<program name=\"prgname\" version=\"1.0.0\" creationDate=\"0\" lastModifiedDate=\"0\" excludeFromBuild=\"FALSE\" excludeFromBuildIfNotDef=\"\">\n"
-        "\t\t\t\t<descr>testing prg</descr>\n"
-        "\t\t\t\t<vars>\n"
-        "\t\t\t\t\t<localVars>\n"
-        "\t\t\t\t\t\t<var name=\"loc1\" type=\"DINT\">\n"
-        "\t\t\t\t\t\t\t<descr>loc1 descr</descr>\n"
-        "\t\t\t\t\t\t</var>\n"
-        "\t\t\t\t\t\t<var name=\"loc2\" type=\"LREAL\">\n"
-        "\t\t\t\t\t\t\t<descr>loc2 descr</descr>\n"
-        "\t\t\t\t\t\t</var>\n"
-        "\t\t\t\t\t</localVars>\n"
-        "\t\t\t\t</vars>\n"
-        "\t\t\t\t<iecDeclaration active=\"FALSE\"/>\n"
-        "\t\t\t\t<sourceCode type=\"ST\">\n"
-        "\t\t\t\t\t<![CDATA[body]]>\n"
-        "\t\t\t\t</sourceCode>\n"
-        "\t\t\t</program>\n"
-        "\t\t</programs>\n"
-        "\t\t<macros/>\n"
-        "\t\t<structs/>\n"
-        "\t\t<typedefs/>\n"
-        "\t\t<enums/>\n"
-        "\t\t<subranges/>\n"
-        "\t</lib>\n"
-        "</plcLibrary>\n"sv;
+    const plcb::Library lib = plcb::make_sample_lib();
 
     MG::string_write out;
-    MG::keyvals opts; opts.assign("no-timestamp,plclib-indent:2");
-    plclib::write_lib(out, lib, opts);
-    ut::expect( ut::that % out.str() == expected );
+    plclib::write_lib(out, lib, MG::keyvals{"no-timestamp,plclib-indent:2"});
+    ut::expect( ut::that % out.str() == sample_lib_plclib );
    };
 
 };///////////////////////////////////////////////////////////////////////////

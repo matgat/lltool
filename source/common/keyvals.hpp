@@ -23,6 +23,12 @@ class keyvals final
     container_type m_map;
 
  public:
+    keyvals() noexcept = default;
+    explicit keyvals(const std::string_view input)
+       {
+        assign(input);
+       }
+
     //-----------------------------------------------------------------------
     // Get from strings like: "key1:val1,key2,key3:val3"
     void assign(const std::string_view input)

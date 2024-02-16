@@ -57,7 +57,7 @@ class PllParser final : public plain::ParserBase<char>
                                {
                                 parser.get_next();
                                 parser.skip_blanks();
-                                value = parser.get_rest_of_line();
+                                value = str::trim_right(parser.get_rest_of_line());
                                 if( not value.empty() )
                                    {
                                     return true;
@@ -660,7 +660,7 @@ class PllParser final : public plain::ParserBase<char>
            }
 
         local::collect_pou_header(*this, pou, start_tag, end_tag);
-        pou.set_body( inherited::get_until_newline_token(end_tag) );
+        pou.set_body( trim_pou_body(inherited::get_until_newline_token(end_tag)) );
         skip_endline();
        }
 
@@ -793,7 +793,7 @@ class PllParser final : public plain::ParserBase<char>
            }
 
         local::collect_macro_header(*this, macro);
-        macro.set_body( inherited::get_until_newline_token("END_MACRO"sv) );
+        macro.set_body( trim_pou_body(inherited::get_until_newline_token("END_MACRO"sv)) );
         skip_endline();
        }
 
@@ -848,6 +848,7 @@ class PllParser final : public plain::ParserBase<char>
                 //END_STRUCT;
 
                 // Name already collected, "STRUCT" already skipped
+                parser.skip_any_space();
                 if( const auto descr = parser.collect_possible_description_and_endline() )
                    {
                     strct.set_descr( descr.value() );
@@ -929,6 +930,7 @@ class PllParser final : public plain::ParserBase<char>
                 //     VAL2 := -1 { DE:"elem desc" }
                 // );
                 // Name already collected, '(' already skipped
+                parser.skip_any_space();
                 if( const auto descr = parser.collect_possible_description_and_endline() )
                    {
                     enm.set_descr( descr.value() );
@@ -944,7 +946,7 @@ class PllParser final : public plain::ParserBase<char>
                        }
                    }
 
-                parser.skip_blanks();
+                parser.skip_any_space();
                 if( not parser.eat(");"sv) )
                    {
                     throw parser.create_parse_error( fmt::format("Expected termination \");\" after enum \"{}\"", enm.name()) );
@@ -1079,6 +1081,17 @@ class PllParser final : public plain::ParserBase<char>
         inherited::skip_blanks();
         inherited::check_and_eat_endline();
        }
+       
+    //-----------------------------------------------------------------------
+    [[nodiscard]] std::string_view trim_pou_body(std::string_view sv) noexcept
+       {
+        if( const std::size_t last_endline = sv.find_last_of("\n"sv);
+            last_endline!=std::string_view::npos )
+           {
+            sv.remove_suffix(sv.size() - last_endline);
+           }
+        return sv;
+       }
 };
 
 
@@ -1116,18 +1129,21 @@ void pll_parse(const std::string& file_path, const std::string_view buf, plcb::L
 
 /////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
+#include "writer_pll.hpp" // sample_lib_pll
+/////////////////////////////////////////////////////////////////////////////
 static ut::suite<"pll_file_parser"> pll_file_parser_tests = []
 {////////////////////////////////////////////////////////////////////////////
 
 ut::test("ll::PllParser::check_heading_comment()") = []
    {
     ll::PllParser parser
-       {"    (*\n"
-        "        name: test\n"
-        "        descr: Libraries for strato machines (Macotec M-series machines)\n"
+       {"    (*\r\n"
+        "        name: test\r\n"
+        "        descr: Libraries for strato machines (Macotec M-series machines)\r\n"
         "        version: 0.5.0\n"
-        "        author: MG\n"
-        "        dependencies: Common.pll, defvar.pll, iomap.pll, messages.pll\n"
+        "        author: MG\r\n"
+        "        dependencies: Common.pll, defvar.pll, iomap.pll, messages.pll\r\n"
         "    *)\n"sv};
     plcb::Library lib("test");
     parser.check_heading_comment(lib);
@@ -1283,7 +1299,7 @@ ut::test("ll::PllParser::collect_pou()") = []
             "   { CODE:ST }(* Square root of the sum of squares *)\n"
             "fnDist := SQRT( POW(a,2.0) + POW(b,2.0) );\n"
             "\n"
-            "END_FUNCTION\n"sv};
+            "  END_FUNCTION\n"sv};
 
         plcb::Pou fn;
         try{
@@ -1300,8 +1316,7 @@ ut::test("ll::PllParser::collect_pou()") = []
         ut::expect( ut::that % fn.return_type() == "LREAL"sv );
         ut::expect( ut::that % fn.code_type() == "ST"sv );
         ut::expect( ut::that % fn.body() == "(* Square root of the sum of squares *)\n"
-                                            "fnDist := SQRT( POW(a,2.0) + POW(b,2.0) );\n"
-                                            "\n"sv );
+                                            "fnDist := SQRT( POW(a,2.0) + POW(b,2.0) );\n"sv );
         ut::expect( fn.inout_vars().empty() );
         ut::expect( ut::that % fn.input_vars().size() == 2u );
         ut::expect( ut::that % plcb::to_string(fn.input_vars().at(0)) == "a LREAL 'Measure a'"sv );
@@ -1345,7 +1360,7 @@ ut::test("ll::PllParser::collect_pou()") = []
             "\n"
             "IF Push THEN\n"
             "ELSIF Pop THEN\n"
-            "END_IF;\n"
+            "END_IF;\t\n"
             "END_FUNCTION_BLOCK  \n"sv};
 
         plcb::Pou fb;
@@ -1366,7 +1381,7 @@ ut::test("ll::PllParser::collect_pou()") = []
                                             "\n"
                                             "IF Push THEN\n"
                                             "ELSIF Pop THEN\n"
-                                            "END_IF;\n"sv );
+                                            "END_IF;\t"sv );
 
         ut::expect( ut::that % fb.inout_vars().size() == 2u );
         ut::expect( ut::that % plcb::to_string(fb.inout_vars().at(0)) == "Push BOOL"sv );
@@ -1417,7 +1432,7 @@ ut::test("ll::PllParser::collect_macro()") = []
     ut::expect( ut::that % macro.descr() == "Macro description"sv );
     ut::expect( ut::that % macro.code_type() == "ST"sv );
     ut::expect( ut::that % macro.body() == "\n"
-                                           "(* Macro body *)\n"sv );
+                                           "(* Macro body *)"sv );
     ut::expect( ut::that % macro.parameters().size() == 2u );
     {   const plcb::Macro::Parameter& par = macro.parameters().at(0);
         ut::expect( ut::that % par.name() == "WHAT1"sv );
@@ -1441,7 +1456,8 @@ ut::test("ll::PllParser::collect_types()") = []
         "        Ids : ARRAY[ 0..99 ] OF INT; { DE:\"Identificative numbers\" }\n"
         "    END_STRUCT;\n"
         "\n"
-        "    EN_CMD: (    { DE:\"Commands\" }\n"
+        "    EN_CMD: (\n"
+        "        { DE:\"Commands\" }\n"
         "        CMD_STOP := 0,    { DE:\"Abort operation\" }\n"
         "        CMD_MOVE := 2,    { DE:\"Start movement\" }\n"
         "        CMD_TAKE := 5    { DE:\"Deliver piece\" }\n"
@@ -1526,7 +1542,34 @@ ut::test("ll::PllParser::collect_types()") = []
    };
 
 
-ut::test("ll::pll_parse()") = []
+ut::test("ll::pll_parse(sample-lib)") = []
+   {
+    plcb::Library parsed_lib("sample-lib"sv);
+
+    try{
+        struct issues_t final { int num=0; void operator()(std::string&&) noexcept {++num;}; } issues;
+        ll::pll_parse(parsed_lib.name(), sample_lib_pll, parsed_lib, std::ref(issues));
+        ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
+       }
+    catch( parse::error& e )
+       {
+        ut::log << "\033[95m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(line " << e.line() << ")\n";
+        throw;
+       }
+
+    const plcb::Library sample_lib = plcb::make_sample_lib();
+    //ut::expect( parsed_lib == sample_lib );
+    if( parsed_lib == sample_lib )
+       {
+       }
+    else
+       {
+        ut::expect(false) << "Library content mismatch\n";
+       }
+   };
+
+
+ut::test("ll::pll_parse(test_lib)") = []
    {
     const std::string_view buf =
         "(*\n"
@@ -1534,9 +1577,6 @@ ut::test("ll::pll_parse()") = []
         "   version: 1.2.3\n"
         "   author: llconv pll::write()\n"
         "   date: 2024-02-15 10:05:33\n"
-        "\n"
-        "   global-variables: 1770\n"
-        "   global-constants: 925\n"
         "*)\n"
         "\n"
         "\n"
@@ -1716,7 +1756,7 @@ ut::test("ll::pll_parse()") = []
         "   VASTR : STRING[ 80 ]; { DE:\"Sipro string (va)\" }\n"
         "END_TYPE\n"sv;
 
-    plcb::Library lib("test");
+    plcb::Library lib("test_lib");
 
     try{
         struct issues_t final { int num=0; void operator()(std::string&&) noexcept {++num;}; } issues;

@@ -12,12 +12,14 @@ namespace sys //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 
 //---------------------------------------------------------------------------
-void edit_text_file(const std::string& pth, const std::size_t line) noexcept
+void edit_text_file(const std::string& pth, const std::size_t line =1u) noexcept
 {
     if( pth.empty() ) return;
 
   #ifdef MS_WINDOWS
-    [[maybe_unused]] static bool once = [](){ sys::add_to_path_expanding_vars({ "%UserProfile%\\Apps\\npp", "%ProgramFiles%\\notepad++"}); return true; }();
+    [[maybe_unused]] static bool once = [](){ sys::add_to_path_expanding_vars({ "%ProgramFiles%\\notepad++",
+                                                                                "%UserProfile%\\Apps\\npp",
+                                                                                "C:\\Macotec\\Apps\\Notepad++"}); return true; }();
     sys::shell_execute("notepad++.exe", {"-nosession", fmt::format("-n{}", line), pth});
   #else
     sys::execute("mousepad", fmt::format("--line={}",line), pth);

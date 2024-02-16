@@ -128,7 +128,35 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Pou& pou, const std:
     f << "\n\t{ CODE:"sv << pou.code_type() << " }"sv
       << pou.body();
     if( not pou.body().ends_with('\n') ) f << '\n';
-    f << "END_"sv << tag << "\n\n"sv;
+    f << "END_"sv << tag << "\n"sv;
+}
+
+
+
+//---------------------------------------------------------------------------
+inline void write(MG::OutputStreamable auto& f, const plcb::Struct& strct)
+{
+    f<< "\n\t"sv << strct.name() << " : STRUCT"sv;
+
+    if( strct.has_descr() )
+       {
+        f<< " { DE:\""sv << strct.descr() << "\" }"sv;
+       }
+    f<< '\n';
+
+    for( const auto& memb : strct.members() )
+       {
+        f<< "\t\t"sv << memb.name() << " : "sv;
+        write(f, memb.type());
+        f<< ';';
+
+        if( memb.has_descr() )
+           {
+            f<< " { DE:\""sv << memb.descr() << "\" }"sv;
+           }
+        f<< '\n';
+       }
+    f<< "\tEND_STRUCT;\n"sv;
 }
 
 
@@ -169,7 +197,7 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Enum& enm)
 //---------------------------------------------------------------------------
 inline void write(MG::OutputStreamable auto& f, const plcb::TypeDef& tdef)
 {
-    f<< '\t' << tdef.name() << " : "sv;
+    f<< "\n\t"sv << tdef.name() << " : "sv;
     write(f, tdef.type());
     f<< ';';
     if( tdef.has_descr() )
@@ -182,37 +210,9 @@ inline void write(MG::OutputStreamable auto& f, const plcb::TypeDef& tdef)
 
 
 //---------------------------------------------------------------------------
-inline void write(MG::OutputStreamable auto& f, const plcb::Struct& strct)
-{
-    f<< '\t' << strct.name() << " : STRUCT"sv;
-
-    if( strct.has_descr() )
-       {
-        f<< " { DE:\""sv << strct.descr() << "\" }"sv;
-       }
-    f<< '\n';
-
-    for( const auto& memb : strct.members() )
-       {
-        f<< "\t\t"sv << memb.name() << " : "sv;
-        write(f, memb.type());
-        f<< ';';
-
-        if( memb.has_descr() )
-           {
-            f<< " { DE:\""sv << memb.descr() << "\" }"sv;
-           }
-        f<< '\n';
-       }
-    f<< "\tEND_STRUCT;\n\n"sv;
-}
-
-
-
-//---------------------------------------------------------------------------
 inline void write(MG::OutputStreamable auto& f, const plcb::Subrange& subrng)
 {
-    f<< '\t' << subrng.name() << " : "sv << subrng.type_name()
+    f<< "\n\t"sv << subrng.name() << " : "sv << subrng.type_name()
      << " ("sv
      << std::to_string(subrng.min_value()) << ".."sv
      << std::to_string(subrng.max_value())
@@ -252,7 +252,7 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Macro& macro)
     f << "\n\t{ CODE:"sv << macro.code_type() << " }"sv
       << macro.body();
     if( not macro.body().ends_with('\n') ) f << '\n';
-    f << "END_MACRO\n\n"sv;
+    f << "END_MACRO\n"sv;
 }
 
 
@@ -262,7 +262,6 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
 {
     // [Options]
     const std::string_view sects_spacer = "\n\n\n"sv; // options.value_or("pll-sects-spacer", "\n\n\n"sv);
-    const std::string_view blocks_spacer = "\n\n"sv; // options.value_or("pll-blocks-spacer", "\n\n"sv);
 
     // [Heading]
     f<< "(*\n"sv
@@ -301,8 +300,7 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
             "\t(*     GLOBAL VARIABLES     *)\n"
             "\t(*                          *)\n"
             "\t(****************************)\n"sv;
-        f<< blocks_spacer <<
-            "\tVAR_GLOBAL\n"sv;
+        f<< "\n\tVAR_GLOBAL\n"sv;
         for( const auto& group : lib.global_variables().groups() )
            {
             if( not group.name().empty() ) f << "\t{G:\""sv << group.name() << "\"}\n"sv;
@@ -325,8 +323,7 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
             "\t(*     GLOBAL CONSTANTS     *)\n"
             "\t(*                          *)\n"
             "\t(****************************)\n"sv;
-        f<< blocks_spacer <<
-            "\tVAR_GLOBAL CONSTANT\n"sv;
+        f<< "\n\tVAR_GLOBAL CONSTANT\n"sv;
         for( const auto& group : lib.global_constants().groups() )
            {
             if( not group.name().empty() ) f << "\t{G:\""sv << group.name() << "\"}\n"sv;
@@ -346,7 +343,6 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
             "\t(*********************)\n"sv;
         for( const auto& pou : lib.functions() )
            {
-            f<< blocks_spacer;
             write(f, pou, "FUNCTION"sv);
            }
        }
@@ -362,7 +358,6 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
             "\t(***************************)\n"sv;
         for( const auto& pou : lib.function_blocks() )
            {
-            f<< blocks_spacer;
             write(f, pou, "FUNCTION_BLOCK"sv);
            }
        }
@@ -378,7 +373,6 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
             "\t(********************)\n"sv;
         for( const auto& pou : lib.programs() )
            {
-            f<< blocks_spacer;
             write(f, pou, "PROGRAM"sv);
            }
        }
@@ -392,8 +386,7 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
             "\t(*     ENUMS     *)\n"
             "\t(*               *)\n"
             "\t(*****************)\n"sv;
-        f<< blocks_spacer <<
-            "TYPE\n\n"sv;
+        f<< "\nTYPE\n"sv;
         for( const auto& enm : lib.enums() )
            {
             write(f, enm);
@@ -410,8 +403,7 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
             "\t(*     TYPEDEFS     *)\n"
             "\t(*                  *)\n"
             "\t(********************)\n"sv;
-        f<< blocks_spacer <<
-            "TYPE\n\n"sv;
+        f<< "\nTYPE\n"sv;
         for( const auto& tdef : lib.typedefs() )
            {
             write(f, tdef);
@@ -428,8 +420,7 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
             "\t(*     STRUCTS     *)\n"
             "\t(*                 *)\n"
             "\t(*******************)\n"sv;
-        f<< blocks_spacer <<
-            "TYPE\n\n"sv;
+        f<< "\nTYPE\n"sv;
         for( const auto& strct : lib.structs() )
            {
             write(f, strct);
@@ -446,8 +437,7 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
             "\t(*     SUBRANGES     *)\n"
             "\t(*                   *)\n"
             "\t(*********************)\n"sv;
-        f<< blocks_spacer <<
-            "TYPE\n\n"sv;
+        f<< "\nTYPE\n"sv;
         for( const auto& subrng : lib.subranges() )
            {
             write(f, subrng);
@@ -463,11 +453,9 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
             "\t(*                  *)\n"
             "\t(*      MACROS      *)\n"
             "\t(*                  *)\n"
-            "\t(********************)\n"
-            "\n"sv;
+            "\t(********************)\n"sv;
         for( const auto& macro : lib.macros() )
            {
-            f<< blocks_spacer;
             write(f, macro);
            }
        }
@@ -495,6 +483,237 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
 /////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
 #include "string_write.hpp" // MG::string_write
+/////////////////////////////////////////////////////////////////////////////
+inline static constexpr std::string_view sample_lib_pll =
+    "(*\n"
+    "\tname: sample-lib\n"
+    "\tdescr: sample library\n"
+    "\tversion: 1.0.2\n"
+    "\tauthor: pll::write()\n"
+    "\tglobal-variables: 2\n"
+    "\tglobal-constants: 2\n"
+    "\tfunctions: 1\n"
+    "\tfunction blocks: 1\n"
+    "\tprograms: 2\n"
+    "\tmacros: 1\n"
+    "\tstructs: 1\n"
+    "\ttypedefs: 2\n"
+    "\tenums: 1\n"
+    "\tsubranges: 1\n"
+    "*)\n"
+    "\n"
+    "\n"
+    "\n"
+    "\t(****************************)\n"
+    "\t(*                          *)\n"
+    "\t(*     GLOBAL VARIABLES     *)\n"
+    "\t(*                          *)\n"
+    "\t(****************************)\n"
+    "\n"
+    "\tVAR_GLOBAL\n"
+    "\t{G:\"globs\"}\n"
+    "\tgvar1 : DINT; { DE:\"gvar1 descr\" }\n"
+    "\tgvar2 : ARRAY[ 0..99 ] OF INT; { DE:\"gvar2 descr\" }\n"
+    "\tEND_VAR\n"
+    "\n"
+    "\n"
+    "\n"
+    "\t(****************************)\n"
+    "\t(*                          *)\n"
+    "\t(*     GLOBAL CONSTANTS     *)\n"
+    "\t(*                          *)\n"
+    "\t(****************************)\n"
+    "\n"
+    "\tVAR_GLOBAL CONSTANT\n"
+    "\tconst1 : INT := 42; { DE:\"gvar1 descr\" }\n"
+    "\tconst2 : LREAL := 3.14; { DE:\"gvar2 descr\" }\n"
+    "\tEND_VAR\n"
+    "\n"
+    "\n"
+    "\n"
+    "\t(*********************)\n"
+    "\t(*                   *)\n"
+    "\t(*     FUNCTIONS     *)\n"
+    "\t(*                   *)\n"
+    "\t(*********************)\n"
+    "\n"
+    "FUNCTION fn_name : INT\n"
+    "\n"
+    "{ DE:\"testing fn\" }\n"
+    "\n"
+    "\tVAR_INPUT\n"
+    "\tin1 : DINT; { DE:\"in1 descr\" }\n"
+    "\tin2 : LREAL; { DE:\"in2 descr\" }\n"
+    "\tEND_VAR\n"
+    "\n"
+    "\tVAR CONSTANT\n"
+    "\tconst1 : DINT := 42; { DE:\"const1 descr\" }\n"
+    "\tEND_VAR\n"
+    "\n"
+    "\t{ CODE:ST }body\n"
+    "END_FUNCTION\n"
+    "\n"
+    "\n"
+    "\n"
+    "\t(***************************)\n"
+    "\t(*                         *)\n"
+    "\t(*     FUNCTION BLOCKS     *)\n"
+    "\t(*                         *)\n"
+    "\t(***************************)\n"
+    "\n"
+    "FUNCTION_BLOCK fb_name\n"
+    "\n"
+    "{ DE:\"testing fb\" }\n"
+    "\n"
+    "\tVAR_IN_OUT\n"
+    "\tinout1 : DINT; { DE:\"inout1 descr\" }\n"
+    "\tinout2 : LREAL; { DE:\"inout2 descr\" }\n"
+    "\tEND_VAR\n"
+    "\n"
+    "\tVAR_INPUT\n"
+    "\tin1 : DINT; { DE:\"in1 descr\" }\n"
+    "\tin2 : LREAL; { DE:\"in2 descr\" }\n"
+    "\tEND_VAR\n"
+    "\n"
+    "\tVAR_OUTPUT\n"
+    "\tout1 : DINT; { DE:\"out1 descr\" }\n"
+    "\tout2 : LREAL; { DE:\"out2 descr\" }\n"
+    "\tEND_VAR\n"
+    "\n"
+    "\tVAR_EXTERNAL\n"
+    "\text1 : DINT; { DE:\"ext1 descr\" }\n"
+    "\text2 : STRING[ 80 ]; { DE:\"ext2 descr\" }\n"
+    "\tEND_VAR\n"
+    "\n"
+    "\tVAR\n"
+    "\tloc1 : DINT; { DE:\"loc1 descr\" }\n"
+    "\tloc2 : LREAL; { DE:\"loc2 descr\" }\n"
+    "\tEND_VAR\n"
+    "\n"
+    "\tVAR CONSTANT\n"
+    "\tconst1 : DINT := 42; { DE:\"const1 descr\" }\n"
+    "\tconst2 : LREAL := 1.5; { DE:\"const2 descr\" }\n"
+    "\tEND_VAR\n"
+    "\n"
+    "\t{ CODE:ST }body\n"
+    "END_FUNCTION_BLOCK\n"
+    "\n"
+    "\n"
+    "\n"
+    "\t(********************)\n"
+    "\t(*                  *)\n"
+    "\t(*     PROGRAMS     *)\n"
+    "\t(*                  *)\n"
+    "\t(********************)\n"
+    "\n"
+    "PROGRAM prg_name1\n"
+    "\n"
+    "{ DE:\"testing prg 1\" }\n"
+    "\n"
+    "\tVAR\n"
+    "\tloc1 : DINT; { DE:\"loc1 descr\" }\n"
+    "\tloc2 : LREAL; { DE:\"loc2 descr\" }\n"
+    "\tEND_VAR\n"
+    "\n"
+    "\t{ CODE:ST }body\n"
+    "END_PROGRAM\n"
+    "\n"
+    "PROGRAM prg_name2\n"
+    "\n"
+    "{ DE:\"testing prg 2\" }\n"
+    "\n"
+    "\tVAR\n"
+    "\tloc1 : DINT; { DE:\"loc1 descr\" }\n"
+    "\tloc2 : LREAL; { DE:\"loc2 descr\" }\n"
+    "\tEND_VAR\n"
+    "\n"
+    "\t{ CODE:ST }body\n"
+    "END_PROGRAM\n"
+    "\n"
+    "\n"
+    "\n"
+    "\t(*****************)\n"
+    "\t(*               *)\n"
+    "\t(*     ENUMS     *)\n"
+    "\t(*               *)\n"
+    "\t(*****************)\n"
+    "\n"
+    "TYPE\n"
+    "\n"
+    "\tenumname: (\n"
+    "\t\t{ DE:\"testing enum\" }\n"
+    "\t\telm1 := 1, { DE:\"elm1 descr\" }\n"
+    "\t\telm2 := 42 { DE:\"elm2 descr\" }\n"
+    "\t);\n"
+    "\n"
+    "END_TYPE\n"
+    "\n"
+    "\n"
+    "\n"
+    "\t(********************)\n"
+    "\t(*                  *)\n"
+    "\t(*     TYPEDEFS     *)\n"
+    "\t(*                  *)\n"
+    "\t(********************)\n"
+    "\n"
+    "TYPE\n"
+    "\n"
+    "\ttypename1 : STRING[ 80 ]; { DE:\"testing typedef\" }\n"
+    "\n"
+    "\ttypename2 : ARRAY[ 0..9 ] OF INT; { DE:\"testing typedef 2\" }\n"
+    "\n"
+    "END_TYPE\n"
+    "\n"
+    "\n"
+    "\n"
+    "\t(*******************)\n"
+    "\t(*                 *)\n"
+    "\t(*     STRUCTS     *)\n"
+    "\t(*                 *)\n"
+    "\t(*******************)\n"
+    "\n"
+    "TYPE\n"
+    "\n"
+    "\tstructname : STRUCT { DE:\"testing struct\" }\n"
+    "\t\tmember1 : DINT; { DE:\"member1 descr\" }\n"
+    "\t\tmember2 : STRING[ 80 ]; { DE:\"member2 descr\" }\n"
+    "\t\tmember3 : ARRAY[ 0..11 ] OF INT; { DE:\"array member\" }\n"
+    "\tEND_STRUCT;\n"
+    "\n"
+    "END_TYPE\n"
+    "\n"
+    "\n"
+    "\n"
+    "\t(*********************)\n"
+    "\t(*                   *)\n"
+    "\t(*     SUBRANGES     *)\n"
+    "\t(*                   *)\n"
+    "\t(*********************)\n"
+    "\n"
+    "TYPE\n"
+    "\n"
+    "\tsubrangename : INT (1..12); { DE:\"testing subrange\" }\n"
+    "\n"
+    "END_TYPE\n"
+    "\n"
+    "\n"
+    "\n"
+    "\t(********************)\n"
+    "\t(*                  *)\n"
+    "\t(*      MACROS      *)\n"
+    "\t(*                  *)\n"
+    "\t(********************)\n"
+    "\n"
+    "MACRO macroname\n"
+    "{ DE:\"testing macro\" }\n"
+    "\n"
+    "\tPAR_MACRO\n"
+    "\tpar1; { DE:\"par1 descr\" }\n"
+    "\tpar2; { DE:\"par2 descr\" }\n"
+    "\tEND_PAR\n"
+    "\n"
+    "\t{ CODE:ST }body\n"
+    "END_MACRO\n"sv;
 /////////////////////////////////////////////////////////////////////////////
 static ut::suite<"writer_pll"> writer_pll_tests = []
 {
@@ -580,10 +799,42 @@ ut::test("pll::write(plcb::Pou)") = []
         "\tEND_VAR\n"
         "\n"
         "\t{ CODE:ST }body\n"
-        "END_FUNCTION\n\n"sv;
+        "END_FUNCTION\n"sv;
 
     MG::string_write out;
     pll::write(out, pou, "FUNCTION"sv);
+    ut::expect( ut::that % out.str() == expected );
+   };
+
+
+ut::test("pll::write(plcb::Struct)") = []
+   {
+    plcb::Struct strct;
+    strct.set_name("structname");
+    strct.set_descr("testing struct");
+
+    {   plcb::Struct::Member& memb = strct.members().emplace_back();
+        memb.set_name("member1"sv);
+        memb.type() = plcb::make_type("DINT"sv);
+        memb.set_descr("member1 descr"sv);   }
+    {   plcb::Struct::Member& memb = strct.members().emplace_back();
+        memb.set_name("member2"sv);
+        memb.type() = plcb::make_type("STRING"sv,80u);
+        memb.set_descr("member2 descr"sv);   }
+    {   plcb::Struct::Member& memb = strct.members().emplace_back();
+        memb.set_name("member3"sv);
+        memb.type() = plcb::make_type("INT"sv,0u,11u);
+        memb.set_descr("array member"sv);   }
+
+    const std::string_view expected =
+        "\n\tstructname : STRUCT { DE:\"testing struct\" }\n"
+        "\t\tmember1 : DINT; { DE:\"member1 descr\" }\n"
+        "\t\tmember2 : STRING[ 80 ]; { DE:\"member2 descr\" }\n"
+        "\t\tmember3 : ARRAY[ 0..11 ] OF INT; { DE:\"array member\" }\n"
+        "\tEND_STRUCT;\n"sv;
+
+    MG::string_write out;
+    pll::write(out, strct);
     ut::expect( ut::that % out.str() == expected );
    };
 
@@ -618,39 +869,7 @@ ut::test("pll::write(plcb::TypeDef)") = []
 
     MG::string_write out;
     pll::write(out, tdef);
-    ut::expect( ut::that % out.str() == "\ttypename : STRING[ 80 ]; { DE:\"testing typedef\" }\n"sv );
-   };
-
-
-ut::test("pll::write(plcb::Struct)") = []
-   {
-    plcb::Struct strct;
-    strct.set_name("structname");
-    strct.set_descr("testing struct");
-
-    {   plcb::Struct::Member& memb = strct.members().emplace_back();
-        memb.set_name("member1"sv);
-        memb.type() = plcb::make_type("DINT"sv);
-        memb.set_descr("member1 descr"sv);   }
-    {   plcb::Struct::Member& memb = strct.members().emplace_back();
-        memb.set_name("member2"sv);
-        memb.type() = plcb::make_type("STRING"sv,80u);
-        memb.set_descr("member2 descr"sv);   }
-    {   plcb::Struct::Member& memb = strct.members().emplace_back();
-        memb.set_name("member3"sv);
-        memb.type() = plcb::make_type("INT"sv,0u,11u);
-        memb.set_descr("array member"sv);   }
-
-    const std::string_view expected =
-        "\tstructname : STRUCT { DE:\"testing struct\" }\n"
-        "\t\tmember1 : DINT; { DE:\"member1 descr\" }\n"
-        "\t\tmember2 : STRING[ 80 ]; { DE:\"member2 descr\" }\n"
-        "\t\tmember3 : ARRAY[ 0..11 ] OF INT; { DE:\"array member\" }\n"
-        "\tEND_STRUCT;\n\n"sv;
-
-    MG::string_write out;
-    pll::write(out, strct);
-    ut::expect( ut::that % out.str() == expected );
+    ut::expect( ut::that % out.str() == "\n\ttypename : STRING[ 80 ]; { DE:\"testing typedef\" }\n"sv );
    };
 
 
@@ -664,7 +883,7 @@ ut::test("pll::write(plcb::Subrange)") = []
 
     MG::string_write out;
     pll::write(out, subrng);
-    ut::expect( ut::that % out.str() == "\tsubrangename : INT (1..12); { DE:\"testing subrange\" }\n"sv );
+    ut::expect( ut::that % out.str() == "\n\tsubrangename : INT (1..12); { DE:\"testing subrange\" }\n"sv );
    };
 
 
@@ -688,7 +907,7 @@ ut::test("pll::write(plcb::Macro)") = []
         "\tEND_PAR\n"
         "\n"
         "\t{ CODE:ST }body\n"
-        "END_MACRO\n\n"sv;
+        "END_MACRO\n"sv;
 
     MG::string_write out;
     pll::write(out, macro);
@@ -698,153 +917,11 @@ ut::test("pll::write(plcb::Macro)") = []
 
 ut::test("pll::write(plcb::Library)") = []
    {
-    plcb::Library lib{"testlib"sv};
-
-   {auto& grp = lib.global_variables().groups().emplace_back();
-    grp.set_name("globs");
-    grp.mutable_variables() = { plcb::make_var("gvar1"sv, plcb::make_type("DINT"sv), ""sv, "gvar1 descr"),
-                                plcb::make_var("gvar2"sv, plcb::make_type("LREAL"sv), ""sv, "gvar2 descr") };
-   }
-    //lib.global_constants()
-    //lib.global_retainvars()
-
-   {auto& prg = lib.programs().emplace_back();
-    prg.set_name("prgname");
-    prg.set_descr("testing prg");
-    prg.local_vars() = { plcb::make_var("loc1"sv, plcb::make_type("DINT"sv), ""sv, "loc1 descr"),
-                         plcb::make_var("loc2"sv, plcb::make_type("LREAL"sv), ""sv, "loc2 descr") };
-    prg.set_code_type("ST");
-    prg.set_body("body");
-   }
-
-   {auto& fb = lib.function_blocks().emplace_back();
-    fb.set_name("fbname");
-    fb.set_descr("testing fb");
-    fb.inout_vars() = { plcb::make_var("inout1"sv, plcb::make_type("DINT"sv), ""sv, "inout1 descr"),
-                        plcb::make_var("inout2"sv, plcb::make_type("LREAL"sv), ""sv, "inout2 descr") };
-    fb.input_vars() = { plcb::make_var("in1"sv, plcb::make_type("DINT"sv), ""sv, "in1 descr"),
-                        plcb::make_var("in2"sv, plcb::make_type("LREAL"sv), ""sv, "in2 descr") };
-    fb.output_vars() = { plcb::make_var("out1"sv, plcb::make_type("DINT"sv), ""sv, "out1 descr"),
-                         plcb::make_var("out2"sv, plcb::make_type("LREAL"sv), ""sv, "out2 descr") };
-    fb.external_vars() = { plcb::make_var("ext1"sv, plcb::make_type("DINT"sv), ""sv, "ext1 descr"),
-                           plcb::make_var("ext2"sv, plcb::make_type("STRING"sv,80u), ""sv, "ext2 descr") };
-    fb.local_vars() = { plcb::make_var("loc1"sv, plcb::make_type("DINT"sv), ""sv, "loc1 descr"),
-                        plcb::make_var("loc2"sv, plcb::make_type("LREAL"sv), ""sv, "loc2 descr") };
-    fb.local_constants() = { plcb::make_var("const1"sv, plcb::make_type("DINT"sv), "42"sv, "const1 descr"),
-                             plcb::make_var("const2"sv, plcb::make_type("LREAL"sv), "1.5"sv, "const2 descr") };
-    fb.set_code_type("ST");
-    fb.set_body("body");
-   }
-
-    //lib.functions()
-    //lib.function_blocks()
-    //lib.macros()
-    //lib.structs()
-    //lib.typedefs()
-    //lib.enums()
-    //lib.subranges()
-
-    const std::string_view expected =
-        "(*\n"
-        "\tname: testlib\n"
-        "\tdescr: PLC library\n"
-        "\tversion: 1.0.0\n"
-        "\tauthor: pll::write()\n"
-        "\tglobal-variables: 2\n"
-        "\tfunction blocks: 1\n"
-        "\tprograms: 1\n"
-        "*)\n"
-        "\n"
-        "\n"
-        "\n"
-        "\t(****************************)\n"
-        "\t(*                          *)\n"
-        "\t(*     GLOBAL VARIABLES     *)\n"
-        "\t(*                          *)\n"
-        "\t(****************************)\n"
-        "\n"
-        "\n"
-        "\tVAR_GLOBAL\n"
-        "\t{G:\"globs\"}\n"
-        "\tgvar1 : DINT; { DE:\"gvar1 descr\" }\n"
-        "\tgvar2 : LREAL; { DE:\"gvar2 descr\" }\n"
-        "\tEND_VAR\n"
-        "\n"
-        "\n"
-        "\n"
-        "\t(***************************)\n"
-        "\t(*                         *)\n"
-        "\t(*     FUNCTION BLOCKS     *)\n"
-        "\t(*                         *)\n"
-        "\t(***************************)\n"
-        "\n"
-        "\n"
-        "\n"
-        "FUNCTION_BLOCK fbname\n"
-        "\n"
-        "{ DE:\"testing fb\" }\n"
-        "\n"
-        "\tVAR_IN_OUT\n"
-        "\tinout1 : DINT; { DE:\"inout1 descr\" }\n"
-        "\tinout2 : LREAL; { DE:\"inout2 descr\" }\n"
-        "\tEND_VAR\n"
-        "\n"
-        "\tVAR_INPUT\n"
-        "\tin1 : DINT; { DE:\"in1 descr\" }\n"
-        "\tin2 : LREAL; { DE:\"in2 descr\" }\n"
-        "\tEND_VAR\n"
-        "\n"
-        "\tVAR_OUTPUT\n"
-        "\tout1 : DINT; { DE:\"out1 descr\" }\n"
-        "\tout2 : LREAL; { DE:\"out2 descr\" }\n"
-        "\tEND_VAR\n"
-        "\n"
-        "\tVAR_EXTERNAL\n"
-        "\text1 : DINT; { DE:\"ext1 descr\" }\n"
-        "\text2 : STRING[ 80 ]; { DE:\"ext2 descr\" }\n"
-        "\tEND_VAR\n"
-        "\n"
-        "\tVAR\n"
-        "\tloc1 : DINT; { DE:\"loc1 descr\" }\n"
-        "\tloc2 : LREAL; { DE:\"loc2 descr\" }\n"
-        "\tEND_VAR\n"
-        "\n"
-        "\tVAR CONSTANT\n"
-        "\tconst1 : DINT := 42; { DE:\"const1 descr\" }\n"
-        "\tconst2 : LREAL := 1.5; { DE:\"const2 descr\" }\n"
-        "\tEND_VAR\n"
-        "\n"
-        "\t{ CODE:ST }body\n"
-        "END_FUNCTION_BLOCK\n"
-        "\n"
-        "\n"
-        "\n"
-        "\n"
-        "\t(********************)\n"
-        "\t(*                  *)\n"
-        "\t(*     PROGRAMS     *)\n"
-        "\t(*                  *)\n"
-        "\t(********************)\n"
-        "\n"
-        "\n"
-        "\n"
-        "PROGRAM prgname\n"
-        "\n"
-        "{ DE:\"testing prg\" }\n"
-        "\n"
-        "\tVAR\n"
-        "\tloc1 : DINT; { DE:\"loc1 descr\" }\n"
-        "\tloc2 : LREAL; { DE:\"loc2 descr\" }\n"
-        "\tEND_VAR\n"
-        "\n"
-        "\t{ CODE:ST }body\n"
-        "END_PROGRAM\n"
-        "\n"sv;
+    const plcb::Library lib = plcb::make_sample_lib();
 
     MG::string_write out;
-    MG::keyvals opts; opts.assign("no-timestamp");
-    pll::write_lib(out, lib, opts);
-    ut::expect( ut::that % out.str() == expected );
+    pll::write_lib(out, lib, MG::keyvals{"no-timestamp"});
+    ut::expect( ut::that % out.str() == sample_lib_pll );
    };
 
 };///////////////////////////////////////////////////////////////////////////

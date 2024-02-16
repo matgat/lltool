@@ -138,8 +138,8 @@ class Type final
        }
 
     [[nodiscard]] bool is_array() const noexcept { return m_ArrayDim>0; }
-    [[nodiscard]] std::size_t array_dim() const noexcept { return m_ArrayDim; }
     [[nodiscard]] std::size_t array_startidx() const noexcept { return m_ArrayFirstIdx; }
+    [[nodiscard]] std::size_t array_dim() const noexcept { return m_ArrayDim; }
     [[nodiscard]] std::size_t array_lastidx() const noexcept { return m_ArrayFirstIdx + m_ArrayDim - 1u; }
 
     void set_array_range(const std::size_t idx_start, const std::size_t idx_last)
@@ -986,6 +986,241 @@ std::string to_string(const plcb::Variable& var)
     par.set_descr( descr );
 
     return par;
+}
+
+//---------------------------------------------------------------------------
+[[nodiscard]] Library make_sample_lib()
+{
+    Library lib{"sample-lib"sv};
+
+    lib.set_version("1.0.2");
+    lib.set_descr("sample library");
+
+   {auto& grp = lib.global_variables().groups().emplace_back();
+    grp.set_name("globs");
+    grp.mutable_variables() = { make_var("gvar1"sv, make_type("DINT"sv), ""sv, "gvar1 descr"),
+                                make_var("gvar2"sv, make_type("INT"sv,0,99), ""sv, "gvar2 descr") };
+   }
+
+   {auto& grp = lib.global_constants().groups().emplace_back();
+    //grp.set_name("constants");
+    grp.mutable_variables() = { make_var("const1"sv, make_type("INT"sv), "42"sv, "gvar1 descr"),
+                                make_var("const2"sv, make_type("LREAL"sv), "3.14"sv, "gvar2 descr") };
+   }
+
+    //lib.global_retainvars()
+
+   {auto& prg = lib.programs().emplace_back();
+    prg.set_name("prg_name1");
+    prg.set_descr("testing prg 1");
+    prg.local_vars() = { make_var("loc1"sv, make_type("DINT"sv), ""sv, "loc1 descr"),
+                         make_var("loc2"sv, make_type("LREAL"sv), ""sv, "loc2 descr") };
+    prg.set_code_type("ST");
+    prg.set_body("body");
+   }
+
+   {auto& prg = lib.programs().emplace_back();
+    prg.set_name("prg_name2");
+    prg.set_descr("testing prg 2");
+    prg.local_vars() = { make_var("loc1"sv, make_type("DINT"sv), ""sv, "loc1 descr"),
+                         make_var("loc2"sv, make_type("LREAL"sv), ""sv, "loc2 descr") };
+    prg.set_code_type("ST");
+    prg.set_body("body");
+   }
+
+   {auto& fb = lib.function_blocks().emplace_back();
+    fb.set_name("fb_name");
+    fb.set_descr("testing fb");
+    fb.inout_vars() = { make_var("inout1"sv, make_type("DINT"sv), ""sv, "inout1 descr"),
+                        make_var("inout2"sv, make_type("LREAL"sv), ""sv, "inout2 descr") };
+    fb.input_vars() = { make_var("in1"sv, make_type("DINT"sv), ""sv, "in1 descr"),
+                        make_var("in2"sv, make_type("LREAL"sv), ""sv, "in2 descr") };
+    fb.output_vars() = { make_var("out1"sv, make_type("DINT"sv), ""sv, "out1 descr"),
+                         make_var("out2"sv, make_type("LREAL"sv), ""sv, "out2 descr") };
+    fb.external_vars() = { make_var("ext1"sv, make_type("DINT"sv), ""sv, "ext1 descr"),
+                           make_var("ext2"sv, make_type("STRING"sv,80u), ""sv, "ext2 descr") };
+    fb.local_vars() = { make_var("loc1"sv, make_type("DINT"sv), ""sv, "loc1 descr"),
+                        make_var("loc2"sv, make_type("LREAL"sv), ""sv, "loc2 descr") };
+    fb.local_constants() = { make_var("const1"sv, make_type("DINT"sv), "42"sv, "const1 descr"),
+                             make_var("const2"sv, make_type("LREAL"sv), "1.5"sv, "const2 descr") };
+    fb.set_code_type("ST");
+    fb.set_body("body");
+   }
+
+   {auto& fn = lib.functions().emplace_back();
+    fn.set_name("fn_name");
+    fn.set_descr("testing fn");
+    fn.set_return_type("INT");
+    fn.input_vars() = { make_var("in1"sv, make_type("DINT"sv), ""sv, "in1 descr"),
+                        make_var("in2"sv, make_type("LREAL"sv), ""sv, "in2 descr") };
+    fn.local_constants() = { make_var("const1"sv, make_type("DINT"sv), "42"sv, "const1 descr") };
+    fn.set_code_type("ST");
+    fn.set_body("body");
+   }
+
+   {auto& macro = lib.macros().emplace_back();
+    macro.set_name("macroname");
+    macro.set_descr("testing macro");
+    macro.parameters() = { plcb::make_mparam("par1", "par1 descr"),
+                           plcb::make_mparam("par2", "par2 descr") };
+    macro.set_code_type("ST");
+    macro.set_body("body");
+   }
+
+   {auto& strct = lib.structs().emplace_back();
+    strct.set_name("structname");
+    strct.set_descr("testing struct");
+       {auto& memb = strct.members().emplace_back();
+        memb.set_name("member1"sv);
+        memb.type() = plcb::make_type("DINT"sv);
+        memb.set_descr("member1 descr"sv);
+       }
+       {auto& memb = strct.members().emplace_back();
+        memb.set_name("member2"sv);
+        memb.type() = plcb::make_type("STRING"sv,80u);
+        memb.set_descr("member2 descr"sv);
+       }
+       {auto& memb = strct.members().emplace_back();
+        memb.set_name("member3"sv);
+        memb.type() = plcb::make_type("INT"sv,0u,11u);
+        memb.set_descr("array member"sv);
+       }
+   }
+
+   {auto& enm = lib.enums().emplace_back();
+    enm.set_name("enumname");
+    enm.set_descr("testing enum");
+    enm.elements() = { plcb::make_enelem("elm1", "1", "elm1 descr"),
+                       plcb::make_enelem("elm2", "42", "elm2 descr") };
+   }
+
+   {auto& subrng = lib.subranges().emplace_back();
+    subrng.set_name("subrangename");
+    subrng.set_type_name( plcb::make_type("INT") );
+    subrng.set_range(1,12);
+    subrng.set_descr("testing subrange");
+   }
+
+   {auto& tdef = lib.typedefs().emplace_back();
+    tdef.set_name("typename1"sv);
+    tdef.type() = plcb::make_type("STRING"sv, 80u);
+    tdef.set_descr("testing typedef"sv);
+   }
+
+   {auto& tdef = lib.typedefs().emplace_back();
+    tdef.set_name("typename2"sv);
+    tdef.type() = plcb::make_type("INT"sv, 0u, 9u);
+    tdef.set_descr("testing typedef 2"sv);
+   }
+
+    return lib;
+}
+
+
+//---------------------------------------------------------------------------
+[[nodiscard]] bool operator==(const Address& addr1, const Address& addr2) noexcept
+{
+    return addr1.zone()     == addr2.zone()
+       and addr1.typevar()  == addr2.typevar()
+       and addr1.index()    == addr2.index()
+       and addr1.subindex() == addr2.subindex();
+}
+
+//---------------------------------------------------------------------------
+[[nodiscard]] bool operator==(const Type& typ1, const Type& typ2) noexcept
+{
+    return typ1.name()           == typ2.name()
+       and typ1.length()         == typ2.length()
+       and typ1.array_startidx() == typ2.array_startidx()
+       and typ1.array_dim()      == typ2.array_dim();
+}
+
+//---------------------------------------------------------------------------
+[[nodiscard]] bool operator==(const Variable& var1, const Variable& var2) noexcept
+{
+    return var1.name()    == var2.name()
+       and var1.address() == var2.address()
+       and var1.value()   == var2.value()
+       and var1.descr()   == var2.descr();
+}
+
+//---------------------------------------------------------------------------
+//[[nodiscard]] bool operator==(const Variables_Group& grp1, const Variables_Group& grp2) noexcept
+//{
+//    return grp1.name()      == grp2.name()
+//       and grp1.variables() == grp2.variables();
+//}
+
+//---------------------------------------------------------------------------
+//[[nodiscard]] bool operator==(const Variables_Groups& grps1, const Variables_Groups& grps2) noexcept
+//{
+//    return grps1.groups() == grps2.groups();
+//}
+
+//---------------------------------------------------------------------------
+//[[nodiscard]] bool operator==(const Struct& strct1, const Struct& strct2) noexcept
+//{
+//}
+
+//---------------------------------------------------------------------------
+//[[nodiscard]] bool operator==(const Struct::Member& memb1, const Struct::Member& memb2) noexcept
+//{
+//}
+
+//---------------------------------------------------------------------------
+//[[nodiscard]] bool operator==(const Enum& enm1, const Enum& enm2) noexcept
+//{
+//}
+
+//---------------------------------------------------------------------------
+//[[nodiscard]] bool operator==(const Enum::Element& elem1, const Enum::Element& elem2) noexcept
+//{
+//}
+
+//---------------------------------------------------------------------------
+//[[nodiscard]] bool operator==(const TypeDef& tdef1, const TypeDef& tdef2) noexcept
+//{
+//}
+
+//---------------------------------------------------------------------------
+//[[nodiscard]] bool operator==(const Subrange& subrng1, const Subrange& subrng2) noexcept
+//{
+//}
+
+//---------------------------------------------------------------------------
+//[[nodiscard]] bool operator==(const Pou& pou1, const Pou& pou2) noexcept
+//{
+//}
+
+//---------------------------------------------------------------------------
+//[[nodiscard]] bool operator==(const Macro& macro1, const Macro& macro2) noexcept
+//{
+//}
+
+//---------------------------------------------------------------------------
+//[[nodiscard]] bool operator==(const Macro::Parameter& param1, const Macro::Parameter& param2) noexcept
+//{
+//}
+
+//---------------------------------------------------------------------------
+[[nodiscard]] bool operator==(const Library& lib1, const Library& lib2) noexcept
+{
+    return
+        //lib1.name()==lib2.name()
+        lib1.version()==lib2.version()
+        and lib1.descr()==lib2.descr();
+        //and lib1.global_constants()==lib2.global_constants(); //Variables_Groups
+        //and lib1.global_retainvars()==lib2.global_retainvars(); //Variables_Groups
+        //and lib1.global_variables()==lib2.global_variables(); //Variables_Groups
+        //and lib1.programs()==lib2.programs(); //std::vector<Pou>
+        //and lib1.function_blocks()==lib2.function_blocks(); //std::vector<Pou>
+        //and lib1.functions()==lib2.functions(); //std::vector<Pou>
+        //and lib1.macros()==lib2.macros(); //std::vector<Macro>
+        //and lib1.structs()==lib2.structs(); //std::vector<Struct>
+        //and lib1.typedefs()==lib2.typedefs(); //std::vector<TypeDef>
+        //and lib1.enums()==lib2.enums(); //std::vector<Enum>
+        //and lib1.subranges()==lib2.subranges(); //std::vector<Subrange>
+        //and lib1.interfaces()==lib2.interfaces();
 }
 
 }}//:::: plc::buf :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
