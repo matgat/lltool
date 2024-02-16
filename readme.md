@@ -25,9 +25,9 @@ _________________________________________________________________________
 > as prerequisite.
 
 
-### Command line invocation:
+### Command line invocation
 
-The program invocation in the most generic form:
+The most generic form:
 
 ```bat
 $ lltool [task] [arguments in any order]
@@ -76,7 +76,7 @@ $ lltool update "C:\path\to\project.ppjs"
 To update a project without overwriting the original file:
 
 ```bat
-$ lltool update "C:\path\to\project.ppjs" --to "C:\path\to\project-updated.ppjs" --force
+$ lltool update "C:\path\to\project.ppjs" --force --to "C:\path\to\project-new.ppjs"
 ```
 
 > [!TIP]
@@ -103,7 +103,7 @@ To reconvert a `.pll` file to a given output file:
 $ lltool convert file.pll --force --to path/to/output.pll
 ```
 > [!IMPORTANT]
-> File extension does matter to choose the desired parsing and writing functions
+> The proper parsing and writing functions are selected by the file extension
 
 
 
