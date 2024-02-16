@@ -81,7 +81,10 @@ class file_write final
     const file_write& operator<<(const std::string_view sv) const noexcept
        {
         assert(m_fstream!=nullptr);
-        std::fwrite(sv.data(), sizeof(std::string_view::value_type), sv.length(), m_fstream);
+        if( not sv.empty() ) [[likely]]
+           {
+            std::fwrite(sv.data(), sizeof(std::string_view::value_type), sv.length(), m_fstream);
+           }
         return *this;
        }
 

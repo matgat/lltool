@@ -54,7 +54,7 @@ namespace plc //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 // Variable address ex. MB700.320
 //                      M     B        700  .  320
 //                      ↑     ↑        ↑       ↑
-//                      type  typevar  index   subindex
+//                      zone  typevar  index   subindex
 class Address final
 {
  private:
@@ -249,6 +249,9 @@ class Variables_Groups final
     std::vector<Variables_Group> m_Groups;
 
  public:
+    [[nodiscard]] const std::vector<Variables_Group>& groups() const noexcept { return m_Groups; }
+    [[nodiscard]] std::vector<Variables_Group>& groups() noexcept { return m_Groups; }
+
     [[nodiscard]] bool is_empty() const noexcept
        {
         //return groups().empty(); // Nah
@@ -285,9 +288,6 @@ class Variables_Groups final
        {
         std::ranges::sort(m_Groups, less_by_name<decltype(m_Groups)::value_type>);
        }
-
-    [[nodiscard]] const std::vector<Variables_Group>& groups() const noexcept { return m_Groups; }
-    [[nodiscard]] std::vector<Variables_Group>& groups() noexcept { return m_Groups; }
 };
 
 
@@ -1139,88 +1139,126 @@ std::string to_string(const plcb::Variable& var)
 [[nodiscard]] bool operator==(const Variable& var1, const Variable& var2) noexcept
 {
     return var1.name()    == var2.name()
+       and var1.type()    == var2.type()
        and var1.address() == var2.address()
        and var1.value()   == var2.value()
        and var1.descr()   == var2.descr();
 }
 
 //---------------------------------------------------------------------------
-//[[nodiscard]] bool operator==(const Variables_Group& grp1, const Variables_Group& grp2) noexcept
-//{
-//    return grp1.name()      == grp2.name()
-//       and grp1.variables() == grp2.variables();
-//}
+[[nodiscard]] bool operator==(const Variables_Group& grp1, const Variables_Group& grp2) noexcept
+{
+    return grp1.name()      == grp2.name()
+       and grp1.variables() == grp2.variables();
+}
 
 //---------------------------------------------------------------------------
-//[[nodiscard]] bool operator==(const Variables_Groups& grps1, const Variables_Groups& grps2) noexcept
-//{
-//    return grps1.groups() == grps2.groups();
-//}
+[[nodiscard]] bool operator==(const Variables_Groups& grps1, const Variables_Groups& grps2) noexcept
+{
+    return grps1.groups() == grps2.groups();
+}
 
 //---------------------------------------------------------------------------
-//[[nodiscard]] bool operator==(const Struct& strct1, const Struct& strct2) noexcept
-//{
-//}
+[[nodiscard]] bool operator==(const Struct::Member& memb1, const Struct::Member& memb2) noexcept
+{
+    return memb1.name()  == memb2.name()
+       and memb1.type()  == memb2.type()
+       and memb1.descr() == memb2.descr();
+}
 
 //---------------------------------------------------------------------------
-//[[nodiscard]] bool operator==(const Struct::Member& memb1, const Struct::Member& memb2) noexcept
-//{
-//}
+[[nodiscard]] bool operator==(const Struct& strct1, const Struct& strct2) noexcept
+{
+    return strct1.name()    == strct2.name()
+       and strct1.descr()   == strct2.descr()
+       and strct1.members() == strct2.members();
+}
 
 //---------------------------------------------------------------------------
-//[[nodiscard]] bool operator==(const Enum& enm1, const Enum& enm2) noexcept
-//{
-//}
+[[nodiscard]] bool operator==(const Enum::Element& elem1, const Enum::Element& elem2) noexcept
+{
+    return elem1.name()  == elem2.name()
+       and elem1.value() == elem2.value()
+       and elem1.descr() == elem2.descr();
+}
 
 //---------------------------------------------------------------------------
-//[[nodiscard]] bool operator==(const Enum::Element& elem1, const Enum::Element& elem2) noexcept
-//{
-//}
+[[nodiscard]] bool operator==(const Enum& enm1, const Enum& enm2) noexcept
+{
+    return enm1.name()     == enm2.name()
+       and enm1.descr()    == enm2.descr()
+       and enm1.elements() == enm2.elements();
+}
 
 //---------------------------------------------------------------------------
-//[[nodiscard]] bool operator==(const TypeDef& tdef1, const TypeDef& tdef2) noexcept
-//{
-//}
+[[nodiscard]] bool operator==(const TypeDef& tdef1, const TypeDef& tdef2) noexcept
+{
+    return tdef1.name()  == tdef2.name()
+       and tdef1.type()  == tdef2.type()
+       and tdef1.descr() == tdef2.descr();
+}
 
 //---------------------------------------------------------------------------
-//[[nodiscard]] bool operator==(const Subrange& subrng1, const Subrange& subrng2) noexcept
-//{
-//}
+[[nodiscard]] bool operator==(const Subrange& subrng1, const Subrange& subrng2) noexcept
+{
+    return subrng1.name()      == subrng2.name()
+       and subrng1.type_name() == subrng2.type_name()
+       and subrng1.min_value() == subrng2.min_value()
+       and subrng1.max_value() == subrng2.max_value()
+       and subrng1.descr()     == subrng2.descr();
+}
 
 //---------------------------------------------------------------------------
-//[[nodiscard]] bool operator==(const Pou& pou1, const Pou& pou2) noexcept
-//{
-//}
+[[nodiscard]] bool operator==(const Pou& pou1, const Pou& pou2) noexcept
+{
+    return pou1.name()            == pou2.name()
+       and pou1.descr()           == pou2.descr()
+       and pou1.return_type()     == pou2.return_type()
+       and pou1.inout_vars()      == pou2.inout_vars()
+       and pou1.input_vars()      == pou2.input_vars()
+       and pou1.output_vars()     == pou2.output_vars()
+       and pou1.external_vars()   == pou2.external_vars()
+       and pou1.local_vars()      == pou2.local_vars()
+       and pou1.local_constants() == pou2.local_constants()
+       and pou1.code_type()       == pou2.code_type()
+       and pou1.body()            == pou2.body();
+}
 
 //---------------------------------------------------------------------------
-//[[nodiscard]] bool operator==(const Macro& macro1, const Macro& macro2) noexcept
-//{
-//}
+[[nodiscard]] bool operator==(const Macro::Parameter& param1, const Macro::Parameter& param2) noexcept
+{
+    return param1.name()  == param2.name()
+       and param1.descr() == param2.descr();
+}
 
 //---------------------------------------------------------------------------
-//[[nodiscard]] bool operator==(const Macro::Parameter& param1, const Macro::Parameter& param2) noexcept
-//{
-//}
+[[nodiscard]] bool operator==(const Macro& macro1, const Macro& macro2) noexcept
+{
+    return macro1.name()       == macro2.name()
+       and macro1.descr()      == macro2.descr()
+       and macro1.parameters() == macro2.parameters()
+       and macro1.code_type()  == macro2.code_type()
+       and macro1.body()       == macro2.body();
+}
 
 //---------------------------------------------------------------------------
 [[nodiscard]] bool operator==(const Library& lib1, const Library& lib2) noexcept
 {
-    return
-        //lib1.name()==lib2.name()
-        lib1.version()==lib2.version()
-        and lib1.descr()==lib2.descr();
-        //and lib1.global_constants()==lib2.global_constants(); //Variables_Groups
-        //and lib1.global_retainvars()==lib2.global_retainvars(); //Variables_Groups
-        //and lib1.global_variables()==lib2.global_variables(); //Variables_Groups
-        //and lib1.programs()==lib2.programs(); //std::vector<Pou>
-        //and lib1.function_blocks()==lib2.function_blocks(); //std::vector<Pou>
-        //and lib1.functions()==lib2.functions(); //std::vector<Pou>
-        //and lib1.macros()==lib2.macros(); //std::vector<Macro>
-        //and lib1.structs()==lib2.structs(); //std::vector<Struct>
-        //and lib1.typedefs()==lib2.typedefs(); //std::vector<TypeDef>
-        //and lib1.enums()==lib2.enums(); //std::vector<Enum>
-        //and lib1.subranges()==lib2.subranges(); //std::vector<Subrange>
-        //and lib1.interfaces()==lib2.interfaces();
+    return //lib1.name()             == lib2.name()
+            lib1.version()           == lib2.version()
+        and lib1.descr()             == lib2.descr()
+        and lib1.global_constants()  == lib2.global_constants()
+        and lib1.global_retainvars() == lib2.global_retainvars()
+        and lib1.global_variables()  == lib2.global_variables()
+        and lib1.programs()          == lib2.programs()
+        and lib1.function_blocks()   == lib2.function_blocks()
+        and lib1.functions()         == lib2.functions()
+        and lib1.macros()            == lib2.macros()
+        and lib1.structs()           == lib2.structs()
+        and lib1.typedefs()          == lib2.typedefs()
+        and lib1.enums()             == lib2.enums()
+        and lib1.subranges()         == lib2.subranges();
+        //and lib1.interfaces()        == lib2.interfaces();
 }
 
 }}//:::: plc::buf :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::

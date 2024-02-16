@@ -30,12 +30,14 @@ default: executable
 all: executable test
 
 analisys: CXXFLAGS += --coverage
-test: CXXFLAGS += -fsanitize=undefined
+test: CXXFLAGS += -D_FORTIFY_SOURCE=3 -fsanitize=address -fsanitize=undefined -fsanitize=leak -fsanitize=pointer-subtract -fsanitize=pointer-compare -fno-omit-frame-pointer -fstack-protector-all -fstack-clash-protection -fcf-protection
+#test: CXXFLAGS += -fanalyzer
 debug: CXXFLAGS += -DDEBUG -D_DEBUG -g
 debug: executable test
 
 executable: $(CPPS) $(HEADERS) makefile
 	$(info [executable $(CPPS)])
+	$(CXX) -dumpversion
 	mkdir -p ${BLDDIR}
 	$(CXX) -o $(TARGET) $(CXXFLAGS) $(CPPS)
 
