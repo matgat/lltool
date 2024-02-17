@@ -35,12 +35,16 @@ jobs:
         make
         sudo make install
 
-    - name: build
+    - name: Build-App
+      working-directory: ./build
       run: |
         g++ --version
-        make test
-      working-directory: ./build
+        make
 
-    - name: run_tests
-      run: lltool-test
+    - name: Build-Unit-Tests
+      working-directory: ./build
+      run: make test
+
+    - name: Run-Unit-Tests
       working-directory: ./build/bin
+      run: lltool-test
