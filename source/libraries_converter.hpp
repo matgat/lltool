@@ -343,21 +343,21 @@ ut::test("ll::convert_library()") = []
     ut::should("writing to existent file") = []
        {
         test::TemporaryDirectory dir;
-        auto in = dir.add_file("~in.pll",   "PROGRAM Prg\n"
+        auto in = dir.create_file("~in.pll","PROGRAM Prg\n"
                                             "    { CODE:ST }Body\n"
                                             "END_PROGRAM\n"sv);
-        auto out = dir.add_file("~out.plclib", "<lib>\n</lib>\n"sv);
+        auto out = dir.create_file("~out.plclib", "<lib>\n</lib>\n"sv);
         ut::expect( ut::throws([&]{ ll::convert_library(in.path().string(), out.path(), false, {}, [](std::string&&)noexcept{}); }) ) << "should throw\n";
        };
 
     ut::should("converting an empty pll") = []
        {
         test::TemporaryDirectory dir;
-        auto in = dir.add_file("~empty.pll", "\n"sv);
+        auto in = dir.create_file("~empty.pll", "\n"sv);
         struct issues_t final { int num=0; void operator()(std::string&&) noexcept {++num;}; } issues;
-        ll::convert_library(in.path().string(), {}, false, MG::keyvals{"no-timestamp"sv}, std::ref(issues));
+        ll::convert_library(in.path().string(), {}, false, MG::keyvals{"plclib-indent:2"}, std::ref(issues));
         ut::expect( ut::that % issues.num==1 ) << "should rise an issue related to empty lib\n";
-        auto out = dir.add_file("~empty.plclib");
+        auto out = dir.decl_file("~empty.plclib");
         ut::expect( fs::exists(out.path()) );
         ut::expect( ut::that % out.content() == "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n"
                                                 "<plcLibrary schemaVersion=\"2.8\">\n"
@@ -387,12 +387,12 @@ ut::test("ll::convert_library()") = []
     ut::should("converting a simple pll specifying output") = []
        {
         test::TemporaryDirectory dir;
-        auto in = dir.add_file("~in.pll",   "PROGRAM Prg\n"
+        auto in = dir.create_file("~in.pll","PROGRAM Prg\n"
                                             "    { CODE:ST }Body\n"
                                             "END_PROGRAM\n"sv);
-        auto out = dir.add_file("~out.plclib");
+        auto out = dir.decl_file("~out.plclib");
         struct issues_t final { int num=0; void operator()(std::string&&) noexcept {++num;}; } issues;
-        ll::convert_library(in.path().string(), out.path(), false, MG::keyvals{"no-timestamp"sv}, std::ref(issues));
+        ll::convert_library(in.path().string(), out.path(), false, MG::keyvals{"plclib-indent:2"}, std::ref(issues));
         ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
         ut::expect( fs::exists(out.path()) );
         ut::expect( ut::that % out.content() == "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n"
@@ -435,11 +435,11 @@ ut::test("ll::convert_library()") = []
     ut::should("converting sample pll") = []
        {
         test::TemporaryDirectory dir;
-        auto in = dir.add_file("sample-lib.pll", sample_lib_pll);
+        auto in = dir.create_file("sample-lib.pll", sample_lib_pll);
 
         try{
             struct issues_t final { int num=0; void operator()(std::string&&) noexcept {++num;}; } issues;
-            ll::convert_library(in.path().string(), {}, false, MG::keyvals{"no-timestamp"sv}, std::ref(issues));
+            ll::convert_library(in.path().string(), {}, false, MG::keyvals{"plclib-indent:2"}, std::ref(issues));
             ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
            }
         catch( parse::error& e )
@@ -448,10 +448,9 @@ ut::test("ll::convert_library()") = []
             throw;
            }
 
-        auto out = dir.add_file("sample-lib.plclib");
+        auto out = dir.decl_file("sample-lib.plclib");
         ut::expect( fs::exists(out.path()) );
         ut::expect( ut::that % out.content() == sample_lib_plclib );
-        //dir.set_cleanup_on_exit(false);
        };
    };
 

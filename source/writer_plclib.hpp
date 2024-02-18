@@ -515,7 +515,7 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
     f<< ind(1) << "<lib version=\""sv << lib.version() << "\" name=\""sv << lib.name() << "\" fullXml=\"true\">\n"sv;
 
     f<< ind(lvl) << "<!-- author=\"plclib::write()\""sv;
-    if( not options.contains("no-timestamp") )
+    if( options.contains("timestamp") )
        {
         f<< " date=\""sv << MG::get_human_readable_timestamp() << '\"';
        }
@@ -1106,7 +1106,7 @@ ut::test("plclib::write(plcb::Library)") = []
     const plcb::Library lib = plcb::make_sample_lib();
 
     MG::string_write out;
-    plclib::write_lib(out, lib, MG::keyvals{"no-timestamp,plclib-indent:2"});
+    plclib::write_lib(out, lib, MG::keyvals{"plclib-indent:2"});
     ut::expect( ut::that % out.str() == sample_lib_plclib );
    };
 

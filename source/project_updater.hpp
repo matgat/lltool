@@ -457,9 +457,9 @@ ut::test("ll::update_project_libraries()") = []
     ut::should("update simple") = []
        {
         test::TemporaryDirectory tmp_dir;
-        tmp_dir.add_file("pll1.pll", "abc");
-        tmp_dir.add_file("pll2.pll", "def");
-        const auto prj_file = tmp_dir.add_file("prj.ppjs",
+        tmp_dir.create_file("pll1.pll", "abc");
+        tmp_dir.create_file("pll2.pll", "def");
+        const auto prj_file = tmp_dir.create_file("prj.ppjs",
             "\uFEFF"
             "<plcProject>\n"
             "    <libraries>\n"

@@ -220,9 +220,9 @@ class Arguments final
     static void print_usage()
        {
         fmt::print( "\nUsage:\n"
-                    "   {0} [update|convert|help] [switches] [path(s)]\n"
-                    "   {0} update -v path/to/project.ppjs\n"
-                    "   {0} convert -o path/to/dir -vF path/to/*.h path/to/*.pll\n"
+                    "   {0} [convert|update|help] [switches] [path(s)]\n"
+                    "   {0} convert path/to/*.h --force -to path/to/dir\n"
+                    "   {0} update --verbose path/to/project.ppjs\n"
                     "       --to/--out/-o (Specify output file/directory)\n"
                     "       --options/-p (Specify comma separated key:value)\n"
                     "       --force/-F (Overwrite/clear output files)\n"

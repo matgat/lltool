@@ -3,16 +3,16 @@
 [![ms-build](https://github.com/matgat/lltool/actions/workflows/ms-build.yml/badge.svg)](https://github.com/matgat/lltool/actions/workflows/ms-build.yml)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-A tool capable to manipulate LogicLab files.
+A tool capable to manipulate *LogicLab* files.
 The main functions are:
 
-* Update libraries in a LogicLab project (`.ppjs`, `.plcprj`)
-* Conversion to LogicLab libraries (`.pll`, `.plclib`)
+* Convert *LogicLab* libraries (`.h` ⇒ `.pll` ⇒ `.plclib`), more [below](#converting-to-library)
+* Update libraries in a *LogicLab* project (`.ppjs`, `.plcprj`), more [below](#updating-a-project)
 
 One of the main goals is to perform these tasks in the most efficient way:
 this introduces some limitations on the accepted input files, mainly
-related to using the raw content of input files avoiding dynamic memory
-allocations as much as possible.
+related to using the raw content avoiding dynamic memory allocations
+as much as possible.
 
 
 
@@ -36,7 +36,7 @@ $ lltool [task] [arguments in any order]
 In a little more detail:
 
 ```bat
-$ lltool [update|convert|help] [switches] [path(s)]
+$ lltool [convert|update|help] [switches] [path(s)]
 ```
 
 The first argument selects the task; the order of the subsequent arguments
@@ -65,6 +65,29 @@ $ lltool help
 
 ### Examples
 
+To convert all `.h` files in `prog/` and all `.pll` files in `plc/`,
+deleting existing files in the given output folder and
+indicating some conversion options:
+
+```bat
+$ lltool convert --options timestamp,sort,plclib-indent:2 --force --to plc/LogicLab/generated-libs  prog/*.h plc/*.pll
+```
+
+> [!NOTE]
+> * `.h` files will generate both `.pll` and `.plclib` files, while `.pll` files a `.plclib`
+> * An error will be raised in case of output file names clashes
+> * Use `--force` to overwrite and clear the directory content
+
+
+To convert a single `.pll` file to a given output file:
+
+```bat
+$ lltool convert file.pll --force --to path/to/output.plclib
+```
+> [!IMPORTANT]
+> The proper parsing and writing functions are selected by the file extension
+
+
 To update a project:
 
 ```bat
@@ -72,6 +95,7 @@ $ lltool update "C:\path\to\project.ppjs"
 ```
 > [!CAUTION]
 > The choice to backup or not the original file is yours: do it in your script.
+
 
 To update a project without overwriting the original file:
 
@@ -83,79 +107,17 @@ $ lltool update "C:\path\to\project.ppjs" --force --to "C:\path\to\project-new.p
 > Use `--force` to overwrite the output file if existing
 
 
-To convert all `.h` files in `prog/` and all `.pll` files in `plc/`,
-deleting existing files in the given output folder and
-indicating some conversion options:
-
-```bat
-$ lltool convert --options no-timestamp,sort,plclib-indent:2 --force --to plc/LogicLab/generated-libs  prog/*.h plc/*.pll
-```
-
-> [!TIP]
-> * `.h` files will generate both `.pll` and `.plclib` files, while `.pll` files a `.plclib`
-> * An error will be raised in case of library name clashes
-> * Use `--force` to overwrite and clear the directory content
-
-
-To reconvert a `.pll` file to a given output file:
-
-```bat
-$ lltool convert file.pll --force --to path/to/output.pll
-```
-> [!IMPORTANT]
-> The proper parsing and writing functions are selected by the file extension
-
-
-
-_________________________________________________________________________
-## Updating a project
-The operation consists in parsing a project file detecting the contained
-libraries linked to an external file (`<lib name="...">`) and updating
-their content in the project file.
-If the external libraries are stored in a different encoding,
-their content will be embedded respecting the original project file
-encoding.
-> [!NOTE]
-> This operation has a strong guarantee: in case of ordinary runtime errors
-> the filesystem is left in the same state as before the invocation.
-
-
-The supported project formats are:
-
-|           |                     |
-|-----------|---------------------|
-| `.ppjs`   | (LogicLab3 project) |
-| `.plcprj` | (LogicLab5 project) |
-
-The supported library formats are:
-
-|           |                         |
-|-----------|-------------------------|
-| `.pll`    | (Plc LogicLab3 Library) |
-| `.plclib` | (LogicLab5 PLC LIBrary) |
-
-> [!IMPORTANT]
-> File type is determined by its extension (must be lowercase)
-
-
-### Limitations
-The following limitations are introduced to maximize efficiency:
-
-* The program assumes well formed projects
-* Line breaks won't be converted: if the external libraries and
-  the project file use a different end of line character sequence,
-  the resulting file will contain mixed line breaks
-* plclib content won't be reindented (see `plclib-indent`)
-
-
 
 _________________________________________________________________________
 ## Converting to library
-The operation consists in taking some input files and translating their
-content in another format.
-It is possible to indicate multiple input files using a glob
-pattern, in that case an output directory must be specified;
-in case of duplicate file base names the program will exit with error.
+The operation consists in translating the content of input files
+into another format.
+It is possible to indicate multiple input files: in this case an
+output directory must be specified, the operation will abort in
+case of output file names clashes.
+
+> [!TIP]
+> Multiple files can be specified also with a glob pattern like `*.h`
 
 > [!NOTE]
 > This operation offers no guarantee in case of ordinary runtime
@@ -165,24 +127,24 @@ in case of duplicate file base names the program will exit with error.
 
 The supported conversions are:
 
-* `.h` → `.pll`, `.plclib`
-* `.pll` → `.plclib`
+* `.h` ⇒ `.pll`, `.plclib`
+* `.pll` ⇒ `.plclib`
 
 > [!TIP]
 > These will be the default conversions when the output file is not explicitly specified
 
 Where
 
-* `.h` (Sipro header)
-* `.pll` (Plc LogicLab3 Library)
-* `.plclib` (LogicLab5 PLC LIBrary)
+* `.h` (*Sipro* header)
+* `.pll` (Plc *LogicLab3* Library)
+* `.plclib` (*LogicLab5* PLC LIBrary)
 
 > [!WARNING]
 > File type is determined by its extension, mind the case!
 
-Sipro header files resemble a *c-like* header containing just
+*Sipro* header files resemble a *c-like* header containing just
 `#define` directives.
-LogicLab libraries are *text* files embedding *IEC 61131-3* ST code;
+*LogicLab* libraries are *text* files embedding *IEC 61131-3* ST code;
 the latest format (`.plclib`) embraces a pervasive *xml* structure.
 More about these formats below.
 
@@ -194,7 +156,7 @@ The recognized keys are:
 
 |   key              |    value            |               description               |
 |--------------------|---------------------|-----------------------------------------|
-| `no-timestamp`     |                     | Don't put a timestamp in generated file |
+| `timestamp`        |                     | Put a timestamp in generated file       |
 | `sort`             |                     | Sort PLC elements and variables by name |
 | `plclib-schemaver` | *\<uint\>.\<uint\>* | Schema version of generated plclib file |
 | `plclib-indent`    | *\<uint\>*          | Tabs indentation of `<lib>` content     |
@@ -202,16 +164,16 @@ The recognized keys are:
 Example:
 
 ```bat
-$ lltool convert --options plclib-schemaver:2.8,plclib-indent:1,no-timestamp,sort  ...
+$ lltool convert --options plclib-schemaver:2.8,plclib-indent:1,timestamp,sort  ...
 ```
 
 
 ### Limitations
 The following limitations are introduced to maximize efficiency:
 
-* Input files must be encoded in `utf-8`
 * Input files must be syntactically correct
-* Input files should use preferably unix line breaks (`\n`)
+* Input files must be encoded in `utf-8` and
+  preferably use unix line breaks (`\n`)
 * In windows, paths containing uppercase non ASCII characters may
   compromise name collision checks *(no lowercase converter for unicode)*
 * Descriptions (`.h` `#define` inlined comments and `.pll` `{DE: ...}`)
@@ -220,8 +182,8 @@ The following limitations are introduced to maximize efficiency:
 
 
 _________________________________________________________________________
-### Syntax of Sipro header files
-Sipro `.h` files supported syntax is:
+### Syntax of *Sipro* header files
+*Sipro* `.h` files supported syntax is:
 
 ```
 // line comment
@@ -232,22 +194,24 @@ Sipro `.h` files supported syntax is:
 #define val_label value // [type] description
 ```
 
-Inlined comments have meaning and define the resource description.
+> [!IMPORTANT]
+> Inlined comments have meaning and define the resource description.
 
-Sipro registers will be recognized and exported:
+*Sipro* registers will be recognized and exported:
 
 ```cpp
-#define vqPos vq100 // Position
+#define vqWidth vq100 // Horizontal size
 ```
 
-It's possible to export also numeric constants
-declaring their *IEC 61131-3* type as in:
+Numeric constants will be exported if the
+desired *IEC 61131-3* type is explicitly
+declared in the comment:
 
 ```cpp
 #define PI 3.14159 // [LREAL] Circumference/diameter ratio
 ```
 
-The supported types are:
+The recognized types are:
 
 | type        | description                 | size | range                     |
 | ----------- | --------------------------- | ---- | ------------------------- |
@@ -279,10 +243,9 @@ The parser has the following limitations:
 * Not supported:
   * Array values initialization (`ARRAY[0..1] OF INT := [1, 2];`)
   * Multidimensional arrays (`ARRAY[0..2, 0..2]`)
-  * `RETAIN` specifier
   * Pointers
   * Latest standard (`INTERFACE`, `THIS`, `PUBLIC`, `IMPLEMENTS`, `METHOD`, …)
-  * LogicLab extension for conditional compilation `{IFDEF}`
+  * *LogicLab* extension for conditional compilation `{IFDEF}`
 
 Authors are encouraged to embed custom additional library data in
 the first comment of the `.pll` file.
@@ -297,6 +260,50 @@ The recognized fields are `descr` and `version`, for example:
 ```
 
 
+
+_________________________________________________________________________
+## Updating a project
+The operation consists in parsing a project file detecting the contained
+libraries linked to an external file (`<lib name="...">`) and updating
+their content in the project file.
+If the external libraries are stored in a different encoding,
+their content will be embedded respecting the original project file
+encoding.
+> [!NOTE]
+> This operation has a strong guarantee: in case of ordinary runtime errors
+> the filesystem is left in the same state as before the invocation.
+
+
+The supported project formats are:
+
+|           |                     |
+|-----------|---------------------|
+| `.ppjs`   | (*LogicLab3* project) |
+| `.plcprj` | (*LogicLab5* project) |
+
+The supported library formats are:
+
+|           |                         |
+|-----------|-------------------------|
+| `.pll`    | (Plc *LogicLab3* Library) |
+| `.plclib` | (*LogicLab5* PLC LIBrary) |
+
+> [!IMPORTANT]
+> File type is determined by its extension (must be lowercase)
+
+
+### Limitations
+The following limitations are introduced to maximize efficiency:
+
+* The program assumes well formed projects
+* Line breaks won't be converted: if the external libraries and
+  the project file use a different end of line character sequence,
+  the resulting file will contain mixed line breaks
+* plclib content won't be reindented (see `plclib-indent`)
+
+
+
+
 _________________________________________________________________________
 ## Author's biased opinions
 Some limitations of this program come directly from the
@@ -306,13 +313,13 @@ biased opinions of the author about the following topics:
   * <sub>Rationale: `8-bit` encodings and codepages must
     be finally dropped because incomplete, ambiguous and
     not portable.
-	`utf-32` is a huge waste of space and cache
-	(at least with files that are mostly `ASCII`),
-	with the disadvantage of having to deal with endianness
-	and to be less compatible with old tools.
-	I'm not considering at all `utf-16`, the worst possible
-	choice because combines all the drawbacks of the others
-	with a very little gain</sub>
+    `utf-32` is a huge waste of space and cache
+    (at least with files that are mostly `ASCII`),
+    with the disadvantage of having to deal with endianness
+    and to be less compatible with old tools.
+    I'm not considering at all `utf-16`, the worst possible
+    choice because combines all the drawbacks of the others
+    with a very little gain</sub>
 * Line breaks should be uniformed to `\n` (`LF`)
   * <sub>Rationale: no technical reason for two-chars
     lines breaks nowadays, this just introduces avoidable
@@ -362,13 +369,13 @@ $ make test
 > If building a version that needs `{fmt}`,
 > install the dependency beforehand with
 > your package manager:
-> 
+>
 > ```sh
 > $ sudo pacman -S fmt
 > ```
-> 
+>
 > or
-> 
+>
 > ```sh
 > $ sudo apt install -y libfmt-dev
 > ```
@@ -386,7 +393,7 @@ Once you have `msbuild` visible in path, you can launch the build from the comma
 > [!TIP]
 > If building a version that needs `{fmt}`
 > install the dependency beforehand with `vcpkg`:
-> 
+>
 > ```bat
 > > git clone https://github.com/Microsoft/vcpkg.git
 > > cd .\vcpkg

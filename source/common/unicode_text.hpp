@@ -473,17 +473,6 @@ template<Enc ENC> class bytes_buffer_t final
     std::unreachable();
     //throw std::runtime_error{ fmt::format("Unhandled encoding: {}"sv, std::to_underlying(E)) };
 
-#define TEXT_ATTACH_TO_ENC(E,L)\
-    switch(E)\
-       {using enum utxt::Enc;\
-        case UTF8: return L##UTF8;\
-        case UTF16LE: return L##UTF16LE;\
-        case UTF16BE: return L##UTF16BE;\
-        case UTF32LE: return L##UTF32LE;\
-        case UTF32BE: return L##UTF32BE;\
-       }\
-    std::unreachable();
-
 
 
 /// Re-encode bytes
@@ -781,7 +770,15 @@ ut::test("codepoints decode and encode") = []
 
         constexpr std::string_view encoded_as(const utxt::Enc enc) const noexcept
            {
-            TEXT_ATTACH_TO_ENC(enc, encoded_as_)
+            switch(enc)
+               {using enum utxt::Enc;
+                case UTF8:    return encoded_as_UTF8;
+                case UTF16LE: return encoded_as_UTF16LE;
+                case UTF16BE: return encoded_as_UTF16BE;
+                case UTF32LE: return encoded_as_UTF32LE;
+                case UTF32BE: return encoded_as_UTF32BE;
+               }
+            std::unreachable();
            }
        };
     constexpr std::array<test_case_t,4> test_cases =
@@ -839,7 +836,15 @@ ut::test("utxt::encode_as<>(bytes)") = []
 
         constexpr std::string_view encoded_as(const utxt::Enc enc) const noexcept
            {
-            TEXT_ATTACH_TO_ENC(enc, encoded_as_)
+            switch(enc)
+               {using enum utxt::Enc;
+                case UTF8:    return encoded_as_UTF8;
+                case UTF16LE: return encoded_as_UTF16LE;
+                case UTF16BE: return encoded_as_UTF16BE;
+                case UTF32LE: return encoded_as_UTF32LE;
+                case UTF32BE: return encoded_as_UTF32BE;
+               }
+            std::unreachable();
            }
        };
     constexpr std::array<test_case_t,2> test_cases =

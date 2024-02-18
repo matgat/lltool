@@ -32,7 +32,7 @@ current_page=0
 FILE_NAME_0=240;C++;0;EUTF-8;0;1;0;%2Fhome%2Fmat%2Fdev%2Flltool%2Fsource%2Fmain.cpp;0;4
 
 [VTE]
-last_dir=/home/mat/dev/lltool/tests
+last_dir=/home/mat/dev/lltool/source
 
 [build-menu]
 filetypes=C++;

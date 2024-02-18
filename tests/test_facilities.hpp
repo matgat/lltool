@@ -145,6 +145,11 @@ class File
         write_to_file(m_path.string(), content);
        }
 
+    [[nodiscard]] bool exists() const noexcept
+       {
+        return fs::exists(m_path);
+       }
+
     [[nodiscard]] const fs::path& path() const noexcept
        {
         return m_path;
@@ -160,14 +165,13 @@ class File
         append_to_file(m_path.string(), content);
        }
 
-    void remove() noexcept
+    void remove() const noexcept
        {
-        if( fs::exists(m_path) )
+        if( exists() )
            {
             std::error_code ec;
             fs::remove(m_path, ec);
            }
-        m_path.clear();
        }
 };
 
@@ -179,7 +183,7 @@ class TemporaryFile final : public File
     explicit TemporaryFile(const std::string_view name ="~file.tmp")
       : File(get_directory() / name)
        {
-        if( fs::exists(path()) )
+        if( exists() )
            {
             throw std::runtime_error( fmt::format("Temporary file {} already existing!", path().string()) );
            }
@@ -208,34 +212,36 @@ class TemporaryFile final : public File
 
 
 /////////////////////////////////////////////////////////////////////////////
-class TemporaryDirectory final
+class Directory
 {
  private:
     fs::path m_dirpath;
-    bool m_cleanup_on_exit = true;
 
  public:
-    explicit TemporaryDirectory()
-     : m_dirpath( fs::temp_directory_path() / generate_unique_timestamp("~tmp_"sv) )
+    explicit Directory(fs::path&& pth)
+     : m_dirpath( std::move(pth) )
+       {}
+
+    Directory(const Directory&) = delete; // Prevent copy
+    Directory& operator=(const Directory&) = delete;
+
+
+
+    void create() const
        {
-        if( fs::exists(m_dirpath) )
-           {
-            throw std::runtime_error( fmt::format("Temporary directory {} already existing!", m_dirpath.string()) );
-           }
         fs::create_directory(m_dirpath);
        }
 
-    ~TemporaryDirectory() noexcept
+    void remove_all() const noexcept
        {
-        if( m_cleanup_on_exit )
-           {
-            std::error_code ec;
-            fs::remove_all(m_dirpath, ec);
-           }
+        std::error_code ec;
+        fs::remove_all(m_dirpath, ec);
        }
 
-    TemporaryDirectory(const TemporaryDirectory&) = delete; // Prevent copy
-    TemporaryDirectory& operator=(const TemporaryDirectory&) = delete;
+    [[nodiscard]] bool exists() const noexcept
+       {
+        return fs::exists(m_dirpath);
+       }
 
     [[nodiscard]] const fs::path& path() const noexcept
        {
@@ -247,17 +253,39 @@ class TemporaryDirectory final
         return m_dirpath / name;
        }
 
-    [[maybe_unused]] File add_file(const std::string_view name) const
+    [[maybe_unused]] File decl_file(const std::string_view name) const
        {
         return File(build_file_path(name));
        }
 
-    [[maybe_unused]] File add_file(const std::string_view name, const std::string_view content) const
+    [[maybe_unused]] File create_file(const std::string_view name, const std::string_view content) const
        {
         return File(build_file_path(name), content);
        }
+};
 
-    void set_cleanup_on_exit(const bool b) { m_cleanup_on_exit = b; }
+
+/////////////////////////////////////////////////////////////////////////////
+class TemporaryDirectory final : public Directory
+{
+ private:
+    fs::path m_dirpath;
+
+ public:
+    explicit TemporaryDirectory()
+     : Directory( fs::temp_directory_path() / generate_unique_timestamp("~tmp_"sv) )
+       {
+        if( exists() )
+           {
+            throw std::runtime_error( fmt::format("Temporary directory {} already existing!", path().string()) );
+           }
+        create();
+       }
+
+    ~TemporaryDirectory() noexcept
+       {
+        remove_all();
+       }
 };
 
 }//::::::::::::::::::::::::::::::::: test :::::::::::::::::::::::::::::::::::

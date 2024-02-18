@@ -67,14 +67,14 @@ static ut::suite<"file_globbing"> file_globbing_tests = []
 ut::test("MG::file_glob()") = []
    {
     test::TemporaryDirectory dir;
-    const fs::path abcd = dir.add_file("abcd", "_").path();
-    const fs::path a = dir.add_file("a", "_").path();
-    const fs::path abcd_txt = dir.add_file("abcd.txt", "_").path();
-    const fs::path abcdef_txt = dir.add_file("abcdef.txt", "_").path();
-    const fs::path a_txt = dir.add_file("a.txt", "_").path();
-    const fs::path b_txt = dir.add_file("b.txt", "_").path();
-    const fs::path aa_txt = dir.add_file("aa.txt", "_").path();
-    const fs::path aa_cfg = dir.add_file("aa.cfg", "_").path();
+    const fs::path abcd = dir.create_file("abcd", "_").path();
+    const fs::path a = dir.create_file("a", "_").path();
+    const fs::path abcd_txt = dir.create_file("abcd.txt", "_").path();
+    const fs::path abcdef_txt = dir.create_file("abcdef.txt", "_").path();
+    const fs::path a_txt = dir.create_file("a.txt", "_").path();
+    const fs::path b_txt = dir.create_file("b.txt", "_").path();
+    const fs::path aa_txt = dir.create_file("aa.txt", "_").path();
+    const fs::path aa_cfg = dir.create_file("aa.cfg", "_").path();
 
     ut::should("match all txt") = [&]
        {

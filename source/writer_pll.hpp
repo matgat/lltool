@@ -270,7 +270,7 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
      << "\tversion: "sv << lib.version() << '\n'
      << "\tauthor: pll::write()\n"sv;
 
-    if( not options.contains("no-timestamp") )
+    if( options.contains("timestamp") )
        {
         f<< "\tdate: "sv << MG::get_human_readable_timestamp() << "\n\n"sv;
        }
@@ -920,7 +920,7 @@ ut::test("pll::write(plcb::Library)") = []
     const plcb::Library lib = plcb::make_sample_lib();
 
     MG::string_write out;
-    pll::write_lib(out, lib, MG::keyvals{"no-timestamp"});
+    pll::write_lib(out, lib, {});
     ut::expect( ut::that % out.str() == sample_lib_pll );
    };
 
