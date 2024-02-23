@@ -124,10 +124,14 @@ class PllParser final : public plain::ParserBase<char>
            }
         else if( inherited::eat_token("VAR_GLOBAL"sv) )
            {
-            const auto [ constants ] = collect_var_block_modifiers();
+            const auto [ constants, retain ] = collect_var_block_modifiers();
             if( constants )
                {
                 collect_global_constants( lib.global_constants().groups() );
+               }
+            else if( retain )
+               {
+                collect_global_vars( lib.global_retainvars().groups() );
                }
             else
                {
@@ -447,7 +451,7 @@ class PllParser final : public plain::ParserBase<char>
 
 
     //-----------------------------------------------------------------------
-    struct varblock_modifiers_t final { bool constants=false; };
+    struct varblock_modifiers_t final { bool constants=false; bool retain=false; };
     varblock_modifiers_t collect_var_block_modifiers()
        {
         varblock_modifiers_t modifiers;
@@ -460,9 +464,20 @@ class PllParser final : public plain::ParserBase<char>
                {
                 if( modifier=="CONSTANT"sv )
                    {
+                    if( modifiers.retain )
+                       {
+                        throw inherited::create_parse_error("`CONSTANT` conflicts with `RETAIN`");
+                       }
                     modifiers.constants = true;
                    }
-                //else if( modifier=="RETAIN"sv )
+                else if( modifier=="RETAIN"sv )
+                   {
+                    if( modifiers.constants )
+                       {
+                        throw inherited::create_parse_error("`RETAIN` conflicts with `CONSTANT`");
+                       }
+                    modifiers.retain = true;
+                   }
                 else
                    {
                     throw inherited::create_parse_error( fmt::format("Modifier `{}` not supported"sv, modifier) );
@@ -578,7 +593,6 @@ class PllParser final : public plain::ParserBase<char>
                            }
                         else if( dir.key()=="CODE"sv )
                            {// Header finished
-                            //fmt::print("\033[36m pou header ends at '{}' ({}:{})\033[0m\n", str::escape(parser.curr_codepoint()), parser.curr_line(), parser.curr_offset());
                             pou.set_code_type( dir.value() );
                             break;
                            }
@@ -609,10 +623,14 @@ class PllParser final : public plain::ParserBase<char>
                        }
                     else if( parser.eat_token("VAR"sv) )
                        {
-                        const auto [ constants ] = parser.collect_var_block_modifiers();
+                        const auto [ constants, retain ] = parser.collect_var_block_modifiers();
                         if( constants )
                            {
                             collect_constants_block( parser, pou.local_constants() );
+                           }
+                        else if( retain )
+                           {
+                            throw parser.create_parse_error("`RETAIN` variables not supported in POUs");
                            }
                         else
                            {
@@ -1131,6 +1149,7 @@ void pll_parse(const std::string& file_path, const std::string_view buf, plcb::L
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 #include "writer_pll.hpp" // sample_lib_pll
+#include "ansi_escape_codes.hpp" // ANSI_RED, ...
 /////////////////////////////////////////////////////////////////////////////
 static ut::suite<"pll_file_parser"> pll_file_parser_tests = []
 {////////////////////////////////////////////////////////////////////////////
@@ -1228,7 +1247,7 @@ ut::test("ll::PllParser::collect_global_vars()") = []
        }
     catch( std::exception& e )
        {
-        ut::log << "\033[95m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(line " << parser.curr_line() << ':' << parser.curr_offset() << ")\n";
+        ut::log << ANSI_MAGENTA "Exception: " ANSI_RED << e.what() << ANSI_DEFAULT "(line " << parser.curr_line() << ':' << parser.curr_offset() << ")\n";
         throw;
        }
 
@@ -1266,7 +1285,7 @@ ut::test("ll::PllParser::collect_global_constants()") = []
        }
     catch( std::exception& e )
        {
-        ut::log << "\033[95m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(line " << parser.curr_line() << ':' << parser.curr_offset() << ")\n";
+        ut::log << ANSI_MAGENTA "Exception: " ANSI_RED << e.what() << ANSI_DEFAULT "(line " << parser.curr_line() << ':' << parser.curr_offset() << ")\n";
         throw;
        }
 
@@ -1307,7 +1326,7 @@ ut::test("ll::PllParser::collect_pou()") = []
            }
         catch( std::exception& e )
            {
-            ut::log << "\033[95m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(line " << parser.curr_line() << ':' << parser.curr_offset() << ")\n";
+            ut::log << ANSI_MAGENTA "Exception: " ANSI_RED << e.what() << ANSI_DEFAULT "(line " << parser.curr_line() << ':' << parser.curr_offset() << ")\n";
             throw;
            }
 
@@ -1369,7 +1388,7 @@ ut::test("ll::PllParser::collect_pou()") = []
            }
         catch( std::exception& e )
            {
-            ut::log << "\033[95m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(line " << parser.curr_line() << ':' << parser.curr_offset() << ")\n";
+            ut::log << ANSI_MAGENTA "Exception: " ANSI_RED << e.what() << ANSI_DEFAULT "(line " << parser.curr_line() << ':' << parser.curr_offset() << ")\n";
             throw;
            }
 
@@ -1404,6 +1423,29 @@ ut::test("ll::PllParser::collect_pou()") = []
    };
 
 
+ut::test("Duplicate variable") = []
+   {
+    ll::PllParser parser
+       {//"FUNCTION_BLOCK"
+        " fb\n"
+        "\n"
+        "{ DE:\"a function block\" }\n"
+        "\n"
+        "	VAR_EXTERNAL\n"
+        "	var1 : BOOL; { DE:\"variable 1\" }\n"
+        "	var1 : BOOL; { DE:\"variable 1\" }\n"
+        "	var2 : BOOL; { DE:\"variable 2\" }\n"
+        "	END_VAR\n"
+        "\n"
+        "	{ CODE:ST }\n"
+        "    var2 := var1;\n"
+        "\n"
+        "END_FUNCTION_BLOCK\n"sv};
+    
+    ut::expect( ut::throws([&parser]{ plcb::Pou fb; parser.collect_pou(fb, "FUNCTION_BLOCK"sv, "END_FUNCTION_BLOCK"sv); }) ) << "should complain for duplicate variable\n";
+   };
+
+
 ut::test("ll::PllParser::collect_macro()") = []
    {
     ll::PllParser parser
@@ -1424,7 +1466,7 @@ ut::test("ll::PllParser::collect_macro()") = []
        }
     catch( std::exception& e )
        {
-        ut::log << "\033[95m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(line " << parser.curr_line() << ':' << parser.curr_offset() << ")\n";
+        ut::log << ANSI_MAGENTA "Exception: " ANSI_RED << e.what() << ANSI_DEFAULT "(line " << parser.curr_line() << ':' << parser.curr_offset() << ")\n";
         throw;
        }
 
@@ -1480,7 +1522,7 @@ ut::test("ll::PllParser::collect_types()") = []
        }
     catch( std::exception& e )
        {
-        ut::log << "\033[95m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(line " << parser.curr_line() << ':' << parser.curr_offset() << ")\n";
+        ut::log << ANSI_MAGENTA "Exception: " ANSI_RED << e.what() << ANSI_DEFAULT "(line " << parser.curr_line() << ':' << parser.curr_offset() << ")\n";
         throw;
        }
 
@@ -1547,13 +1589,13 @@ ut::test("ll::pll_parse(sample-lib)") = []
     plcb::Library parsed_lib("sample-lib"sv);
 
     try{
-        struct issues_t final { int num=0; void operator()(std::string&&) noexcept {++num;}; } issues;
+        struct issues_t final { int num=0; void operator()(std::string&& msg) noexcept {++num; ut::log << msg << '\n';}; } issues;
         ll::pll_parse(parsed_lib.name(), sample_lib_pll, parsed_lib, std::ref(issues));
         ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
        }
     catch( parse::error& e )
        {
-        ut::log << "\033[95m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(line " << e.line() << ")\n";
+        ut::log << ANSI_MAGENTA "Exception: " ANSI_RED << e.what() << ANSI_DEFAULT "(line " << e.line() << ")\n";
         throw;
        }
 
@@ -1759,13 +1801,13 @@ ut::test("ll::pll_parse(test_lib)") = []
     plcb::Library lib("test_lib");
 
     try{
-        struct issues_t final { int num=0; void operator()(std::string&&) noexcept {++num;}; } issues;
+        struct issues_t final { int num=0; void operator()(std::string&& msg) noexcept {++num; ut::log << msg << '\n';}; } issues;
         ll::pll_parse(lib.name(), buf, lib, std::ref(issues));
         ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
        }
     catch( parse::error& e )
        {
-        ut::log << "\033[95m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(line " << e.line() << ")\n";
+        ut::log << ANSI_MAGENTA "Exception: " ANSI_RED << e.what() << ANSI_DEFAULT "(line " << e.line() << ")\n";
         throw;
        }
 

@@ -241,6 +241,7 @@ The parser has the following limitations:
 * Is case sensitive: recognizes only uppercase keywords (`PROGRAM`, ...)
 * Tested only on pure Structured Text projects
 * Not supported:
+  * Persistent variables (`VAR RETAIN`) in *POU*s
   * Array values initialization (`ARRAY[0..1] OF INT := [1, 2];`)
   * Multidimensional arrays (`ARRAY[0..2, 0..2]`)
   * Pointers

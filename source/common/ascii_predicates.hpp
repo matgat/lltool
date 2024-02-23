@@ -30,10 +30,10 @@ namespace details //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     // |       |                         |is   |is   |is   |is   |is   |is   |is   |is   |is   |is   |is   |is    |
     // | ASCII | characters              |cntrl|print|graph|space|blank|punct|alnum|alpha|upper|lower|digit|xdigit|
     // |-------|-------------------------|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|------|
-    // |0–8    |control codes (NUL, ...) |  X  |     |     |     |     |     |     |     |     |     |     |      |
+    // |0:8    |control codes (NUL, ...) |  X  |     |     |     |     |     |     |     |     |     |     |      |
     // |9      |tab (\t)                 |  X  |     |     |  X  |  X  |     |     |     |     |     |     |      |
     // |10:13  |whitespaces (\n,\v,\f,\r)|  X  |     |     |  X  |     |     |     |     |     |     |     |      |
-    // |14–31  |control codes (SO, ...)  |  X  |     |     |     |     |     |     |     |     |     |     |      |
+    // |14:31  |control codes (SO, ...)  |  X  |     |     |     |     |     |     |     |     |     |     |      |
     // |32     |space (' ')              |     |  X  |     |  X  |  X  |     |     |     |     |     |     |      |
     // |33:47  |!"#$%&amp;'()*+,-./      |     |  X  |  X  |     |     |  X  |     |     |     |     |     |      |
     // |48:57  |0123456789               |     |  X  |  X  |     |     |     |  X  |     |     |     |  X  |  X   |

@@ -80,7 +80,7 @@ void h_parse(const std::string& file_path, const std::string_view buf, plcb::Lib
                }
             export_register(reg, def, vars.mutable_variables());
            }
-        else if( def.value_is_number() )
+        else if( def.value_is_number() and not def.comment_predecl().empty() )
            {// Got something like "LABEL 123 // [INT] descr"
             // plc::is_iec_num_type(def.comment_predecl())
             if( sipro::is_supported_iec_type(def.comment_predecl()) )
@@ -114,14 +114,14 @@ inline static constexpr std::string_view sample_def_header =
     "#define vbSample vb123 // A vb var\n"
     "#define vnSample vn123 // A vn var\n"
     "#define vqSample vq123 // A vq var\n"
-    "#define vaSample va123 // A va var\n"
-    "#define vdSample vd123 // A vd var\n"
     "//#define vqSample2 vq42 // A commented vq\n"
+    "#define vaSample va0 // A va var\n"
     "#define macro value // A not exported define\n"
     "#define int 42 // [INT] An int constant\n"
+    "#define num 43 // A local number\n"
     "#define dint 100 // [DINT] A dint constant\n"
     "#define double 12.3 // [LREAL] A double constant\n"
-    "#define num 43 // A local number\n"
+    "#define vdSample vd11 // A vd var\n"
     "\n"sv;
     
 /////////////////////////////////////////////////////////////////////////////
@@ -150,8 +150,8 @@ ut::test("sipro::h_parse()") = []
     ut::expect( ut::that % plcb::to_string(gvars[0]) == "vbSample BOOL 'A vb var' <MB300.123>"sv );
     ut::expect( ut::that % plcb::to_string(gvars[1]) == "vnSample INT 'A vn var' <MW400.123>"sv );
     ut::expect( ut::that % plcb::to_string(gvars[2]) == "vqSample DINT 'A vq var' <MD500.123>"sv );
-    ut::expect( ut::that % plcb::to_string(gvars[3]) == "vaSample STRING[80] 'A va var' <MB700.123>"sv );
-    ut::expect( ut::that % plcb::to_string(gvars[4]) == "vdSample LREAL 'A vd var' <ML600.123>"sv );
+    ut::expect( ut::that % plcb::to_string(gvars[3]) == "vaSample STRING[80] 'A va var' <MB700.0>"sv );
+    ut::expect( ut::that % plcb::to_string(gvars[4]) == "vdSample LREAL 'A vd var' <ML600.11>"sv );
 
     const auto& gconsts_groups = lib.global_constants().groups();
     ut::expect( ut::fatal(gconsts_groups.size() == 1u) );

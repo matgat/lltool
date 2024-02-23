@@ -391,6 +391,8 @@ class Parser final : public text::ParserBase<ENC>
 /////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
+#include "ansi_escape_codes.hpp" // ANSI_RED, ...
+/////////////////////////////////////////////////////////////////////////////
 //---------------------------------------------------------------------------
 [[nodiscard]] constexpr std::string to_string( text::xml::ParserEvent::Attributes const& attrs )
    {
@@ -475,7 +477,7 @@ ut::test("ParserEvent") = []
    };
 
 
-auto notify_sink = [](const std::string_view msg) -> void { ut::log << "\033[33m" "parser: " "\033[0m" << msg; };
+auto notify_sink = [](const std::string_view msg) -> void { ut::log << ANSI_BLUE "parser: " ANSI_DEFAULT << msg; };
 ut::test("generic xml") = [&notify_sink]
    {
     const std::string_view buf =
@@ -513,7 +515,7 @@ ut::test("generic xml") = [&notify_sink]
     try{
         while( const text::xml::ParserEvent& event = parser.next_event() )
            {
-            //ut::log << "\033[33m" << to_string(event) << "\033[36m" "(event " << n_event+1u << " line " << parser.curr_line() << ")\n" "\033[0m";
+            //ut::log << ANSI_BLUE << to_string(event) << ANSI_CYAN "(event " << n_event+1u << " line " << parser.curr_line() << ")\n" ANSI_DEFAULT;
             switch( ++n_event )
                {
                 case  1: expect(event.is_proc_instr()) << "got: " << to_string(event) << '\n'; break;
@@ -547,7 +549,7 @@ ut::test("generic xml") = [&notify_sink]
        }
     catch( parse::error& e )
        {
-        ut::log << "\033[35m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(event " << n_event << " line " << e.line() << ")\n";
+        ut::log << ANSI_MAGENTA "Exception: " ANSI_RED << e.what() << ANSI_DEFAULT "(event " << n_event << " line " << e.line() << ")\n";
        }
     expect( that % n_event==25u ) << "events number should match";
    };
@@ -600,7 +602,7 @@ ut::test("interface.xml sample") = [&notify_sink]
     try{
         while( const text::xml::ParserEvent& event = parser.next_event() )
            {
-            //ut::log << "\033[33m" << to_string(event) << "\033[36m" "(event " << n_event+1u << " line " << parser.curr_line() << ")\n" "\033[0m";
+            //ut::log << ANSI_BLUE << to_string(event) << ANSI_CYAN "(event " << n_event+1u << " line " << parser.curr_line() << ")\n" ANSI_DEFAULT;
             switch( ++n_event )
                {
                 case  1: expect(event.is_proc_instr()) << "got: " << to_string(event) << '\n'; break;
@@ -635,7 +637,7 @@ ut::test("interface.xml sample") = [&notify_sink]
        }
     catch( parse::error& e )
        {
-        ut::log << "\033[35m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(event " << n_event << " line " << e.line() << ")\n";
+        ut::log << ANSI_MAGENTA "Exception: " ANSI_RED << e.what() << ANSI_DEFAULT "(event " << n_event << " line " << e.line() << ")\n";
        }
     expect( that % n_event==25u ) << "events number should match";
    };

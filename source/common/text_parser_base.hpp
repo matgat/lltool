@@ -464,6 +464,9 @@ class ParserBase
 
 /////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
+#include "ansi_escape_codes.hpp" // ANSI_RED, ...
+/////////////////////////////////////////////////////////////////////////////
 static ut::suite<"text::ParserBase"> text_parser_base_tests = []
 {////////////////////////////////////////////////////////////////////////////
 using ut::expect;
@@ -471,7 +474,7 @@ using ut::that;
 using ut::throws;
 using enum utxt::Enc;
 
-auto notify_sink = [](const std::string_view msg) -> void { ut::log << "\033[33m" "parser: " "\033[0m" << msg; };
+auto notify_sink = [](const std::string_view msg) -> void { ut::log << ANSI_BLUE "parser: " ANSI_DEFAULT << msg; };
 
 ut::test("empty") = []
    {

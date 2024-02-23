@@ -485,7 +485,7 @@ constexpr std::string reencode(const std::string_view in_bytes)
 {
     std::string out_bytes;
 
-    // utf-32 occupa in genere più bytes
+    // Preallocate the expected output bytes size
     using enum utxt::Enc;
     if constexpr( INENC==UTF8 and (OUTENC==UTF32BE or OUTENC==UTF32LE) ) // cppcheck-suppress redundantCondition
        {

@@ -225,9 +225,12 @@ class Parser final : public plain::ParserBase<char>
 
 /////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
+#include "ansi_escape_codes.hpp" // ANSI_RED, ...
+/////////////////////////////////////////////////////////////////////////////
 static ut::suite<"h::Parser"> h_parser_tests = []
 {////////////////////////////////////////////////////////////////////////////
-//auto notify_sink = [](const std::string_view msg) -> void { ut::log << "\033[33m" "parser: " "\033[0m" << msg; };
+//auto notify_sink = [](const std::string_view msg) -> void { ut::log << ANSI_BLUE "parser: " ANSI_DEFAULT << msg; };
 ut::test("basic") = []
    {
     const std::string_view buf =
@@ -250,7 +253,7 @@ ut::test("basic") = []
     try{
         while( const h::Define def = parser.next_define() )
            {
-            //ut::log << "\033[33m" << def.label() << '=' << def.value() << "\033[36m" "(num " << n_event+1u << " line " << parser.curr_line() << ")\n" "\033[0m";
+            //ut::log << ANSI_BLUE << def.label() << '=' << def.value() << ANSI_CYAN "(num " << n_event+1u << " line " << parser.curr_line() << ")\n" ANSI_DEFAULT;
             switch( ++n_event )
                {
                 case  1:
@@ -295,7 +298,7 @@ ut::test("basic") = []
        }
     catch( parse::error& e )
        {
-        ut::log << "\033[35m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(event " << n_event << " line " << e.line() << ")\n";
+        ut::log << ANSI_MAGENTA "Exception: " ANSI_RED << e.what() << ANSI_DEFAULT "(event " << n_event << " line " << e.line() << ")\n";
        }
     ut::expect( ut::that % n_event==5u ) << "events number should match";
    };

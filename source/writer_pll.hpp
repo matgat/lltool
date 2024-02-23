@@ -255,13 +255,31 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Macro& macro)
     f << "END_MACRO\n"sv;
 }
 
+//---------------------------------------------------------------------------
+inline void write(MG::OutputStreamable auto& f, const plcb::Variables_Groups& vargrps, const std::string_view tag)
+{
+        f<< "\n\t"sv << tag << '\n';
+        for( const auto& group : vargrps.groups() )
+           {
+            if( not group.name().empty() )
+               {
+                f << "\t{G:\""sv << group.name() << "\"}\n"sv;
+               }
+            for( const auto& var : group.variables() )
+               {
+                write(f, var);
+               }
+           }
+        f<< "\tEND_VAR\n"sv;
+}
+
 
 
 //---------------------------------------------------------------------------
 void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG::keyvals& options)
 {
     // [Options]
-    const std::string_view sects_spacer = "\n\n\n"sv; // options.value_or("pll-sects-spacer", "\n\n\n"sv);
+    const std::string_view sects_spacer = "\n\n\n"sv; // options.value_or("pll-sects-spacer", 3);
 
     // [Heading]
     f<< "(*\n"sv
@@ -300,18 +318,16 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
             "\t(*     GLOBAL VARIABLES     *)\n"
             "\t(*                          *)\n"
             "\t(****************************)\n"sv;
-        f<< "\n\tVAR_GLOBAL\n"sv;
-        for( const auto& group : lib.global_variables().groups() )
+
+        if( not lib.global_variables().is_empty() )
            {
-            if( not group.name().empty() ) f << "\t{G:\""sv << group.name() << "\"}\n"sv;
-            for( const auto& var : group.variables() ) write(f, var);
+            write(f, lib.global_variables(), "VAR_GLOBAL"sv);
            }
-        for( const auto& group : lib.global_retainvars().groups() )
+
+        if( not lib.global_retainvars().is_empty() )
            {
-            if( not group.name().empty() ) f << "\t{G:\""sv << group.name() << "\"}\n"sv;
-            for( const auto& var : group.variables() ) write(f, var);
+            write(f, lib.global_retainvars(), "VAR_GLOBAL RETAIN"sv);
            }
-        f<< "\tEND_VAR\n"sv;
        }
 
     // [Global constants]
@@ -323,13 +339,7 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
             "\t(*     GLOBAL CONSTANTS     *)\n"
             "\t(*                          *)\n"
             "\t(****************************)\n"sv;
-        f<< "\n\tVAR_GLOBAL CONSTANT\n"sv;
-        for( const auto& group : lib.global_constants().groups() )
-           {
-            if( not group.name().empty() ) f << "\t{G:\""sv << group.name() << "\"}\n"sv;
-            for( const auto& var : group.variables() ) write(f, var);
-           }
-        f<< "\tEND_VAR\n"sv;
+        write(f, lib.global_constants(), "VAR_GLOBAL CONSTANT"sv);
        }
 
     // [Functions]

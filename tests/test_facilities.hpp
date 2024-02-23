@@ -225,19 +225,6 @@ class Directory
     Directory(const Directory&) = delete; // Prevent copy
     Directory& operator=(const Directory&) = delete;
 
-
-
-    void create() const
-       {
-        fs::create_directory(m_dirpath);
-       }
-
-    void remove_all() const noexcept
-       {
-        std::error_code ec;
-        fs::remove_all(m_dirpath, ec);
-       }
-
     [[nodiscard]] bool exists() const noexcept
        {
         return fs::exists(m_dirpath);
@@ -248,19 +235,25 @@ class Directory
         return m_dirpath;
        }
 
-    [[nodiscard]] fs::path build_file_path(const std::string_view name) const
-       {
-        return m_dirpath / name;
-       }
-
     [[maybe_unused]] File decl_file(const std::string_view name) const
        {
-        return File(build_file_path(name));
+        return File(m_dirpath / name);
        }
 
     [[maybe_unused]] File create_file(const std::string_view name, const std::string_view content) const
        {
-        return File(build_file_path(name), content);
+        return File(m_dirpath / name, content);
+       }
+
+    void create() const
+       {
+        fs::create_directory(m_dirpath);
+       }
+
+    void remove_all() const noexcept
+       {
+        std::error_code ec;
+        fs::remove_all(m_dirpath, ec);
        }
 };
 

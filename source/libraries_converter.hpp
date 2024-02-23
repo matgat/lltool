@@ -274,6 +274,8 @@ void convert_library(const fs::path& input_file_path, fs::path output_path, cons
 /////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
+#include "ansi_escape_codes.hpp" // ANSI_RED, ...
+/////////////////////////////////////////////////////////////////////////////
 static ut::suite<"libraries_converter"> libraries_converter_tests = []
 {
 
@@ -350,6 +352,15 @@ ut::test("ll::convert_library()") = []
         ut::expect( ut::throws([&]{ ll::convert_library(in.path().string(), out.path(), false, {}, [](std::string&&)noexcept{}); }) ) << "should throw\n";
        };
 
+    ut::should("writing to input directory") = []
+       {
+        test::TemporaryDirectory dir;
+        dir.create_file("~in1.h","#define vqEx1 vq1 // descr 1\n"sv);
+        dir.create_file("~in2.h","#define vqEx2 vq2 // descr 2\n"sv);
+        auto in = dir.decl_file("*.h");
+        ut::expect( ut::throws([&]{ ll::convert_library(in.path().string(), dir.path(), true, {}, [](std::string&&)noexcept{}); }) ) << "should throw\n";
+       };
+
     ut::should("converting an empty pll") = []
        {
         test::TemporaryDirectory dir;
@@ -358,7 +369,7 @@ ut::test("ll::convert_library()") = []
         ll::convert_library(in.path().string(), {}, false, MG::keyvals{"plclib-indent:2"}, std::ref(issues));
         ut::expect( ut::that % issues.num==1 ) << "should rise an issue related to empty lib\n";
         auto out = dir.decl_file("~empty.plclib");
-        ut::expect( fs::exists(out.path()) );
+        ut::expect( out.exists() );
         ut::expect( ut::that % out.content() == "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n"
                                                 "<plcLibrary schemaVersion=\"2.8\">\n"
                                                 "\t<lib version=\"1.0.0\" name=\"~empty\" fullXml=\"true\">\n"
@@ -383,7 +394,6 @@ ut::test("ll::convert_library()") = []
                                                 "</plcLibrary>\n"sv );
        };
 
-
     ut::should("converting a simple pll specifying output") = []
        {
         test::TemporaryDirectory dir;
@@ -391,10 +401,10 @@ ut::test("ll::convert_library()") = []
                                             "    { CODE:ST }Body\n"
                                             "END_PROGRAM\n"sv);
         auto out = dir.decl_file("~out.plclib");
-        struct issues_t final { int num=0; void operator()(std::string&&) noexcept {++num;}; } issues;
+        struct issues_t final { int num=0; void operator()(std::string&& msg) noexcept {++num; ut::log << msg << '\n';}; } issues;
         ll::convert_library(in.path().string(), out.path(), false, MG::keyvals{"plclib-indent:2"}, std::ref(issues));
         ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
-        ut::expect( fs::exists(out.path()) );
+        ut::expect( out.exists() );
         ut::expect( ut::that % out.content() == "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n"
                                                 "<plcLibrary schemaVersion=\"2.8\">\n"
                                                 "\t<lib version=\"1.0.0\" name=\"~in\" fullXml=\"true\">\n"
@@ -431,6 +441,142 @@ ut::test("ll::convert_library()") = []
                                                 "</plcLibrary>\n"sv );
        };
 
+    ut::should("converting sample header") = []
+       {
+        test::TemporaryDirectory dir;
+        auto in = dir.create_file("sample-def.h", sample_def_header);
+
+        try{
+            struct issues_t final { int num=0; void operator()(std::string&& msg) noexcept {++num; ut::log << msg << '\n';}; } issues;
+            ll::convert_library(in.path().string(), {}, false, MG::keyvals{"plclib-indent:2"}, std::ref(issues));
+            ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
+           }
+        catch( parse::error& e )
+           {
+            ut::log << ANSI_MAGENTA "Exception: " ANSI_RED << e.what() << ANSI_DEFAULT "(line " << e.line() << ")\n";
+            throw;
+           }
+
+        auto out_pll = dir.decl_file("sample-def.pll");
+        ut::expect( out_pll.exists() );
+        ut::expect( ut::that % out_pll.content() == "(*\n"
+                                                    "\tname: sample-def\n"
+                                                    "\tdescr: PLC library\n"
+                                                    "\tversion: 1.0.0\n"
+                                                    "\tauthor: pll::write()\n"
+                                                    "\tglobal-variables: 5\n"
+                                                    "\tglobal-constants: 3\n"
+                                                    "*)\n"
+                                                    "\n"
+                                                    "\n"
+                                                    "\n"
+                                                    "\t(****************************)\n"
+                                                    "\t(*                          *)\n"
+                                                    "\t(*     GLOBAL VARIABLES     *)\n"
+                                                    "\t(*                          *)\n"
+                                                    "\t(****************************)\n"
+                                                    "\n"
+                                                    "\tVAR_GLOBAL\n"
+                                                    "\t{G:\"Header_Variables\"}\n"
+                                                    "\tvbSample AT %MB300.123 : BOOL; { DE:\"A vb var\" }\n"
+                                                    "\tvnSample AT %MW400.123 : INT; { DE:\"A vn var\" }\n"
+                                                    "\tvqSample AT %MD500.123 : DINT; { DE:\"A vq var\" }\n"
+                                                    "\tvaSample AT %MB700.0 : STRING[ 80 ]; { DE:\"A va var\" }\n"
+                                                    "\tvdSample AT %ML600.11 : LREAL; { DE:\"A vd var\" }\n"
+                                                    "\tEND_VAR\n"
+                                                    "\n"
+                                                    "\n"
+                                                    "\n"
+                                                    "\t(****************************)\n"
+                                                    "\t(*                          *)\n"
+                                                    "\t(*     GLOBAL CONSTANTS     *)\n"
+                                                    "\t(*                          *)\n"
+                                                    "\t(****************************)\n"
+                                                    "\n"
+                                                    "\tVAR_GLOBAL CONSTANT\n"
+                                                    "\t{G:\"Header_Constants\"}\n"
+                                                    "\tint : INT := 42; { DE:\"An int constant\" }\n"
+                                                    "\tdint : DINT := 100; { DE:\"A dint constant\" }\n"
+                                                    "\tdouble : LREAL := 12.3; { DE:\"A double constant\" }\n"
+                                                    "\tEND_VAR\n"sv );
+
+        auto out_plclib = dir.decl_file("sample-def.plclib");
+        ut::expect( out_plclib.exists() );
+        ut::expect( ut::that % out_plclib.content() ==  "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n"
+                                                        "<plcLibrary schemaVersion=\"2.8\">\n"
+                                                        "\t<lib version=\"1.0.0\" name=\"sample-def\" fullXml=\"true\">\n"
+                                                        "\t\t<!-- author=\"plclib::write()\" -->\n"
+                                                        "\t\t<descr>PLC library</descr>\n"
+                                                        "\t\t<!--\n"
+                                                        "\t\t\tglobal-variables: 5\n"
+                                                        "\t\t\tglobal-constants: 3\n"
+                                                        "\t\t-->\n"
+                                                        "\t\t<libWorkspace>\n"
+                                                        "\t\t\t<folder name=\"sample-def\" id=\"5616\">\n"
+                                                        "\t\t\t\t<GlobalVars name=\"Header_Constants\"/>\n"
+                                                        "\t\t\t\t<GlobalVars name=\"Header_Variables\"/>\n"
+                                                        "\t\t\t</folder>\n"
+                                                        "\t\t</libWorkspace>\n"
+                                                        "\t\t<globalVars>\n"
+                                                        "\t\t\t<group name=\"Header_Variables\" excludeFromBuild=\"FALSE\" excludeFromBuildIfNotDef=\"\" version=\"1.0.0\">\n"
+                                                        "\t\t\t\t<var name=\"vbSample\" type=\"BOOL\">\n"
+                                                        "\t\t\t\t\t<descr>A vb var</descr>\n"
+                                                        "\t\t\t\t\t<address type=\"M\" typeVar=\"B\" index=\"300\" subIndex=\"123\"/>\n"
+                                                        "\t\t\t\t</var>\n"
+                                                        "\t\t\t\t<var name=\"vnSample\" type=\"INT\">\n"
+                                                        "\t\t\t\t\t<descr>A vn var</descr>\n"
+                                                        "\t\t\t\t\t<address type=\"M\" typeVar=\"W\" index=\"400\" subIndex=\"123\"/>\n"
+                                                        "\t\t\t\t</var>\n"
+                                                        "\t\t\t\t<var name=\"vqSample\" type=\"DINT\">\n"
+                                                        "\t\t\t\t\t<descr>A vq var</descr>\n"
+                                                        "\t\t\t\t\t<address type=\"M\" typeVar=\"D\" index=\"500\" subIndex=\"123\"/>\n"
+                                                        "\t\t\t\t</var>\n"
+                                                        "\t\t\t\t<var name=\"vaSample\" type=\"STRING\" length=\"80\">\n"
+                                                        "\t\t\t\t\t<descr>A va var</descr>\n"
+                                                        "\t\t\t\t\t<address type=\"M\" typeVar=\"B\" index=\"700\" subIndex=\"0\"/>\n"
+                                                        "\t\t\t\t</var>\n"
+                                                        "\t\t\t\t<var name=\"vdSample\" type=\"LREAL\">\n"
+                                                        "\t\t\t\t\t<descr>A vd var</descr>\n"
+                                                        "\t\t\t\t\t<address type=\"M\" typeVar=\"L\" index=\"600\" subIndex=\"11\"/>\n"
+                                                        "\t\t\t\t</var>\n"
+                                                        "\t\t\t</group>\n"
+                                                        "\t\t</globalVars>\n"
+                                                        "\t\t<retainVars/>\n"
+                                                        "\t\t<constantVars>\n"
+                                                        "\t\t\t<group name=\"Header_Constants\" excludeFromBuild=\"FALSE\" excludeFromBuildIfNotDef=\"\" version=\"1.0.0\">\n"
+                                                        "\t\t\t\t<const name=\"int\" type=\"INT\">\n"
+                                                        "\t\t\t\t\t<descr>An int constant</descr>\n"
+                                                        "\t\t\t\t\t<initValue>42</initValue>\n"
+                                                        "\t\t\t\t</const>\n"
+                                                        "\t\t\t\t<const name=\"dint\" type=\"DINT\">\n"
+                                                        "\t\t\t\t\t<descr>A dint constant</descr>\n"
+                                                        "\t\t\t\t\t<initValue>100</initValue>\n"
+                                                        "\t\t\t\t</const>\n"
+                                                        "\t\t\t\t<const name=\"double\" type=\"LREAL\">\n"
+                                                        "\t\t\t\t\t<descr>A double constant</descr>\n"
+                                                        "\t\t\t\t\t<initValue>12.3</initValue>\n"
+                                                        "\t\t\t\t</const>\n"
+                                                        "\t\t\t</group>\n"
+                                                        "\t\t</constantVars>\n"
+                                                        "\t\t<iecVarsDeclaration>\n"
+                                                        "\t\t\t<group name=\"Header_Constants\">\n"
+                                                        "\t\t\t\t<iecDeclaration active=\"FALSE\"/>\n"
+                                                        "\t\t\t</group>\n"
+                                                        "\t\t\t<group name=\"Header_Variables\">\n"
+                                                        "\t\t\t\t<iecDeclaration active=\"FALSE\"/>\n"
+                                                        "\t\t\t</group>\n"
+                                                        "\t\t</iecVarsDeclaration>\n"
+                                                        "\t\t<functions/>\n"
+                                                        "\t\t<functionBlocks/>\n"
+                                                        "\t\t<programs/>\n"
+                                                        "\t\t<macros/>\n"
+                                                        "\t\t<structs/>\n"
+                                                        "\t\t<typedefs/>\n"
+                                                        "\t\t<enums/>\n"
+                                                        "\t\t<subranges/>\n"
+                                                        "\t</lib>\n"
+                                                        "</plcLibrary>\n"sv );
+       };
 
     ut::should("converting sample pll") = []
        {
@@ -438,18 +584,18 @@ ut::test("ll::convert_library()") = []
         auto in = dir.create_file("sample-lib.pll", sample_lib_pll);
 
         try{
-            struct issues_t final { int num=0; void operator()(std::string&&) noexcept {++num;}; } issues;
+            struct issues_t final { int num=0; void operator()(std::string&& msg) noexcept {++num; ut::log << msg << '\n';}; } issues;
             ll::convert_library(in.path().string(), {}, false, MG::keyvals{"plclib-indent:2"}, std::ref(issues));
             ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
            }
         catch( parse::error& e )
            {
-            ut::log << "\033[95m" "Exception: " "\033[31m" << e.what() << "\033[0m" "(line " << e.line() << ")\n";
+            ut::log << ANSI_MAGENTA "Exception: " ANSI_RED << e.what() << ANSI_DEFAULT "(line " << e.line() << ")\n";
             throw;
            }
 
         auto out = dir.decl_file("sample-lib.plclib");
-        ut::expect( fs::exists(out.path()) );
+        ut::expect( out.exists() );
         ut::expect( ut::that % out.content() == sample_lib_plclib );
        };
    };

@@ -477,8 +477,9 @@ ut::test("ll::update_project_libraries()") = []
             "    </libraries>\n"
             "</plcProject>\n"sv;
 
-        ll::update_project_libraries(prj_file.path(), {}, [](std::string&&)noexcept{});
-
+        struct issues_t final { int num=0; void operator()(std::string&& msg) noexcept {++num; ut::log << msg << '\n';}; } issues;
+        ll::update_project_libraries(prj_file.path(), {}, std::ref(issues));
+        ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
         ut::expect( ut::that % prj_file.content() == expected );
        };
    };

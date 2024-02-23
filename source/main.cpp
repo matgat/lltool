@@ -300,13 +300,9 @@ int main( const int argc, const char* const argv[] )
 
         if( issues.size()>0 )
            {
-            if( args.verbose() or not args.quiet() )
+            for( const auto& issue : issues )
                {
-                fmt::print("[!] {} issues found\n", issues.size());
-                for( const auto& issue : issues )
-                   {
-                    fmt::print("    {}\n", issue);
-                   }
+                fmt::print("! {}\n", issue);
                }
             return 1;
            }
