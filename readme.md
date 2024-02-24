@@ -69,7 +69,7 @@ deleting existing files in the given output folder and
 indicating some conversion options:
 
 ```bat
-$ lltool convert --options timestamp,sort,plclib-indent:2 --force --to plc/LogicLab/generated-libs  prog/*.h plc/*.pll
+$ lltool convert prog/*.h plc/*.pll --options timestamp,sort,plclib-indent:3 --force --to plc/LogicLab/generated-libs
 ```
 
 > [!NOTE]
