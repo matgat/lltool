@@ -190,13 +190,13 @@ class Arguments final
                    {//...And can't be the directory of an input file
                     if( std::ranges::any_of(input_files(), [this](const fs::path& input_file_path){return fs::equivalent(out_path(), input_file_path.parent_path());}) )
                        {
-                        throw std::runtime_error{ fmt::format("Output directory \"{}\" can't contain input files", out_path().string()) };
+                        throw std::runtime_error{ fmt::format("Output directory \"{}\" contains input files", out_path().string()) };
                        }
                    }
                 // Detect input files name clashes
                 if( const auto dup = MG::find_duplicate_basename(input_files()); dup.has_value() )
                    {
-                    throw std::runtime_error{ fmt::format("Two or more input files named \"{}\"", dup.value()) };
+                    throw std::runtime_error{ fmt::format("Two or more input files have the same name \"{}\"", dup.value()) };
                    }
                }
            }

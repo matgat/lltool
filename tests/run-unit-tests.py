@@ -1,8 +1,9 @@
 #!/usr/bin/env python
-import os, sys
-import ctypes
+import os, sys, psutil
 import subprocess
+import ctypes
 import time
+import re
 
 # 🧬 Settings
 script_dir = sys.path[0] # os.path.dirname(os.path.realpath(__file__))
@@ -41,12 +42,20 @@ def set_title(title):
         sys.stdout.write(f"\x1b]2;{title}\x07")
 
 #----------------------------------------------------------------------------
-def launch(command_and_args):
-    return ctypes.c_int32( subprocess.call(command_and_args) ).value 
-
-#----------------------------------------------------------------------------
 def pause():
     input(f'{YELLOW}Press <ENTER> to continue{END}')
+
+#----------------------------------------------------------------------------
+def closing():
+    parent_process = psutil.Process(os.getpid()).parent().name()
+    temp_parents = re.compile(r"(?i)^(explorer.*|.*terminal)$")
+    if temp_parents.match(parent_process):
+        print(f'{GRAY}Closing... ({parent_process}){END}')
+        time.sleep(3)
+
+#----------------------------------------------------------------------------
+def launch(command_and_args):
+    return ctypes.c_int32( subprocess.call(command_and_args) ).value
 
 
 #----------------------------------------------------------------------------
@@ -66,8 +75,6 @@ def main():
         return 1
 
     print(f"{GRAY}Launching {test_exe}{END}")
-    #if os.path.isfile(prog_exe):
-    #    tests_ret = launch([test_exe, f'\"{prog_exe}\"'])
     if (tests_ret:=launch([test_exe]))!=0:
         print(f"{MAGENTA}Test returned: {YELLOW}{tests_ret}{END}")
         pause()
@@ -75,8 +82,7 @@ def main():
 
     print(f"\n{GREEN}{testprojectname} all tests ok{END}")
 
-    print("Closing...")
-    time.sleep(3)
+    closing()
     return 0
 
 #----------------------------------------------------------------------------

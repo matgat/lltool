@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-import os, sys
-import ctypes
+import os, sys, psutil
 import subprocess
+import ctypes
 import time
-import shutil
+import re
 
 # 🧬 Settings
 script_dir = sys.path[0] # os.path.dirname(os.path.realpath(__file__))
@@ -37,33 +37,21 @@ def set_title(title):
         sys.stdout.write(f"\x1b]2;{title}\x07")
 
 #----------------------------------------------------------------------------
-def launch(command_and_args):
-    return ctypes.c_int32( subprocess.call(command_and_args) ).value
-
-#----------------------------------------------------------------------------
 def pause():
     input(f'{YELLOW}Press <ENTER> to continue{END}')
 
 #----------------------------------------------------------------------------
-#def is_key_pressed():
-#    if os.name=='nt':
-#        import msvcrt
-#        return msvcrt.kbhit()
-#    else:
-#        import termios
-#        #import tty
-#        fd = sys.stdin.fileno()
-#        old_settings = termios.tcgetattr(fd)
-#        try:
-#            #tty.setcbreak(fd)
-#            return bool(sys.stdin.read(1))
-#        finally:
-#            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+def closing():
+    parent_process = psutil.Process(os.getpid()).parent().name()
+    temp_parents = re.compile(r"(?i)^(explorer.*|.*terminal)$")
+    if temp_parents.match(parent_process):
+        print(f'{GRAY}Closing... ({parent_process}){END}')
+        time.sleep(3)
 
 #----------------------------------------------------------------------------
-#def wait_no_key_pressed():
-#    while is_key_pressed():
-#        time.sleep(0.1)
+def launch(command_and_args):
+    return ctypes.c_int32( subprocess.call(command_and_args) ).value
+
 
 #----------------------------------------------------------------------------
 def main():
@@ -87,9 +75,7 @@ def main():
     #    print(f"{GRAY}Copying {END}{exe}{GRAY} to {END}{dst_path}")
     #    shutil.copy(exe, dst_path)
 
-    print("Closing...")
-    time.sleep(3)
-    #wait_no_key_pressed()
+    closing()
     return 0
 
 #----------------------------------------------------------------------------

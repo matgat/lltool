@@ -16,6 +16,7 @@ CXXFLAGS += -Wall -Wextra -Wpedantic -Wfatal-errors -Werror
 CXXFLAGS += -Wshadow -Wconversion -Wsign-conversion
 CXXFLAGS += -Wsign-promo -Wstrict-overflow=2 -Wcast-align -Wcast-qual -Wctor-dtor-privacy -Wdisabled-optimization -Wformat=2 -Wlogical-op -Wmissing-include-dirs -Wnoexcept -Wold-style-cast -Wredundant-decls -Wstrict-null-sentinel -Wundef
 CXXFLAGS += -I/usr/local/include -L/usr/local/lib -lfmt
+CXX_VER := $(shell $(CXX) -dumpversion)
 
 #MSVC = cl.exe
 #MSVCFLAGS = -utf-8 -std:c++latest -permissive- -Zc:wchar_t -Zc:forScope -Zc:inline -Gd -fp:precise -EHsc -TP
@@ -36,14 +37,13 @@ debug: CXXFLAGS += -DDEBUG -D_DEBUG -g
 debug: executable test
 
 executable: $(CPPS) $(HEADERS) makefile
-	$(info [executable $(CPPS)])
-	$(CXX) -dumpversion
-	mkdir -p ${BLDDIR}
+	$(info [$(TARGET), compiler ver $(CXX_VER)])
+	@mkdir -p ${BLDDIR}
 	$(CXX) -o $(TARGET) $(CXXFLAGS) $(CPPS)
 
 test: $(TEST_MAIN) $(HEADERS) makefile
-	$(info [test $(TEST_MAIN)])
-	mkdir -p ${BLDDIR}
+	$(info [$(TEST_TARGET), compiler ver $(CXX_VER)])
+	@mkdir -p ${BLDDIR}
 	$(CXX) -o $(TEST_TARGET) $(CXXFLAGS) $(TEST_MAIN)
 
 clean:

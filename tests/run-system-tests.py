@@ -1,9 +1,11 @@
 #!/usr/bin/env python
-import os, sys
-import inspect
+import os, sys, psutil
 import subprocess
+import inspect
 import time
 import tempfile
+import difflib
+import re
 
 # 🧬 Settings
 script_dir = sys.path[0]
@@ -39,18 +41,16 @@ def is_manual_mode():
     return len(sys.argv)>1 and sys.argv[1].lower().startswith('man');
 
 #----------------------------------------------------------------------------
-def launch(command_and_args):
-    print(f"{GRAY}")
-    start_time_s = time.process_time()
-    return_code = subprocess.call(command_and_args)
-    exec_time_s = time.process_time() - start_time_s
-    exec_time_ms = 1000.0 * exec_time_s
-    print(f"{END}{command_and_args[0]} returned: {GREEN if return_code==0 else RED}{return_code}{END} after {CYAN}{exec_time_ms:.2f}{END}ms")
-    return return_code, exec_time_ms
-
-#----------------------------------------------------------------------------
 def pause():
     input(f'{YELLOW}Press <ENTER> to continue{END}')
+
+#----------------------------------------------------------------------------
+def closing():
+    parent_process = psutil.Process(os.getpid()).parent().name()
+    temp_parents = re.compile(r"(?i)^(explorer.*|.*terminal)$")
+    if temp_parents.match(parent_process):
+        print(f'{GRAY}Closing... ({parent_process}){END}')
+        time.sleep(3)
 
 #----------------------------------------------------------------------------
 def wait_for_keypress():
@@ -68,6 +68,16 @@ def wait_for_keypress():
         except IOError: pass
         finally: termios.tcsetattr(fd, termios.TCSAFLUSH, oldterm)
     return key
+
+#----------------------------------------------------------------------------
+def launch(command_and_args):
+    print(f"{GRAY}")
+    start_time_s = time.process_time()
+    return_code = subprocess.call(command_and_args)
+    exec_time_s = time.process_time() - start_time_s
+    exec_time_ms = 1000.0 * exec_time_s
+    print(f"{END}{command_and_args[0]} returned: {GREEN if return_code==0 else RED}{return_code}{END} after {CYAN}{exec_time_ms:.2f}{END}ms")
+    return return_code, exec_time_ms
 
 #----------------------------------------------------------------------------
 def create_text_file(dir, fname, text_content, encoding):
@@ -110,38 +120,49 @@ class Directory:
 
 #----------------------------------------------------------------------------
 def check_strings_equality(str1, str2):
-    if str1==str2:
+    def show_char(ch):
+        return ch if ch.isprintable() and not ch.isspace() else repr(ch)
+    if str1 == str2:
         return True
-    # Strings are different: some diagnostic
-    min_length = min(len(str1), len(str2))
-    for i in range(min_length):
-        if str1[i]!=str2[i]:
-            print(f"First string at position {i} has character '{repr(str1[i])}', while second has character '{repr(str2[i])}'")
-            portion1 = ''.join(repr(c) for c in str1[:i+1])
-            portion2 = ''.join(repr(c) for c in str2[:i+1])
-            print(f"The string portions are:\n{portion1}\n{portion2}")
-            break
-    if len(str1)!=len(str2):
-        print(f"Strings are equal up to position {min_length}, but the {'first' if len(str1)>len(str2) else 'second'} has additional characters")
-    return False
+    else:
+        diff = difflib.ndiff(str1, str2)
+        result = []
+        for i, s in enumerate(diff):
+            if s[0] == ' ':
+                result.append(GRAY + s[-1] + END) # equal parts
+            elif s[0] == '-': # missing characters
+                result.append(MAGENTA + show_char(s[-1]) + END)
+            elif s[0] == '+': # surplus characters
+                result.append(RED + show_char(s[-1]) + END)
+        print(''.join(result))
+        return False
+
 
 #----------------------------------------------------------------------------
 def textfile_content_is(file_path, encoding, expected):
     with open(file_path, 'rb') as file:
         content = file.read().decode(encoding)
-        if check_strings_equality(content,expected):
+        return check_strings_equality(content,expected)
+        # print(f'{GRAY}expected:{END}\n{expected}')
+        # print(f'{GRAY}actual:{END}\n{content}')
+
+#----------------------------------------------------------------------------
+def check_file_content(path, file):
+    if os.path.isfile(path):
+        if textfile_content_is(path, file.encoding, file.content):
             return True
         else:
-            print(f'{GRAY}expected:{END}\n{expected}')
-            print(f'{GRAY}actual:{END}\n{content}')
-    return False
-
+            print(f'{RED}{path} {MAGENTA}content doesn\'t match{END}')
+            #if self.manual_mode :
+                #show_text_file(path)
+                #time.sleep(0.5)
+    else:
+        print(f'{RED}{path} {MAGENTA}not created{END}')
 
 #----------------------------------------------------------------------------
 def show_text_file(file_path):
     print(f"opening {file_path}")
     subprocess.run(['start' if os.name=='nt' else 'xdg-open', file_path])
-
 
 #----------------------------------------------------------------------------
 def show_text_files_comparison(left_file, right_file):
@@ -193,18 +214,19 @@ class Tests:
                         '\n'
                         '{ DE:"a function block" }\n'
                         '\n'
-                        '	VAR_EXTERNAL\n'
-                        '	var1 : BOOL; { DE:"variable 1" }\n'
-                        '	var1 : BOOL; { DE:"variable 1" }\n'
-                        '	var2 : BOOL; { DE:"variable 2" }\n'
-                        '	END_VAR\n'
+                        '   VAR_EXTERNAL\n'
+                        '   var1 : BOOL; { DE:"variable 1" }\n'
+                        '   var1 : BOOL; { DE:"variable 1" }\n'
+                        '   var2 : BOOL; { DE:"variable 2" }\n'
+                        '   END_VAR\n'
                         '\n'
-                        '	{ CODE:ST }\n'
+                        '   { CODE:ST }\n'
                         '    var2 := var1;\n'
                         '\n'
                         'END_FUNCTION_BLOCK\n' )
         with TemporaryTextFile(pll) as pll_file:
             ret_code, exec_time_ms = launch([exe, "convert", "-F", "-v" if self.manual_mode else "-q", pll_file.path])
+            time.sleep(0.5) # Give the time to show the bad file
             return ret_code==2 # should complain about duplicate variable
 
 
@@ -229,123 +251,113 @@ class Tests:
                     '\n' )
         pll = TextFile('file.pll',
                     '(*\n'
-                    '	name: file\n'
-                    '	descr: PLC library\n'
-                    '	version: 1.0.0\n'
-                    '	author: pll::write()\n'
-                    '	global-variables: 1\n'
-                    '	global-constants: 2\n'
+                    '\tname: file\n'
+                    '\tdescr: PLC library\n'
+                    '\tversion: 1.0.0\n'
+                    '\tauthor: pll::write()\n'
+                    '\tglobal-variables: 1\n'
+                    '\tglobal-constants: 2\n'
                     '*)\n'
                     '\n'
                     '\n'
                     '\n'
-                    '	(****************************)\n'
-                    '	(*                          *)\n'
-                    '	(*     GLOBAL VARIABLES     *)\n'
-                    '	(*                          *)\n'
-                    '	(****************************)\n'
+                    '\t(****************************)\n'
+                    '\t(*                          *)\n'
+                    '\t(*     GLOBAL VARIABLES     *)\n'
+                    '\t(*                          *)\n'
+                    '\t(****************************)\n'
                     '\n'
-                    '	VAR_GLOBAL\n'
-                    '	{G:"Header_Variables"}\n'
-                    '	Pos AT %MD500.32 : DINT; { DE:"Position" }\n'
-                    '	END_VAR\n'
+                    '\tVAR_GLOBAL\n'
+                    '\t{G:"Header_Variables"}\n'
+                    '\tPos AT %MD500.32 : DINT; { DE:"Position" }\n'
+                    '\tEND_VAR\n'
                     '\n'
                     '\n'
                     '\n'
-                    '	(****************************)\n'
-                    '	(*                          *)\n'
-                    '	(*     GLOBAL CONSTANTS     *)\n'
-                    '	(*                          *)\n'
-                    '	(****************************)\n'
+                    '\t(****************************)\n'
+                    '\t(*                          *)\n'
+                    '\t(*     GLOBAL CONSTANTS     *)\n'
+                    '\t(*                          *)\n'
+                    '\t(****************************)\n'
                     '\n'
-                    '	VAR_GLOBAL CONSTANT\n'
-                    '	{G:"Header_Constants"}\n'
-                    '	PI : LREAL := 3.14; { DE:"C/d" }\n'
-                    '	Density : DINT := 2500; { DE:"exported" }\n'
-                    '	END_VAR\n'
-                    '\n')
+                    '\tVAR_GLOBAL CONSTANT\n'
+                    '\t{G:"Header_Constants"}\n'
+                    '\tPI : LREAL := 3.14; { DE:"C/d" }\n'
+                    '\tDensity : DINT := 2500; { DE:"exported" }\n'
+                    '\tEND_VAR\n')
         plclib = TextFile('file.plclib',
                     '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n'
                     '<plcLibrary schemaVersion="2.8">\n'
-                    '	<lib version="1.0.0" name="file" fullXml="true">\n'
-                    '		<!-- author="plclib::write()" -->\n'
-                    '		<descr>PLC library</descr>\n'
-                    '		<!--\n'
-                    '			global-variables: 1\n'
-                    '			global-constants: 2\n'
-                    '		-->\n'
-                    '		<libWorkspace>\n'
-                    '			<folder name="file" id="1040">\n'
-                    '				<GlobalVars name="Header_Constants"/>\n'
-                    '				<GlobalVars name="Header_Variables"/>\n'
-                    '			</folder>\n'
-                    '		</libWorkspace>\n'
-                    '		<globalVars>\n'
-                    '			<group name="Header_Variables" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="" version="1.0.0">\n'
-                    '				<var name="Pos" type="DINT">\n'
-                    '					<descr>Position</descr>\n'
-                    '					<address type="M" typeVar="D" index="500" subIndex="32"/>\n'
-                    '				</var>\n'
-                    '			</group>\n'
-                    '		</globalVars>\n'
-                    '		<retainVars/>\n'
-                    '		<constantVars>\n'
-                    '			<group name="Header_Constants" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="" version="1.0.0">\n'
-                    '				<const name="PI" type="LREAL">\n'
-                    '					<descr>C/d</descr>\n'
-                    '					<initValue>3.14</initValue>\n'
-                    '				</const>\n'
-                    '				<const name="Density" type="DINT">\n'
-                    '					<descr>exported</descr>\n'
-                    '					<initValue>2500</initValue>\n'
-                    '				</const>\n'
-                    '			</group>\n'
-                    '		</constantVars>\n'
-                    '		<iecVarsDeclaration>\n'
-                    '			<group name="Header_Constants">\n'
-                    '				<iecDeclaration active="FALSE"/>\n'
-                    '			</group>\n'
-                    '			<group name="Header_Variables">\n'
-                    '				<iecDeclaration active="FALSE"/>\n'
-                    '			</group>\n'
-                    '		</iecVarsDeclaration>\n'
-                    '		<functions/>\n'
-                    '		<functionBlocks/>\n'
-                    '		<programs/>\n'
-                    '		<macros/>\n'
-                    '		<structs/>\n'
-                    '		<typedefs/>\n'
-                    '		<enums/>\n'
-                    '		<subranges/>\n'
-                    '	</lib>\n'
-                    '</plcLibrary>\n'
-                    '\n')
+                    '\t<lib version="1.0.0" name="file" fullXml="true">\n'
+                    '\t\t<!-- author="plclib::write()" -->\n'
+                    '\t\t<descr>PLC library</descr>\n'
+                    '\t\t<!--\n'
+                    '\t\t\tglobal-variables: 1\n'
+                    '\t\t\tglobal-constants: 2\n'
+                    '\t\t-->\n'
+                    '\t\t<libWorkspace>\n'
+                    '\t\t\t<folder name="file" id="1040">\n'
+                    '\t\t\t\t<GlobalVars name="Header_Constants"/>\n'
+                    '\t\t\t\t<GlobalVars name="Header_Variables"/>\n'
+                    '\t\t\t</folder>\n'
+                    '\t\t</libWorkspace>\n'
+                    '\t\t<globalVars>\n'
+                    '\t\t\t<group name="Header_Variables" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="" version="1.0.0">\n'
+                    '\t\t\t\t<var name="Pos" type="DINT">\n'
+                    '\t\t\t\t\t<descr>Position</descr>\n'
+                    '\t\t\t\t\t<address type="M" typeVar="D" index="500" subIndex="32"/>\n'
+                    '\t\t\t\t</var>\n'
+                    '\t\t\t</group>\n'
+                    '\t\t</globalVars>\n'
+                    '\t\t<retainVars/>\n'
+                    '\t\t<constantVars>\n'
+                    '\t\t\t<group name="Header_Constants" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="" version="1.0.0">\n'
+                    '\t\t\t\t<const name="PI" type="LREAL">\n'
+                    '\t\t\t\t\t<descr>C/d</descr>\n'
+                    '\t\t\t\t\t<initValue>3.14</initValue>\n'
+                    '\t\t\t\t</const>\n'
+                    '\t\t\t\t<const name="Density" type="DINT">\n'
+                    '\t\t\t\t\t<descr>exported</descr>\n'
+                    '\t\t\t\t\t<initValue>2500</initValue>\n'
+                    '\t\t\t\t</const>\n'
+                    '\t\t\t</group>\n'
+                    '\t\t</constantVars>\n'
+                    '\t\t<iecVarsDeclaration>\n'
+                    '\t\t\t<group name="Header_Constants">\n'
+                    '\t\t\t\t<iecDeclaration active="FALSE"/>\n'
+                    '\t\t\t</group>\n'
+                    '\t\t\t<group name="Header_Variables">\n'
+                    '\t\t\t\t<iecDeclaration active="FALSE"/>\n'
+                    '\t\t\t</group>\n'
+                    '\t\t</iecVarsDeclaration>\n'
+                    '\t\t<functions/>\n'
+                    '\t\t<functionBlocks/>\n'
+                    '\t\t<programs/>\n'
+                    '\t\t<macros/>\n'
+                    '\t\t<structs/>\n'
+                    '\t\t<typedefs/>\n'
+                    '\t\t<enums/>\n'
+                    '\t\t<subranges/>\n'
+                    '\t</lib>\n'
+                    '</plcLibrary>\n')
         with tempfile.TemporaryDirectory() as temp_dir:
             h_path = h.create_in(temp_dir)
             out_dir = Directory("out", temp_dir)
             ret_code, exec_time_ms = launch([exe, "convert", "-v" if self.manual_mode else "-q", h_path, "--to", out_dir.path])
             out_pll = out_dir.decl_file(pll.file_name);
             out_plclib = out_dir.decl_file(plclib.file_name);
-            ok = ret_code==0 and exec_time_ms<16 and os.path.isfile(out_pll) and os.path.isfile(out_plclib)
-            print(f"ret_code:{ret_code} exec_time_ms:{exec_time_ms} out_pll:{os.path.isfile(out_pll)} out_plclib:{os.path.isfile(out_plclib)}")
-            if os.path.isfile(out_pll) and not textfile_content_is(out_pll, pll.encoding, ""):
-                ok = False
-                show_text_file(out_pll)
-            if os.path.isfile(out_plclib) and not textfile_content_is(out_plclib, plclib.encoding, ""):
-                ok = False
-                show_text_file(out_plclib)
-            return ok
+            return ret_code==0 and exec_time_ms<16 and check_file_content(out_pll, pll) and check_file_content(out_plclib, plclib)
 
 
     #========================================================================
     def test_convert_name_clash(self):
         h = TextFile('file.h', '\n')
-        plclib = TextFile('file.plclib', '\n')
+        pll = TextFile('file.pll', '\n')
         with tempfile.TemporaryDirectory() as temp_dir:
             h_path = h.create_in(temp_dir)
-            plclib.create_in(temp_dir)
+            pll_path = pll.create_in(temp_dir)
             out_dir = Directory("out", temp_dir)
-            ret_code, exec_time_ms = launch([exe, "convert", "-v" if self.manual_mode else "-q", h_path, "--to", out_dir.path])
+            ret_code, exec_time_ms = launch([exe, "convert", "-v" if self.manual_mode else "-q", h_path, pll_path, "--to", out_dir.path])
             return ret_code==2 # should complain about name clash
 
 
@@ -353,6 +365,17 @@ class Tests:
     def test_convert_no_file(self):
         ret_code, exec_time_ms = launch([exe, "convert", "-v" if self.manual_mode else "-q"])
         return ret_code==2 # no file given should give a fatal error
+
+
+    #========================================================================
+    def test_convert_overwrite(self):
+        h = TextFile('file.h', '\n')
+        plclib = TextFile('file.plclib', '\n')
+        with tempfile.TemporaryDirectory() as temp_dir:
+            h_path = h.create_in(temp_dir)
+            plclib.create_in(temp_dir)
+            ret_code, exec_time_ms = launch([exe, "convert", "-v" if self.manual_mode else "-q", h_path, "--to", temp_dir])
+            return ret_code==2 # should complain about overwrite existing
 
 
     #========================================================================
@@ -797,8 +820,7 @@ def main():
             pause()
         else:
             print(f"\n{GREEN}All {len(tests.list)} tests passed{END}")
-            print("Closing...")
-            time.sleep(3)
+            closing()
         return fails
 
 #----------------------------------------------------------------------------

@@ -1,4 +1,9 @@
 #!/usr/bin/env python
-from os.path import join, dirname, abspath
+from pathlib import Path
 from subprocess import call
-call(["python", join(dirname(abspath(__file__)), "run-system-tests.py"), "manual"])
+
+def abspath(relpath):
+    script_dir = Path(__file__).resolve().parent
+    return (script_dir / relpath).resolve()
+
+call(["python", abspath("run-system-tests.py"), "manual"])

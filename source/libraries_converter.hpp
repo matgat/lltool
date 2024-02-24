@@ -91,23 +91,7 @@ void prepare_output_dir(const fs::path& dir, const bool clear, fnotify_t const& 
 
 
 //---------------------------------------------------------------------------
-struct outpaths_t final
-{
-    fs::path pll;
-    fs::path plclib;
-
-    void set_pll(const fs::path& path)
-       {
-        pll = path;
-        pll.replace_extension(".pll");
-       }
-
-    void set_plclib(const fs::path& path)
-       {
-        plclib = path;
-        plclib.replace_extension(".plclib");
-       }
-};
+struct outpaths_t final { fs::path pll, plclib; };
 [[nodiscard]] outpaths_t set_output_paths(const fs::path& input_file_path, const file_type input_file_type, fs::path output_path, const bool can_overwrite)
 {
     outpaths_t output_files_paths;
@@ -126,15 +110,19 @@ struct outpaths_t final
 
     if( fs::is_directory(output_path) )
        {// Choosing output paths basing on input file
+        output_path /= input_file_path.stem();
         switch( input_file_type )
            {
             case file_type::pll: // pll -> plclib
-                output_files_paths.set_plclib(input_file_path);
+                output_files_paths.plclib = output_path;
+                output_files_paths.plclib += ".plclib";
                 break;
 
             case file_type::h: // h -> pll,plclib
-                output_files_paths.set_pll(input_file_path);
-                output_files_paths.set_plclib(input_file_path);
+                output_files_paths.pll = output_path;
+                output_files_paths.pll += ".pll";
+                output_files_paths.plclib = output_path;
+                output_files_paths.plclib += ".plclib";
                 break;
 
             default:
