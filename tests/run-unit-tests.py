@@ -42,15 +42,22 @@ def set_title(title):
         sys.stdout.write(f"\x1b]2;{title}\x07")
 
 #----------------------------------------------------------------------------
-def pause():
-    input(f'{YELLOW}Press <ENTER> to continue{END}')
-
-#----------------------------------------------------------------------------
-def closing():
+def is_temp_console():
     parent_process = psutil.Process(os.getpid()).parent().name()
     temp_parents = re.compile(r"(?i)^(explorer.*|.*terminal)$")
-    if temp_parents.match(parent_process):
-        print(f'{GRAY}Closing... ({parent_process}){END}')
+    return temp_parents.match(parent_process)
+
+#----------------------------------------------------------------------------
+def closing_bad(msg):
+    print(f"\n{RED}{msg}{END}")
+    if is_temp_console():
+        input(f'{YELLOW}Press <ENTER> to continue{END}')
+
+#----------------------------------------------------------------------------
+def closing_ok(msg):
+    print(f"\n{GREEN}{msg}{END}")
+    if is_temp_console():
+        print(f'{GRAY}Closing...{END}')
         time.sleep(3)
 
 #----------------------------------------------------------------------------
@@ -65,24 +72,19 @@ def main():
 
     print(f"{BLUE}Building {CYAN}{testprojectname}{END}")
     if (build_ret:=launch(build_cmd))!=0:
-        print(f"\n{RED}Build error: {YELLOW}{build_ret}{END}")
-        pause()
+        closing_bad(f"Build returned {build_ret}")
         return build_ret
 
     if not os.path.isfile(test_exe):
-        print(f"\n{RED}{test_exe} not generated!{END}")
-        pause()
+        closing_bad(f"{test_exe} not generated!")
         return 1
 
     print(f"{GRAY}Launching {test_exe}{END}")
     if (tests_ret:=launch([test_exe]))!=0:
-        print(f"{MAGENTA}Test returned: {YELLOW}{tests_ret}{END}")
-        pause()
+        closing_bad(f"Test returned {tests_ret}")
         return tests_ret
 
-    print(f"\n{GREEN}{testprojectname} all tests ok{END}")
-
-    closing()
+    closing_ok(f'{testprojectname}: all tests ok')
     return 0
 
 #----------------------------------------------------------------------------

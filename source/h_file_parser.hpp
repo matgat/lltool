@@ -82,14 +82,17 @@ void h_parse(const std::string& file_path, const std::string_view buf, plcb::Lib
            }
         else if( def.value_is_number() and not def.comment_predecl().empty() )
            {// Got something like "LABEL 123 // [INT] descr"
-            // plc::is_iec_num_type(def.comment_predecl())
-            if( sipro::is_supported_iec_type(def.comment_predecl()) )
+            if( plc::is_iec_num_type(def.comment_predecl()) )
                {
+                //if( not sipro::is_supported_iec_type(def.comment_predecl()) )
+                //   {
+                //    notify_issue( fmt::format("Unsupported IEC type `{}`", def.comment_predecl()) );
+                //   }
                 export_constant(def, consts.mutable_variables());
                }
             else
                {
-                notify_issue( fmt::format("Unsupported numerical type `{}`", def.comment_predecl()) );
+                notify_issue( fmt::format("Unrecognized numerical type `{}`", def.comment_predecl()) );
                }
            }
        }
@@ -123,7 +126,7 @@ inline static constexpr std::string_view sample_def_header =
     "#define double 12.3 // [LREAL] A double constant\n"
     "#define vdSample vd11 // A vd var\n"
     "\n"sv;
-    
+
 /////////////////////////////////////////////////////////////////////////////
 static ut::suite<"h_file_parser"> h_file_parser_tests = []
 {////////////////////////////////////////////////////////////////////////////

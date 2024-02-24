@@ -37,15 +37,22 @@ def set_title(title):
         sys.stdout.write(f"\x1b]2;{title}\x07")
 
 #----------------------------------------------------------------------------
-def pause():
-    input(f'{YELLOW}Press <ENTER> to continue{END}')
-
-#----------------------------------------------------------------------------
-def closing():
+def is_temp_console():
     parent_process = psutil.Process(os.getpid()).parent().name()
     temp_parents = re.compile(r"(?i)^(explorer.*|.*terminal)$")
-    if temp_parents.match(parent_process):
-        print(f'{GRAY}Closing... ({parent_process}){END}')
+    return temp_parents.match(parent_process)
+
+#----------------------------------------------------------------------------
+def closing_bad(msg):
+    print(f"\n{RED}{msg}{END}")
+    if is_temp_console():
+        input(f'{YELLOW}Press <ENTER> to continue{END}')
+
+#----------------------------------------------------------------------------
+def closing_ok(msg):
+    print(f"\n{GREEN}{msg}{END}")
+    if is_temp_console():
+        print(f'{GRAY}Closing...{END}')
         time.sleep(3)
 
 #----------------------------------------------------------------------------
@@ -60,22 +67,18 @@ def main():
 
     print(f"{BLUE}Building {CYAN}{projectname}{END}")
     if (build_ret:=launch(build_cmd))!=0:
-        print(f"\n{RED}Build error: {YELLOW}{build_ret}{END}")
-        pause()
+        closing_bad(f"Build returned {build_ret}")
         return build_ret
 
     if not os.path.isfile(exe):
-        print(f"\n{RED}{exe} not generated!{END}")
-        pause()
+        closing_bad(f"{exe} not generated!")
         return 1
-
-    print(f"\n{GREEN}Build of {projectname} ok{END}")
 
     #if f"{configuration}|{platform}"=="Release|x64" and os.name=='nt' and os.path.isdir(dst_path:=os.path.expandvars('%UserProfile%/Bin')):
     #    print(f"{GRAY}Copying {END}{exe}{GRAY} to {END}{dst_path}")
     #    shutil.copy(exe, dst_path)
 
-    closing()
+    closing_ok(f"Build of {projectname} ok")
     return 0
 
 #----------------------------------------------------------------------------

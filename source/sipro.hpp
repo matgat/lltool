@@ -17,24 +17,24 @@ namespace sipro
 
 //---------------------------------------------------------------------------
 // Tell if a string is a supported IEC numerical type
-[[nodiscard]] bool is_supported_iec_type(const std::string_view sv)
-   {
-    static constexpr std::array supported_iec_types =
-       {
-        "BOOL"sv  // [1] BOOLean [FALSE|TRUE]
-       ,"SINT"sv  // [1] Short INTeger [-128 … 127]
-       ,"INT"sv   // [2] INTeger [-32768 … +32767]
-       ,"DINT"sv  // [4] Double INTeger [-2147483648 … 2147483647]
-       ,"USINT"sv // [1] Unsigned Short INTeger [0 … 255]
-       ,"UINT"sv  // [2] Unsigned INTeger [0 … 65535]
-       ,"UDINT"sv // [4] Unsigned Double INTeger [0 … 4294967295]
-       ,"LREAL"sv // [8] Long REAL number [±10^308]
-       ,"BYTE"sv  // [1] 1 byte
-       ,"WORD"sv  // [2] 2 bytes
-       ,"DWORD"sv // [4] 4 bytes
-       };
-    return std::ranges::contains(supported_iec_types, sv);
-   }
+//[[nodiscard]] bool is_supported_iec_type(const std::string_view sv)
+//   {
+//    static constexpr std::array supported_iec_types =
+//       {
+//        "BOOL"sv  // BOOLean [FALSE|TRUE]
+//       ,"SINT"sv  // Short INTeger [-128 … 127]
+//       ,"INT"sv   // INTeger [-32768 … +32767]
+//       ,"DINT"sv  // Double INTeger [-2147483648 … 2147483647]
+//       ,"USINT"sv // Unsigned Short INTeger [0 … 255]
+//       ,"UINT"sv  // Unsigned INTeger [0 … 65535]
+//       ,"UDINT"sv // Unsigned Double INTeger [0 … 4294967295]
+//       ,"LREAL"sv // Long REAL number [±10^308]
+//       ,"BYTE"sv  // 1 byte
+//       ,"WORD"sv  // 2 bytes
+//       ,"DWORD"sv // 4 bytes
+//       };
+//    return std::ranges::contains(supported_iec_types, sv);
+//   }
 
 
 /////////////////////////////////////////////////////////////////////////////

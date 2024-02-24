@@ -41,15 +41,22 @@ def is_manual_mode():
     return len(sys.argv)>1 and sys.argv[1].lower().startswith('man');
 
 #----------------------------------------------------------------------------
-def pause():
-    input(f'{YELLOW}Press <ENTER> to continue{END}')
-
-#----------------------------------------------------------------------------
-def closing():
+def is_temp_console():
     parent_process = psutil.Process(os.getpid()).parent().name()
     temp_parents = re.compile(r"(?i)^(explorer.*|.*terminal)$")
-    if temp_parents.match(parent_process):
-        print(f'{GRAY}Closing... ({parent_process}){END}')
+    return temp_parents.match(parent_process)
+
+#----------------------------------------------------------------------------
+def closing_bad(msg):
+    print(f"\n{RED}{msg}{END}")
+    if is_temp_console():
+        input(f'{YELLOW}Press <ENTER> to continue{END}')
+
+#----------------------------------------------------------------------------
+def closing_ok(msg):
+    print(f"\n{GREEN}{msg}{END}")
+    if is_temp_console():
+        print(f'{GRAY}Closing...{END}')
         time.sleep(3)
 
 #----------------------------------------------------------------------------
@@ -131,9 +138,9 @@ def check_strings_equality(str1, str2):
             if s[0] == ' ':
                 result.append(GRAY + s[-1] + END) # equal parts
             elif s[0] == '-': # missing characters
-                result.append(MAGENTA + show_char(s[-1]) + END)
-            elif s[0] == '+': # surplus characters
                 result.append(RED + show_char(s[-1]) + END)
+            elif s[0] == '+': # surplus characters
+                result.append(GREEN + show_char(s[-1]) + END)
         print(''.join(result))
         return False
 
@@ -143,8 +150,8 @@ def textfile_content_is(file_path, encoding, expected):
     with open(file_path, 'rb') as file:
         content = file.read().decode(encoding)
         return check_strings_equality(content,expected)
-        # print(f'{GRAY}expected:{END}\n{expected}')
-        # print(f'{GRAY}actual:{END}\n{content}')
+        #print(f'{GRAY}expected:{END}\n{expected}')
+        #print(f'{GRAY}actual:{END}\n{content}')
 
 #----------------------------------------------------------------------------
 def check_file_content(path, file):
@@ -153,9 +160,7 @@ def check_file_content(path, file):
             return True
         else:
             print(f'{RED}{path} {MAGENTA}content doesn\'t match{END}')
-            #if self.manual_mode :
-                #show_text_file(path)
-                #time.sleep(0.5)
+            #show_text_file(path)
     else:
         print(f'{RED}{path} {MAGENTA}not created{END}')
 
@@ -344,9 +349,9 @@ class Tests:
             h_path = h.create_in(temp_dir)
             out_dir = Directory("out", temp_dir)
             ret_code, exec_time_ms = launch([exe, "convert", "-v" if self.manual_mode else "-q", h_path, "--to", out_dir.path])
-            out_pll = out_dir.decl_file(pll.file_name);
-            out_plclib = out_dir.decl_file(plclib.file_name);
-            return ret_code==0 and exec_time_ms<16 and check_file_content(out_pll, pll) and check_file_content(out_plclib, plclib)
+            pll_path = out_dir.decl_file(pll.file_name);
+            plclib_path = out_dir.decl_file(plclib.file_name);
+            return ret_code==0 and exec_time_ms<16 and check_file_content(pll_path, pll) and check_file_content(plclib_path, plclib)
 
 
     #========================================================================
@@ -387,6 +392,528 @@ class Tests:
             h2.create_in(temp_dir)
             ret_code, exec_time_ms = launch([exe, "convert", "-F", "-v" if self.manual_mode else "-q", os.path.join(temp_dir,"*.h"), "--to", temp_dir])
             return ret_code==2 # should complain about outputting in the input directory
+
+
+    #========================================================================
+    def test_convert_two(self):
+        h = TextFile('defs.h',
+                    '#define num vn1 // Count\n'
+                    '#define str va16 // name\n' )
+        h_pll = TextFile('defs.pll',
+                        '(*\n'
+                        '\tname: defs\n'
+                        '\tdescr: PLC library\n'
+                        '\tversion: 1.0.0\n'
+                        '\tauthor: pll::write()\n'
+                        '\tglobal-variables: 2\n'
+                        '*)\n'
+                        '\n'
+                        '\n'
+                        '\n'
+                        '\t(****************************)\n'
+                        '\t(*                          *)\n'
+                        '\t(*     GLOBAL VARIABLES     *)\n'
+                        '\t(*                          *)\n'
+                        '\t(****************************)\n'
+                        '\n'
+                        '\tVAR_GLOBAL\n'
+                        '\t{G:"Header_Variables"}\n'
+                        '\tnum AT %MW400.1 : INT; { DE:"Count" }\n'
+                        '\tstr AT %MB700.16 : STRING[ 80 ]; { DE:"name" }\n'
+                        '\tEND_VAR\n')
+        pll = TextFile('lib.pll',
+                    '(*\n'
+                    '\tname: sample-lib\n'
+                    '\tdescr: sample library\n'
+                    '\tversion: 1.0.2\n'
+                    '\tauthor: pll::write()\n'
+                    '\tglobal-variables: 2\n'
+                    '\tglobal-constants: 2\n'
+                    '\tfunctions: 1\n'
+                    '\tfunction blocks: 1\n'
+                    '\tprograms: 2\n'
+                    '\tmacros: 1\n'
+                    '\tstructs: 1\n'
+                    '\ttypedefs: 2\n'
+                    '\tenums: 1\n'
+                    '\tsubranges: 1\n'
+                    '*)\n'
+                    '\n'
+                    '\n'
+                    '\n'
+                    '\t(****************************)\n'
+                    '\t(*                          *)\n'
+                    '\t(*     GLOBAL VARIABLES     *)\n'
+                    '\t(*                          *)\n'
+                    '\t(****************************)\n'
+                    '\n'
+                    '\tVAR_GLOBAL\n'
+                    '\t{G:"globs"}\n'
+                    '\tgvar1 : DINT; { DE:"gvar1 descr" }\n'
+                    '\tgvar2 : ARRAY[ 0..99 ] OF INT; { DE:"gvar2 descr" }\n'
+                    '\tEND_VAR\n'
+                    '\n'
+                    '\n'
+                    '\n'
+                    '\t(****************************)\n'
+                    '\t(*                          *)\n'
+                    '\t(*     GLOBAL CONSTANTS     *)\n'
+                    '\t(*                          *)\n'
+                    '\t(****************************)\n'
+                    '\n'
+                    '\tVAR_GLOBAL CONSTANT\n'
+                    '\tconst1 : INT := 42; { DE:"gvar1 descr" }\n'
+                    '\tconst2 : LREAL := 3.14; { DE:"gvar2 descr" }\n'
+                    '\tEND_VAR\n'
+                    '\n'
+                    '\n'
+                    '\n'
+                    '\t(*********************)\n'
+                    '\t(*                   *)\n'
+                    '\t(*     FUNCTIONS     *)\n'
+                    '\t(*                   *)\n'
+                    '\t(*********************)\n'
+                    '\n'
+                    'FUNCTION fn_name : INT\n'
+                    '\n'
+                    '{ DE:"testing fn" }\n'
+                    '\n'
+                    '\tVAR_INPUT\n'
+                    '\tin1 : DINT; { DE:"in1 descr" }\n'
+                    '\tin2 : LREAL; { DE:"in2 descr" }\n'
+                    '\tEND_VAR\n'
+                    '\n'
+                    '\tVAR CONSTANT\n'
+                    '\tconst1 : DINT := 42; { DE:"const1 descr" }\n'
+                    '\tEND_VAR\n'
+                    '\n'
+                    '\t{ CODE:ST }body\n'
+                    'END_FUNCTION\n'
+                    '\n'
+                    '\n'
+                    '\n'
+                    '\t(***************************)\n'
+                    '\t(*                         *)\n'
+                    '\t(*     FUNCTION BLOCKS     *)\n'
+                    '\t(*                         *)\n'
+                    '\t(***************************)\n'
+                    '\n'
+                    'FUNCTION_BLOCK fb_name\n'
+                    '\n'
+                    '{ DE:"testing fb" }\n'
+                    '\n'
+                    '\tVAR_IN_OUT\n'
+                    '\tinout1 : DINT; { DE:"inout1 descr" }\n'
+                    '\tinout2 : LREAL; { DE:"inout2 descr" }\n'
+                    '\tEND_VAR\n'
+                    '\n'
+                    '\tVAR_INPUT\n'
+                    '\tin1 : DINT; { DE:"in1 descr" }\n'
+                    '\tin2 : LREAL; { DE:"in2 descr" }\n'
+                    '\tEND_VAR\n'
+                    '\n'
+                    '\tVAR_OUTPUT\n'
+                    '\tout1 : DINT; { DE:"out1 descr" }\n'
+                    '\tout2 : LREAL; { DE:"out2 descr" }\n'
+                    '\tEND_VAR\n'
+                    '\n'
+                    '\tVAR_EXTERNAL\n'
+                    '\text1 : DINT; { DE:"ext1 descr" }\n'
+                    '\text2 : STRING[ 80 ]; { DE:"ext2 descr" }\n'
+                    '\tEND_VAR\n'
+                    '\n'
+                    '\tVAR\n'
+                    '\tloc1 : DINT; { DE:"loc1 descr" }\n'
+                    '\tloc2 : LREAL; { DE:"loc2 descr" }\n'
+                    '\tEND_VAR\n'
+                    '\n'
+                    '\tVAR CONSTANT\n'
+                    '\tconst1 : DINT := 42; { DE:"const1 descr" }\n'
+                    '\tconst2 : LREAL := 1.5; { DE:"const2 descr" }\n'
+                    '\tEND_VAR\n'
+                    '\n'
+                    '\t{ CODE:ST }body\n'
+                    'END_FUNCTION_BLOCK\n'
+                    '\n'
+                    '\n'
+                    '\n'
+                    '\t(********************)\n'
+                    '\t(*                  *)\n'
+                    '\t(*     PROGRAMS     *)\n'
+                    '\t(*                  *)\n'
+                    '\t(********************)\n'
+                    '\n'
+                    'PROGRAM prg_name1\n'
+                    '\n'
+                    '{ DE:"testing prg 1" }\n'
+                    '\n'
+                    '\tVAR\n'
+                    '\tloc1 : DINT; { DE:"loc1 descr" }\n'
+                    '\tloc2 : LREAL; { DE:"loc2 descr" }\n'
+                    '\tEND_VAR\n'
+                    '\n'
+                    '\t{ CODE:ST }body\n'
+                    'END_PROGRAM\n'
+                    '\n'
+                    'PROGRAM prg_name2\n'
+                    '\n'
+                    '{ DE:"testing prg 2" }\n'
+                    '\n'
+                    '\tVAR\n'
+                    '\tloc1 : DINT; { DE:"loc1 descr" }\n'
+                    '\tloc2 : LREAL; { DE:"loc2 descr" }\n'
+                    '\tEND_VAR\n'
+                    '\n'
+                    '\t{ CODE:ST }body\n'
+                    'END_PROGRAM\n'
+                    '\n'
+                    '\n'
+                    '\n'
+                    '\t(*****************)\n'
+                    '\t(*               *)\n'
+                    '\t(*     ENUMS     *)\n'
+                    '\t(*               *)\n'
+                    '\t(*****************)\n'
+                    '\n'
+                    'TYPE\n'
+                    '\n'
+                    '\tenumname: (\n'
+                    '\t\t{ DE:"testing enum" }\n'
+                    '\t\telm1 := 1, { DE:"elm1 descr" }\n'
+                    '\t\telm2 := 42 { DE:"elm2 descr" }\n'
+                    '\t);\n'
+                    '\n'
+                    'END_TYPE\n'
+                    '\n'
+                    '\n'
+                    '\n'
+                    '\t(********************)\n'
+                    '\t(*                  *)\n'
+                    '\t(*     TYPEDEFS     *)\n'
+                    '\t(*                  *)\n'
+                    '\t(********************)\n'
+                    '\n'
+                    'TYPE\n'
+                    '\n'
+                    '\ttypename1 : STRING[ 80 ]; { DE:"testing typedef" }\n'
+                    '\n'
+                    '\ttypename2 : ARRAY[ 0..9 ] OF INT; { DE:"testing typedef 2" }\n'
+                    '\n'
+                    'END_TYPE\n'
+                    '\n'
+                    '\n'
+                    '\n'
+                    '\t(*******************)\n'
+                    '\t(*                 *)\n'
+                    '\t(*     STRUCTS     *)\n'
+                    '\t(*                 *)\n'
+                    '\t(*******************)\n'
+                    '\n'
+                    'TYPE\n'
+                    '\n'
+                    '\tstructname : STRUCT { DE:"testing struct" }\n'
+                    '\t\tmember1 : DINT; { DE:"member1 descr" }\n'
+                    '\t\tmember2 : STRING[ 80 ]; { DE:"member2 descr" }\n'
+                    '\t\tmember3 : ARRAY[ 0..11 ] OF INT; { DE:"array member" }\n'
+                    '\tEND_STRUCT;\n'
+                    '\n'
+                    'END_TYPE\n'
+                    '\n'
+                    '\n'
+                    '\n'
+                    '\t(*********************)\n'
+                    '\t(*                   *)\n'
+                    '\t(*     SUBRANGES     *)\n'
+                    '\t(*                   *)\n'
+                    '\t(*********************)\n'
+                    '\n'
+                    'TYPE\n'
+                    '\n'
+                    '\tsubrangename : INT (1..12); { DE:"testing subrange" }\n'
+                    '\n'
+                    'END_TYPE\n'
+                    '\n'
+                    '\n'
+                    '\n'
+                    '\t(********************)\n'
+                    '\t(*                  *)\n'
+                    '\t(*      MACROS      *)\n'
+                    '\t(*                  *)\n'
+                    '\t(********************)\n'
+                    '\n'
+                    'MACRO macroname\n'
+                    '{ DE:"testing macro" }\n'
+                    '\n'
+                    '\tPAR_MACRO\n'
+                    '\tpar1; { DE:"par1 descr" }\n'
+                    '\tpar2; { DE:"par2 descr" }\n'
+                    '\tEND_PAR\n'
+                    '\n'
+                    '\t{ CODE:ST }body\n'
+                    'END_MACRO\n')
+        pll_plclib = TextFile('lib.plclib',
+                    '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n'
+                    '<plcLibrary schemaVersion="2.8">\n'
+                    '\t<lib version="1.0.2" name="lib" fullXml="true">\n'
+                    '\t\t<!-- author="plclib::write()" -->\n'
+                    '\t\t<descr>sample library</descr>\n'
+                    '\t\t<!--\n'
+                    '\t\t\tglobal-variables: 2\n'
+                    '\t\t\tglobal-constants: 2\n'
+                    '\t\t\tfunctions: 1\n'
+                    '\t\t\tfunction blocks: 1\n'
+                    '\t\t\tprograms: 2\n'
+                    '\t\t\tmacros: 1\n'
+                    '\t\t\tstructs: 1\n'
+                    '\t\t\ttypedefs: 2\n'
+                    '\t\t\tenums: 1\n'
+                    '\t\t\tsubranges: 1\n'
+                    '\t\t-->\n'
+                    '\t\t<libWorkspace>\n'
+                    '\t\t\t<folder name="lib" id="632">\n'
+                    '\t\t\t\t<GlobalVars name="globs"/>\n'
+                    '\t\t\t\t<Pou name="fb_name"/>\n'
+                    '\t\t\t\t<Pou name="fn_name"/>\n'
+                    '\t\t\t\t<Pou name="prg_name1"/>\n'
+                    '\t\t\t\t<Pou name="prg_name2"/>\n'
+                    '\t\t\t\t<Definition name="macroname"/>\n'
+                    '\t\t\t\t<Definition name="structname"/>\n'
+                    '\t\t\t\t<Definition name="typename1"/>\n'
+                    '\t\t\t\t<Definition name="typename2"/>\n'
+                    '\t\t\t\t<Definition name="enumname"/>\n'
+                    '\t\t\t\t<Definition name="subrangename"/>\n'
+                    '\t\t\t</folder>\n'
+                    '\t\t</libWorkspace>\n'
+                    '\t\t<globalVars>\n'
+                    '\t\t\t<group name="globs" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="" version="1.0.0">\n'
+                    '\t\t\t\t<var name="gvar1" type="DINT">\n'
+                    '\t\t\t\t\t<descr>gvar1 descr</descr>\n'
+                    '\t\t\t\t</var>\n'
+                    '\t\t\t\t<var name="gvar2" type="INT" dim0="100">\n'
+                    '\t\t\t\t\t<descr>gvar2 descr</descr>\n'
+                    '\t\t\t\t</var>\n'
+                    '\t\t\t</group>\n'
+                    '\t\t</globalVars>\n'
+                    '\t\t<retainVars/>\n'
+                    '\t\t<constantVars>\n'
+                    '\t\t\t<group name="" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="" version="1.0.0">\n'
+                    '\t\t\t\t<const name="const1" type="INT">\n'
+                    '\t\t\t\t\t<descr>gvar1 descr</descr>\n'
+                    '\t\t\t\t\t<initValue>42</initValue>\n'
+                    '\t\t\t\t</const>\n'
+                    '\t\t\t\t<const name="const2" type="LREAL">\n'
+                    '\t\t\t\t\t<descr>gvar2 descr</descr>\n'
+                    '\t\t\t\t\t<initValue>3.14</initValue>\n'
+                    '\t\t\t\t</const>\n'
+                    '\t\t\t</group>\n'
+                    '\t\t</constantVars>\n'
+                    '\t\t<iecVarsDeclaration>\n'
+                    '\t\t\t<group name="globs">\n'
+                    '\t\t\t\t<iecDeclaration active="FALSE"/>\n'
+                    '\t\t\t</group>\n'
+                    '\t\t</iecVarsDeclaration>\n'
+                    '\t\t<functions>\n'
+                    '\t\t\t<function name="fn_name" version="1.0.0" creationDate="0" lastModifiedDate="0" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="">\n'
+                    '\t\t\t\t<descr>testing fn</descr>\n'
+                    '\t\t\t\t<returnValue>INT</returnValue>\n'
+                    '\t\t\t\t<vars>\n'
+                    '\t\t\t\t\t<inputVars>\n'
+                    '\t\t\t\t\t\t<var name="in1" type="DINT">\n'
+                    '\t\t\t\t\t\t\t<descr>in1 descr</descr>\n'
+                    '\t\t\t\t\t\t</var>\n'
+                    '\t\t\t\t\t\t<var name="in2" type="LREAL">\n'
+                    '\t\t\t\t\t\t\t<descr>in2 descr</descr>\n'
+                    '\t\t\t\t\t\t</var>\n'
+                    '\t\t\t\t\t</inputVars>\n'
+                    '\t\t\t\t\t<localConsts>\n'
+                    '\t\t\t\t\t\t<const name="const1" type="DINT">\n'
+                    '\t\t\t\t\t\t\t<descr>const1 descr</descr>\n'
+                    '\t\t\t\t\t\t\t<initValue>42</initValue>\n'
+                    '\t\t\t\t\t\t</const>\n'
+                    '\t\t\t\t\t</localConsts>\n'
+                    '\t\t\t\t</vars>\n'
+                    '\t\t\t\t<iecDeclaration active="FALSE"/>\n'
+                    '\t\t\t\t<sourceCode type="ST">\n'
+                    '\t\t\t\t\t<![CDATA[body]]>\n'
+                    '\t\t\t\t</sourceCode>\n'
+                    '\t\t\t</function>\n'
+                    '\t\t</functions>\n'
+                    '\t\t<functionBlocks>\n'
+                    '\t\t\t<functionBlock name="fb_name" version="1.0.0" creationDate="0" lastModifiedDate="0" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="">\n'
+                    '\t\t\t\t<descr>testing fb</descr>\n'
+                    '\t\t\t\t<vars>\n'
+                    '\t\t\t\t\t<inoutVars>\n'
+                    '\t\t\t\t\t\t<var name="inout1" type="DINT">\n'
+                    '\t\t\t\t\t\t\t<descr>inout1 descr</descr>\n'
+                    '\t\t\t\t\t\t</var>\n'
+                    '\t\t\t\t\t\t<var name="inout2" type="LREAL">\n'
+                    '\t\t\t\t\t\t\t<descr>inout2 descr</descr>\n'
+                    '\t\t\t\t\t\t</var>\n'
+                    '\t\t\t\t\t</inoutVars>\n'
+                    '\t\t\t\t\t<inputVars>\n'
+                    '\t\t\t\t\t\t<var name="in1" type="DINT">\n'
+                    '\t\t\t\t\t\t\t<descr>in1 descr</descr>\n'
+                    '\t\t\t\t\t\t</var>\n'
+                    '\t\t\t\t\t\t<var name="in2" type="LREAL">\n'
+                    '\t\t\t\t\t\t\t<descr>in2 descr</descr>\n'
+                    '\t\t\t\t\t\t</var>\n'
+                    '\t\t\t\t\t</inputVars>\n'
+                    '\t\t\t\t\t<outputVars>\n'
+                    '\t\t\t\t\t\t<var name="out1" type="DINT">\n'
+                    '\t\t\t\t\t\t\t<descr>out1 descr</descr>\n'
+                    '\t\t\t\t\t\t</var>\n'
+                    '\t\t\t\t\t\t<var name="out2" type="LREAL">\n'
+                    '\t\t\t\t\t\t\t<descr>out2 descr</descr>\n'
+                    '\t\t\t\t\t\t</var>\n'
+                    '\t\t\t\t\t</outputVars>\n'
+                    '\t\t\t\t\t<externalVars>\n'
+                    '\t\t\t\t\t\t<var name="ext1" type="DINT">\n'
+                    '\t\t\t\t\t\t\t<descr>ext1 descr</descr>\n'
+                    '\t\t\t\t\t\t</var>\n'
+                    '\t\t\t\t\t\t<var name="ext2" type="STRING" length="80">\n'
+                    '\t\t\t\t\t\t\t<descr>ext2 descr</descr>\n'
+                    '\t\t\t\t\t\t</var>\n'
+                    '\t\t\t\t\t</externalVars>\n'
+                    '\t\t\t\t\t<localVars>\n'
+                    '\t\t\t\t\t\t<var name="loc1" type="DINT">\n'
+                    '\t\t\t\t\t\t\t<descr>loc1 descr</descr>\n'
+                    '\t\t\t\t\t\t</var>\n'
+                    '\t\t\t\t\t\t<var name="loc2" type="LREAL">\n'
+                    '\t\t\t\t\t\t\t<descr>loc2 descr</descr>\n'
+                    '\t\t\t\t\t\t</var>\n'
+                    '\t\t\t\t\t</localVars>\n'
+                    '\t\t\t\t\t<localConsts>\n'
+                    '\t\t\t\t\t\t<const name="const1" type="DINT">\n'
+                    '\t\t\t\t\t\t\t<descr>const1 descr</descr>\n'
+                    '\t\t\t\t\t\t\t<initValue>42</initValue>\n'
+                    '\t\t\t\t\t\t</const>\n'
+                    '\t\t\t\t\t\t<const name="const2" type="LREAL">\n'
+                    '\t\t\t\t\t\t\t<descr>const2 descr</descr>\n'
+                    '\t\t\t\t\t\t\t<initValue>1.5</initValue>\n'
+                    '\t\t\t\t\t\t</const>\n'
+                    '\t\t\t\t\t</localConsts>\n'
+                    '\t\t\t\t</vars>\n'
+                    '\t\t\t\t<iecDeclaration active="FALSE"/>\n'
+                    '\t\t\t\t<interfaces/>\n'
+                    '\t\t\t\t<methods/>\n'
+                    '\t\t\t\t<sourceCode type="ST">\n'
+                    '\t\t\t\t\t<![CDATA[body]]>\n'
+                    '\t\t\t\t</sourceCode>\n'
+                    '\t\t\t</functionBlock>\n'
+                    '\t\t</functionBlocks>\n'
+                    '\t\t<programs>\n'
+                    '\t\t\t<program name="prg_name1" version="1.0.0" creationDate="0" lastModifiedDate="0" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="">\n'
+                    '\t\t\t\t<descr>testing prg 1</descr>\n'
+                    '\t\t\t\t<vars>\n'
+                    '\t\t\t\t\t<localVars>\n'
+                    '\t\t\t\t\t\t<var name="loc1" type="DINT">\n'
+                    '\t\t\t\t\t\t\t<descr>loc1 descr</descr>\n'
+                    '\t\t\t\t\t\t</var>\n'
+                    '\t\t\t\t\t\t<var name="loc2" type="LREAL">\n'
+                    '\t\t\t\t\t\t\t<descr>loc2 descr</descr>\n'
+                    '\t\t\t\t\t\t</var>\n'
+                    '\t\t\t\t\t</localVars>\n'
+                    '\t\t\t\t</vars>\n'
+                    '\t\t\t\t<iecDeclaration active="FALSE"/>\n'
+                    '\t\t\t\t<sourceCode type="ST">\n'
+                    '\t\t\t\t\t<![CDATA[body]]>\n'
+                    '\t\t\t\t</sourceCode>\n'
+                    '\t\t\t</program>\n'
+                    '\t\t\t<program name="prg_name2" version="1.0.0" creationDate="0" lastModifiedDate="0" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="">\n'
+                    '\t\t\t\t<descr>testing prg 2</descr>\n'
+                    '\t\t\t\t<vars>\n'
+                    '\t\t\t\t\t<localVars>\n'
+                    '\t\t\t\t\t\t<var name="loc1" type="DINT">\n'
+                    '\t\t\t\t\t\t\t<descr>loc1 descr</descr>\n'
+                    '\t\t\t\t\t\t</var>\n'
+                    '\t\t\t\t\t\t<var name="loc2" type="LREAL">\n'
+                    '\t\t\t\t\t\t\t<descr>loc2 descr</descr>\n'
+                    '\t\t\t\t\t\t</var>\n'
+                    '\t\t\t\t\t</localVars>\n'
+                    '\t\t\t\t</vars>\n'
+                    '\t\t\t\t<iecDeclaration active="FALSE"/>\n'
+                    '\t\t\t\t<sourceCode type="ST">\n'
+                    '\t\t\t\t\t<![CDATA[body]]>\n'
+                    '\t\t\t\t</sourceCode>\n'
+                    '\t\t\t</program>\n'
+                    '\t\t</programs>\n'
+                    '\t\t<macros>\n'
+                    '\t\t\t<macro name="macroname">\n'
+                    '\t\t\t\t<descr>testing macro</descr>\n'
+                    '\t\t\t\t<sourceCode type="ST">\n'
+                    '\t\t\t\t\t<![CDATA[body]]>\n'
+                    '\t\t\t\t</sourceCode>\n'
+                    '\t\t\t\t<parameters>\n'
+                    '\t\t\t\t\t<parameter name="par1">\n'
+                    '\t\t\t\t\t\t<descr>par1 descr</descr>\n'
+                    '\t\t\t\t\t</parameter>\n'
+                    '\t\t\t\t\t<parameter name="par2">\n'
+                    '\t\t\t\t\t\t<descr>par2 descr</descr>\n'
+                    '\t\t\t\t\t</parameter>\n'
+                    '\t\t\t\t</parameters>\n'
+                    '\t\t\t</macro>\n'
+                    '\t\t</macros>\n'
+                    '\t\t<structs>\n'
+                    '\t\t\t<struct name="structname" version="1.0.0">\n'
+                    '\t\t\t\t<descr>testing struct</descr>\n'
+                    '\t\t\t\t<vars>\n'
+                    '\t\t\t\t\t<var name="member1" type="DINT">\n'
+                    '\t\t\t\t\t\t<descr>member1 descr</descr>\n'
+                    '\t\t\t\t\t</var>\n'
+                    '\t\t\t\t\t<var name="member2" type="STRING" length="80">\n'
+                    '\t\t\t\t\t\t<descr>member2 descr</descr>\n'
+                    '\t\t\t\t\t</var>\n'
+                    '\t\t\t\t\t<var name="member3" type="INT" dim0="12">\n'
+                    '\t\t\t\t\t\t<descr>array member</descr>\n'
+                    '\t\t\t\t\t</var>\n'
+                    '\t\t\t\t</vars>\n'
+                    '\t\t\t\t<iecDeclaration active="FALSE"/>\n'
+                    '\t\t\t</struct>\n'
+                    '\t\t</structs>\n'
+                    '\t\t<typedefs>\n'
+                    '\t\t\t<typedef name="typename1" type="STRING" length="80">\n'
+                    '\t\t\t\t<iecDeclaration active="FALSE"/>\n'
+                    '\t\t\t\t<descr>testing typedef</descr>\n'
+                    '\t\t\t</typedef>\n'
+                    '\t\t\t<typedef name="typename2" type="INT" dim0="10">\n'
+                    '\t\t\t\t<iecDeclaration active="FALSE"/>\n'
+                    '\t\t\t\t<descr>testing typedef 2</descr>\n'
+                    '\t\t\t</typedef>\n'
+                    '\t\t</typedefs>\n'
+                    '\t\t<enums>\n'
+                    '\t\t\t<enum name="enumname" version="1.0.0">\n'
+                    '\t\t\t\t<descr>testing enum</descr>\n'
+                    '\t\t\t\t<elements>\n'
+                    '\t\t\t\t\t<element name="elm1">\n'
+                    '\t\t\t\t\t\t<descr>elm1 descr</descr>\n'
+                    '\t\t\t\t\t\t<value>1</value>\n'
+                    '\t\t\t\t\t</element>\n'
+                    '\t\t\t\t\t<element name="elm2">\n'
+                    '\t\t\t\t\t\t<descr>elm2 descr</descr>\n'
+                    '\t\t\t\t\t\t<value>42</value>\n'
+                    '\t\t\t\t\t</element>\n'
+                    '\t\t\t\t</elements>\n'
+                    '\t\t\t\t<iecDeclaration active="FALSE"/>\n'
+                    '\t\t\t</enum>\n'
+                    '\t\t</enums>\n'
+                    '\t\t<subranges>\n'
+                    '\t\t\t<subrange name="subrangename" version="1.0.0" type="INT">\n'
+                    '\t\t\t\t<descr>testing subrange</descr>\n'
+                    '\t\t\t\t<minValue>1</minValue>\n'
+                    '\t\t\t\t<maxValue>12</maxValue>\n'
+                    '\t\t\t\t<iecDeclaration active="FALSE"/>\n'
+                    '\t\t\t</subrange>\n'
+                    '\t\t</subranges>\n'
+                    '\t</lib>\n'
+                    '</plcLibrary>\n' )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            h_path = h.create_in(temp_dir)
+            pll_path = pll.create_in(temp_dir)
+            out_dir = Directory("out", temp_dir)
+            ret_code, exec_time_ms = launch([exe, "convert", "-v" if self.manual_mode else "-q", h_path, pll_path, "--to", out_dir.path])
+            h_pll_path = out_dir.decl_file(h_pll.file_name);
+            pll_plclib_path = out_dir.decl_file(pll_plclib.file_name);
+            return ret_code==0 and exec_time_ms<16 and check_file_content(h_pll_path, h_pll) and check_file_content(pll_plclib_path, pll_plclib)
 
 
     #========================================================================
@@ -723,36 +1250,6 @@ class Tests:
 
 
 #----------------------------------------------------------------------------
-#def create_tests_array(manual_mode):
-#    tests = [
-#        Test("Convert_no_file", test_convert_no_file),
-#        Test("Update_no_file", test_update_no_file),
-#        Test("Convert_empty_pll", test_convert_empty_pll),
-#        Test("Update_empty", test_update_empty),
-#        Test("Update_no_libs", test_update_no_libs),
-#        Test("Convert_same_dir", test_convert_same_dir),
-#        Test("Convert_name_clash", test_convert_name_clash),
-#        Test("Update_same_prj", test_update_same_prj),
-#        Test("Update_bad_prj", test_update_bad_prj),
-#        Test("Update_bad_lib", test_update_bad_plclib),
-#        Test("Update_nonexistent_lib", test_update_nonexistent_lib),
-#        Test("Update_simple", test_update_simple_prj),
-#        Test("Update_ppjs", test_update_ppjs),
-#        Test("Update_plcprj", test_update_plcprj)
-#       ]
-#    if manual_mode:
-#        tests += [
-#            Test("Update_strato_ppjs", test_update_strato_ppjs),
-#            Test("Update_strato_plcprj", test_update_strato_plcprj)
-#           ]
-#
-#    return tests
-
-
-
-
-
-#----------------------------------------------------------------------------
 def run_tests(tests_array):
     tests_results = []
     fails = 0
@@ -805,8 +1302,7 @@ def main():
     set_title(__file__)
     os.chdir(script_dir)
     if not os.path.isfile(exe):
-        print(f"{RED}{exe} not found!{END}")
-        pause()
+        closing_bad(f"{exe} not found!")
         sys.exit(1)
     tests = Tests(is_manual_mode());
     if tests.manual_mode:
@@ -814,14 +1310,12 @@ def main():
         while ask_what_to_do(tests.list): pass
     else:
         print(f'{exe} (auto)')
-        fails = run_tests(tests.list)
-        if fails>0:
-            print(f"\n{RED}Had {fails} fails!{END}")
-            pause()
+        fails_count = run_tests(tests.list)
+        if fails_count>0:
+            closing_bad(f"{fails_count} {'test' if fails_count==1 else 'tests'} failed!")
         else:
-            print(f"\n{GREEN}All {len(tests.list)} tests passed{END}")
-            closing()
-        return fails
+            closing_ok(f"All {len(tests.list)} tests passed")
+        return fails_count
 
 #----------------------------------------------------------------------------
 if __name__ == '__main__':
