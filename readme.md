@@ -39,14 +39,13 @@ In a little more detail:
 $ lltool [convert|update|help] [switches] [path(s)]
 ```
 
-The first argument selects the task; the order of the subsequent arguments
-is not relevant, except when the command switch must be followed by a value
-such as `--out/--to` or `--options`.
-
 > [!TIP]
+> * The first argument selects the task
+> * The order of the subsequent arguments is not relevant
+> * Some switches such as `--to` or `--options` require to be followed by a string
 > * The switches can be passed in a brief notation using a single hyphen,
 >   for example `-vF` is equivalent to `--verbose --force`.
-> * The program won't overwrite an existing file unless you `--force` it.
+> * The program won't overwrite any existing file unless you `--force` it.
 
 To check all the available command line arguments:
 
@@ -76,7 +75,7 @@ $ lltool convert --options timestamp,sort,plclib-indent:2 --force --to plc/Logic
 > [!NOTE]
 > * `.h` files will generate both `.pll` and `.plclib` files, while `.pll` files a `.plclib`
 > * An error will be raised in case of output file names clashes
-> * Use `--force` to overwrite and clear the directory content
+> * Use `--force` to clear the output directory content
 
 
 To convert a single `.pll` file to a given output file:
@@ -85,7 +84,7 @@ To convert a single `.pll` file to a given output file:
 $ lltool convert file.pll --force --to path/to/output.plclib
 ```
 > [!IMPORTANT]
-> The proper parsing and writing functions are selected by the file extension
+> The proper parsing and writing functions are selected by the file extensions
 
 
 To update a project:
@@ -113,8 +112,8 @@ _________________________________________________________________________
 The operation consists in translating the content of input files
 into another format.
 It is possible to indicate multiple input files: in this case an
-output directory must be specified, the operation will abort in
-case of output file names clashes.
+output directory must be specified, and the operation will abort in
+case of conflicting output file names.
 
 > [!TIP]
 > Multiple files can be specified also with a glob pattern like `*.h`
@@ -131,16 +130,14 @@ The supported conversions are:
 * `.pll` ⇒ `.plclib`
 
 > [!TIP]
-> These will be the default conversions when the output file is not explicitly specified
+> * These will be the default conversions when the output file is not explicitly specified
+> * File type is determined by its extension, mind the case
 
 Where
 
 * `.h` (*Sipro* header)
 * `.pll` (Plc *LogicLab3* Library)
 * `.plclib` (*LogicLab5* PLC LIBrary)
-
-> [!WARNING]
-> File type is determined by its extension, mind the case!
 
 *Sipro* header files resemble a *c-like* header containing just
 `#define` directives.
@@ -164,14 +161,13 @@ The recognized keys are:
 Example:
 
 ```bat
-$ lltool convert --options plclib-schemaver:2.8,plclib-indent:1,timestamp,sort  ...
+$ lltool convert --options plclib-schemaver:2.8,plclib-indent:3,timestamp,sort  ...
 ```
 
 
 ### Limitations
 The following limitations are introduced to maximize efficiency:
 
-* Input files must be syntactically correct
 * Input files must be encoded in `utf-8` and
   preferably use unix line breaks (`\n`)
 * In windows, paths containing uppercase non ASCII characters may
@@ -218,28 +214,27 @@ The recognized types are:
 |   `BOOL`    | *BOOLean*                   |  1   | FALSE\|TRUE               |
 |   `SINT`    | *Short INTeger*             |  1   | -128 … 127                |
 |   `INT`     | *INTeger*                   |  2   | -32768 … 32767            |
-|   `DINT`    | *Double INTeger*            |  4   |  -2147483648 … 2147483647 |
-| ~~`LINT`~~  | ~~*Long INTeger*~~          |  8   |~~-2<sup>63</sup> … 2<sup>63</sup>-1~~|
+|   `DINT`    | *Double INTeger*            |  4   | -2147483648 … 2147483647  |
+| ~~`LINT`~~  | *Long INTeger*              |  8   | 2<sup>63</sup> … 2<sup>63</sup>-1 |
 |   `USINT`   | *Unsigned Short INTeger*    |  1   | 0 … 255                   |
 |   `UINT`    | *Unsigned INTeger*          |  2   | 0 … 65535                 |
 |   `UDINT`   | *Unsigned Double INTeger*   |  4   | 0 … 4294967295            |
-| ~~`ULINT`~~ | ~~*Unsigned Long INTeger*~~ |  8   |~~0 … 2<sup>64</sup>-1~~   |
-| ~~`REAL`~~  | ~~*REAL number*~~           |  4   |~~±10<sup>38</sup>~~       |
+| ~~`ULINT`~~ | *Unsigned Long INTeger*     |  8   | 0 … 2<sup>64</sup>-1      |
+| ~~`REAL`~~  | *REAL number*               |  4   | ±10<sup>38</sup>          |
 |   `LREAL`   | *Long REAL number*          |  8   | ±10<sup>308</sup>         |
 |   `BYTE`    | *1 byte*                    |  1   | 0 … 255                   |
 |   `WORD`    | *2 bytes*                   |  2   | 0 … 65535                 |
 |   `DWORD`   | *4 bytes*                   |  4   | 0 … 4294967295            |
-| ~~`LWORD`~~ | ~~*8 bytes*~~               |  8   |~~0 … 2<sup>64</sup>-1~~   |
+| ~~`LWORD`~~ | *8 bytes*                   |  8   | 0 … 2<sup>64</sup>-1      |
 
 
 _________________________________________________________________________
 ### Syntax of `.pll` files
 
 Refer to *IEC 61131-3* `ST` syntax.
-The parser has the following limitations:
+The parser, tested only on pure Structured Text projects, has the following limitations:
 
 * Is case sensitive: recognizes only uppercase keywords (`PROGRAM`, ...)
-* Tested only on pure Structured Text projects
 * Not supported:
   * Persistent variables (`VAR RETAIN`) in *POU*s
   * Array values initialization (`ARRAY[0..1] OF INT := [1, 2];`)
@@ -264,28 +259,28 @@ The recognized fields are `descr` and `version`, for example:
 
 _________________________________________________________________________
 ## Updating a project
-The operation consists in parsing a project file detecting the contained
-libraries linked to an external file (`<lib name="...">`) and updating
-their content in the project file.
+The operation consists in detecting the external linked
+libraries (`<lib name="...">`) inside a project and updating
+their content in the project file itself.
 If the external libraries are stored in a different encoding,
 their content will be embedded respecting the original project file
 encoding.
 > [!NOTE]
 > This operation has a strong guarantee: in case of ordinary runtime errors
-> the filesystem is left in the same state as before the invocation.
+> the filesystem will be left in the same state as before the program invocation.
 
 
 The supported project formats are:
 
-|           |                     |
-|-----------|---------------------|
+|           |                       |
+|-----------|-----------------------|
 | `.ppjs`   | (*LogicLab3* project) |
 | `.plcprj` | (*LogicLab5* project) |
 
 The supported library formats are:
 
-|           |                         |
-|-----------|-------------------------|
+|           |                           |
+|-----------|---------------------------|
 | `.pll`    | (Plc *LogicLab3* Library) |
 | `.plclib` | (*LogicLab5* PLC LIBrary) |
 
@@ -296,9 +291,9 @@ The supported library formats are:
 ### Limitations
 The following limitations are introduced to maximize efficiency:
 
-* The program assumes well formed projects
+* Project files are assumed well formed
 * Line breaks won't be converted: if the external libraries and
-  the project file use a different end of line character sequence,
+  the project file use a different convention,
   the resulting file will contain mixed line breaks
 * plclib content won't be reindented (see `plclib-indent`)
 
@@ -346,21 +341,19 @@ $ python build/build.py
 To run tests:
 
 ```sh
-$ python tests/run-unit-tests.py
-$ python tests/run-system-tests.py
-$ python tests/run-manual-tests.py
+$ python tests/run-all-tests.py
 ```
 
 
 ### linux
-With a `g++` toolchain you can invoke `make` directly:
+Launch `make` directly:
 
 ```sh
 $ cd build
 $ make
 ```
 
-To run tests:
+To run unit tests:
 
 ```sh
 $ make test
