@@ -69,7 +69,7 @@ deleting existing files in the given output folder and
 indicating some conversion options:
 
 ```bat
-$ lltool convert prog/*.h plc/*.pll --options timestamp,sort,plclib-indent:3 --force --to plc/LogicLab/generated-libs
+$ lltool convert prog/*.h plc/*.pll --options timestamp,plclib-indent:3 --force --to plc/LogicLab/generated-libs
 ```
 
 > [!NOTE]
@@ -111,18 +111,19 @@ _________________________________________________________________________
 ## Converting to library
 The operation consists in translating the content of input files
 into another format.
-It is possible to indicate multiple input files: in this case an
-output directory must be specified, and the operation will abort in
-case of conflicting output file names.
-
-> [!TIP]
-> Multiple files can be specified also with a glob pattern like `*.h`
 
 > [!NOTE]
 > This operation offers no guarantee in case of ordinary runtime
 > errors: an output file could be left incomplete and others may
 > have been already written, leaving the set of libraries in a
 > incoherent state.
+
+> [!TIP]
+> It is possible to convert multiple files at once
+> specifying the paths and/or using glob patterns like `*.h`.
+> In this case an output directory must be specified, and the
+> operation will abort if finds conflicting output file names.
+
 
 The supported conversions are:
 
@@ -161,7 +162,7 @@ The recognized keys are:
 Example:
 
 ```bat
-$ lltool convert --options plclib-schemaver:2.8,plclib-indent:3,timestamp,sort  ...
+--options plclib-schemaver:2.8,plclib-indent:3,timestamp,sort
 ```
 
 
@@ -249,7 +250,7 @@ The recognized fields are `descr` and `version`, for example:
 
 ```
 (*
-    author: ignored
+    author: Jon Doe
     descr: Machine logic
     version: 1.2.31
 *)

@@ -46,7 +46,7 @@ def is_temp_console():
 def closing_bad(msg):
     print(f"\n{RED}{msg}{END}")
     if is_temp_console():
-        input(f'{YELLOW}Press <ENTER> to continue{END}')
+        input(f'{YELLOW}Press <ENTER> to exit{END}')
 
 #----------------------------------------------------------------------------
 def closing_ok(msg):
