@@ -216,7 +216,7 @@ The recognized types are:
 |   `SINT`    | *Short INTeger*             |  1   | -128 … 127                |
 |   `INT`     | *INTeger*                   |  2   | -32768 … 32767            |
 |   `DINT`    | *Double INTeger*            |  4   | -2147483648 … 2147483647  |
-| ~~`LINT`~~  | *Long INTeger*              |  8   | 2<sup>63</sup> … 2<sup>63</sup>-1 |
+| ~~`LINT`~~  | *Long INTeger*              |  8   | -2<sup>63</sup> … 2<sup>63</sup>-1 |
 |   `USINT`   | *Unsigned Short INTeger*    |  1   | 0 … 255                   |
 |   `UINT`    | *Unsigned INTeger*          |  2   | 0 … 65535                 |
 |   `UDINT`   | *Unsigned Double INTeger*   |  4   | 0 … 4294967295            |
