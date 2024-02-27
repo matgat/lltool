@@ -10,8 +10,7 @@
 #include <concepts> // std::predicate
 #include <limits> // std::numeric_limits<>
 #include <array>
-
-#include <fmt/format.h> // fmt::format
+#include <format>
 
 #include "parsers_common.hpp" // parse::error
 #include "fnotify_type.hpp" // fnotify_t
@@ -81,12 +80,11 @@ class ParserBase
 
 
     //-----------------------------------------------------------------------
-    static constexpr void default_notify(std::string&&) {} // { fmt::print(fmt::runtime(msg)); }
+    static constexpr void default_notify(std::string&&) {}
     constexpr void set_on_notify_issue(fnotify_t const& f) { m_on_notify_issue = f; }
     constexpr void notify_issue(const std::string_view msg) const
        {
-        //fmt::print("  ! {}\n"sv, msg);
-        m_on_notify_issue( fmt::format("{} (line {})"sv, msg, m_line) );
+        m_on_notify_issue( std::format("[{}:{}] {}"sv, m_file_path, m_line, msg) );
        }
     constexpr void set_file_path(std::string&& pth)
        {
@@ -115,7 +113,7 @@ class ParserBase
             if( ascii::is_endline(m_curr_codepoint) ) ++m_line;
             m_curr_codepoint = m_buf.extract_codepoint();
             //++m_curr_codepoint_offset;
-            //notify_issue(fmt::format("'{}'"sv, utxt::to_utf8(curr_codepoint())));
+            //notify_issue(std::format("'{}'"sv, utxt::to_utf8(curr_codepoint())));
             return true;
            }
         else if( m_buf.has_bytes() )
@@ -213,7 +211,7 @@ class ParserBase
            }
         else
            {
-            throw create_parse_error( fmt::format("Unexpected content '{}' at line end"sv, utxt::to_utf8(curr_codepoint())) );
+            throw create_parse_error( std::format("Unexpected content '{}' at line end"sv, utxt::to_utf8(curr_codepoint())) );
            }
        }
 
@@ -291,7 +289,7 @@ class ParserBase
                {
                 const char32_t offending_codepoint = curr_codepoint();
                 restore_context( start ); // Strong guarantee
-                throw create_parse_error( fmt::format("Unexpected character '{}'"sv, utxt::to_utf8(offending_codepoint)) );
+                throw create_parse_error( std::format("Unexpected character '{}'"sv, utxt::to_utf8(offending_codepoint)) );
                }
             else if( not get_next() )
                {// No more data
@@ -359,7 +357,7 @@ class ParserBase
                 // If it's the last of end_block...
                 if( ++i>=end_block.size() )
                    {// ...I'm done
-                    //notify_issue( fmt::format("matched! cp:{} collected:{}", utxt::to_utf8(curr_codepoint()), m_buf.get_slice_between(start.curr_codepoint_byte_offset, content_end_byte_pos)) );
+                    //notify_issue( std::format("matched! cp:{} collected:{}", utxt::to_utf8(curr_codepoint()), m_buf.get_slice_between(start.curr_codepoint_byte_offset, content_end_byte_pos)) );
                     get_next(); // Skip last end_block codepoint
                     return m_buf.get_view_between(start.curr_codepoint_byte_offset, content_end_byte_pos);
                    }
@@ -380,12 +378,12 @@ class ParserBase
                    }
                 while( i>0 );
                }
-            //notify_issue( fmt::format("cp:{} collected:{} matched:{}", utxt::to_utf8(curr_codepoint()), m_buf.get_slice_between(start.curr_codepoint_byte_offset, content_end_byte_pos), utxt::to_utf8(end_block.substr(0, i))) );
+            //notify_issue( std::format("cp:{} collected:{} matched:{}", utxt::to_utf8(curr_codepoint()), m_buf.get_slice_between(start.curr_codepoint_byte_offset, content_end_byte_pos), utxt::to_utf8(end_block.substr(0, i))) );
            }
         while( get_next() );
 
         restore_context( start ); // Strong guarantee
-        throw create_parse_error(fmt::format("Unclosed content (\"{}\" not found)",utxt::to_utf8(end_block)), start.line);
+        throw create_parse_error(std::format("Unclosed content (\"{}\" not found)",utxt::to_utf8(end_block)), start.line);
        }
 
 
@@ -427,7 +425,7 @@ class ParserBase
        {
         if( not got_digit() )
            {
-            throw create_parse_error( fmt::format("Invalid char '{}' in number literal"sv, utxt::to_utf8(curr_codepoint())) );
+            throw create_parse_error( std::format("Invalid char '{}' in number literal"sv, utxt::to_utf8(curr_codepoint())) );
            }
 
         Uint result = ascii::value_of_digit(curr_codepoint());
@@ -437,7 +435,7 @@ class ParserBase
            {
             if( result>overflow_limit )
                {
-                throw create_parse_error( fmt::format("Integer literal too big ({}x{} would be dangerously near {})", result, base, std::numeric_limits<Uint>::max()/2) );
+                throw create_parse_error( std::format("Integer literal too big ({}x{} would be dangerously near {})", result, base, std::numeric_limits<Uint>::max()/2) );
                }
             result = static_cast<Uint>((base*result) + ascii::value_of_digit(curr_codepoint()));
            }

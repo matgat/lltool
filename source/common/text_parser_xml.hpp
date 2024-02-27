@@ -287,7 +287,7 @@ class Parser final : public text::ParserBase<ENC>
                    {
                     if( m_event.attributes().contains(namval.first) )
                        {
-                        throw inherited::create_parse_error( fmt::format("Duplicated attribute `{}`", utxt::to_utf8(namval.first)) );
+                        throw inherited::create_parse_error( std::format("Duplicated attribute `{}`", utxt::to_utf8(namval.first)) );
                        }
                     m_event.attributes().append( std::move(namval) );
                     namval = collect_attribute();
@@ -303,7 +303,7 @@ class Parser final : public text::ParserBase<ENC>
                 // Expect >
                 if( not inherited::eat(U'>') )
                    {
-                    throw inherited::create_parse_error( fmt::format("Tag `{}` must be closed with >", utxt::to_utf8(m_event.value())) );
+                    throw inherited::create_parse_error( std::format("Tag `{}` must be closed with >", utxt::to_utf8(m_event.value())) );
                    }
                }
            }
@@ -339,7 +339,7 @@ class Parser final : public text::ParserBase<ENC>
            }
         catch(std::exception& e)
            {
-            throw inherited::create_parse_error( fmt::format("Invalid tag name: {}"sv, e.what()) );
+            throw inherited::create_parse_error( std::format("Invalid tag name: {}"sv, e.what()) );
            }
        }
 
@@ -352,7 +352,7 @@ class Parser final : public text::ParserBase<ENC>
            }
         catch(std::exception& e)
            {
-            throw inherited::create_parse_error( fmt::format("Invalid attribute name: {}"sv, e.what()) );
+            throw inherited::create_parse_error( std::format("Invalid attribute name: {}"sv, e.what()) );
            }
        }
 
@@ -364,7 +364,7 @@ class Parser final : public text::ParserBase<ENC>
            }
         catch(std::exception& e)
            {
-            throw inherited::create_parse_error( fmt::format("Invalid attribute quoted value: {}"sv, e.what()) );
+            throw inherited::create_parse_error( std::format("Invalid attribute quoted value: {}"sv, e.what()) );
            }
        }
 
@@ -377,7 +377,7 @@ class Parser final : public text::ParserBase<ENC>
            }
         catch(std::exception& e)
            {
-            throw inherited::create_parse_error( fmt::format("Invalid attribute value: {}"sv, e.what()) );
+            throw inherited::create_parse_error( std::format("Invalid attribute value: {}"sv, e.what()) );
            }
        }
 };
@@ -424,22 +424,22 @@ class Parser final : public text::ParserBase<ENC>
 [[nodiscard]] constexpr std::string to_string(text::xml::ParserEvent const& ev)
    {
     if( ev.is_open_tag() )
-        return fmt::format("open tag: {} ({})", utxt::to_utf8(ev.value()), to_string(ev.attributes()));
+        return std::format("open tag: {} ({})", utxt::to_utf8(ev.value()), to_string(ev.attributes()));
 
     else if( ev.is_close_tag() )
-        return fmt::format("close tag: {}", utxt::to_utf8(ev.value()));
+        return std::format("close tag: {}", utxt::to_utf8(ev.value()));
 
     else if( ev.is_comment() )
-        return fmt::format("comment: {}", utxt::to_utf8(ev.value()));
+        return std::format("comment: {}", utxt::to_utf8(ev.value()));
 
     else if( ev.is_text() )
-        return fmt::format("text: {}", utxt::to_utf8(ev.value()));
+        return std::format("text: {}", utxt::to_utf8(ev.value()));
 
     else if( ev.is_proc_instr() )
-        return fmt::format("proc-instr: {}", utxt::to_utf8(ev.value()));
+        return std::format("proc-instr: {}", utxt::to_utf8(ev.value()));
 
     else if( ev.is_special_block() )
-        return fmt::format("spec-block: {}", utxt::to_utf8(ev.value()));
+        return std::format("spec-block: {}", utxt::to_utf8(ev.value()));
 
     return "(none)";
    }

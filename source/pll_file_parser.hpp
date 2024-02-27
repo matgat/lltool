@@ -140,7 +140,7 @@ class PllParser final : public plain::ParserBase<char>
            }
         else
            {
-            throw inherited::create_parse_error( fmt::format("Unexpected content: {}", str::escape(inherited::get_rest_of_line())) );
+            throw inherited::create_parse_error( std::format("Unexpected content: {}", str::escape(inherited::get_rest_of_line())) );
            }
        }
 
@@ -181,7 +181,7 @@ class PllParser final : public plain::ParserBase<char>
         inherited::skip_blanks();
         if( not inherited::got(':') )
            {
-            throw inherited::create_parse_error( fmt::format("Missing ':' after directive {}", dir.key()) );
+            throw inherited::create_parse_error( std::format("Missing ':' after directive {}", dir.key()) );
            }
         inherited::get_next();
         inherited::skip_blanks();
@@ -199,7 +199,7 @@ class PllParser final : public plain::ParserBase<char>
         inherited::skip_blanks();
         if( not inherited::got('}') )
            {
-            throw inherited::create_parse_error( fmt::format("Unclosed directive {} after {}", dir.key(), dir.value()) );
+            throw inherited::create_parse_error( std::format("Unclosed directive {} after {}", dir.key(), dir.value()) );
            }
         inherited::get_next();
 
@@ -221,7 +221,7 @@ class PllParser final : public plain::ParserBase<char>
                }
             else
                {
-                throw inherited::create_parse_error( fmt::format("Unexpected directive \"{}\"", dir.key()) );
+                throw inherited::create_parse_error( std::format("Unexpected directive \"{}\"", dir.key()) );
                }
             inherited::skip_blanks();
            }
@@ -244,7 +244,7 @@ class PllParser final : public plain::ParserBase<char>
         inherited::skip_blanks();
         if( inherited::got(',') )
            {
-            throw inherited::create_parse_error( fmt::format("Multiple names not supported in declaration of variable \"{}\"", var.name()) );
+            throw inherited::create_parse_error( std::format("Multiple names not supported in declaration of variable \"{}\"", var.name()) );
            }
 
         // [Location address]
@@ -253,7 +253,7 @@ class PllParser final : public plain::ParserBase<char>
             inherited::skip_blanks();
             if( not inherited::eat('%') )
                {
-                throw inherited::create_parse_error( fmt::format("Missing '%' in address of variable \"{}\" address", var.name()) );
+                throw inherited::create_parse_error( std::format("Missing '%' in address of variable \"{}\" address", var.name()) );
                }
             // Here expecting something like: MB300.6000
             var.address().set_zone( inherited::curr_codepoint() ); // Typically M or Q
@@ -263,7 +263,7 @@ class PllParser final : public plain::ParserBase<char>
             var.address().set_index( inherited::extract_index<decltype(var.address().index())>() );
             if( not inherited::eat('.') )
                {
-                throw inherited::create_parse_error( fmt::format("Missing '.' in variable \"{}\" address", var.name()) );
+                throw inherited::create_parse_error( std::format("Missing '.' in variable \"{}\" address", var.name()) );
                }
             var.address().set_subindex( inherited::extract_index<decltype(var.address().subindex())>() );
             inherited::skip_blanks();
@@ -272,7 +272,7 @@ class PllParser final : public plain::ParserBase<char>
         // [Name/Type separator]
         if( not inherited::eat(':') )
            {
-            throw inherited::create_parse_error( fmt::format("Missing ':' before variable \"{}\" type", var.name()) );
+            throw inherited::create_parse_error( std::format("Missing ':' before variable \"{}\" type", var.name()) );
            }
         collect_variable_data(var);
         return var;
@@ -358,12 +358,12 @@ class PllParser final : public plain::ParserBase<char>
            {
             if( not inherited::eat('=') )
                {
-                throw inherited::create_parse_error( fmt::format("Unexpected colon in variable \"{}\" type", var.name()) );
+                throw inherited::create_parse_error( std::format("Unexpected colon in variable \"{}\" type", var.name()) );
                }
             inherited::skip_blanks();
             if( inherited::got('[') )
                {
-                throw inherited::create_parse_error( fmt::format("Array initialization not yet supported in variable \"{}\"", var.name()) );
+                throw inherited::create_parse_error( std::format("Array initialization not yet supported in variable \"{}\"", var.name()) );
                }
 
             var.set_value( str::trim_right(inherited::get_until(ascii::is<';'>, ascii::is_any_of<':','=','<','>','\"','\n'>)) );
@@ -371,7 +371,7 @@ class PllParser final : public plain::ParserBase<char>
 
         if( !inherited::eat(';') )
            {
-            throw inherited::create_parse_error( fmt::format("Missing ';' after variable \"{}\" definition", var.name()) );
+            throw inherited::create_parse_error( std::format("Missing ';' after variable \"{}\" definition", var.name()) );
            }
 
         // [Description]
@@ -426,7 +426,7 @@ class PllParser final : public plain::ParserBase<char>
                    }
                 else
                    {
-                    throw inherited::create_parse_error( fmt::format("Unexpected directive \"{}\" in global vars", dir.key()) );
+                    throw inherited::create_parse_error( std::format("Unexpected directive \"{}\" in global vars", dir.key()) );
                    }
                }
             else if( inherited::eat_token("END_VAR"sv) )
@@ -443,7 +443,7 @@ class PllParser final : public plain::ParserBase<char>
 
                 if( value_needed and !var.has_value() )
                    {
-                    throw inherited::create_parse_error( fmt::format("Value not specified for \"{}\"", var.name()) );
+                    throw inherited::create_parse_error( std::format("Value not specified for \"{}\"", var.name()) );
                    }
                }
            }
@@ -480,7 +480,7 @@ class PllParser final : public plain::ParserBase<char>
                    }
                 else
                    {
-                    throw inherited::create_parse_error( fmt::format("Modifier `{}` not supported"sv, modifier) );
+                    throw inherited::create_parse_error( std::format("Modifier `{}` not supported"sv, modifier) );
                    }
                }
            }
@@ -524,7 +524,7 @@ class PllParser final : public plain::ParserBase<char>
                        {
                         if( contains(vars, var.name()) )
                            {
-                            throw std::runtime_error{ fmt::format("Duplicate variable \"{}\"", var.name()) };
+                            throw std::runtime_error{ std::format("Duplicate variable \"{}\"", var.name()) };
                            }
                         vars.push_back( std::move(var) );
                         return vars.back();
@@ -558,7 +558,7 @@ class PllParser final : public plain::ParserBase<char>
 
                         if( value_needed and !var.has_value() )
                            {
-                            throw parser.create_parse_error( fmt::format("Value not specified for \"{}\"", var.name()) );
+                            throw parser.create_parse_error( std::format("Value not specified for \"{}\"", var.name()) );
                            }
                        }
                    }
@@ -574,7 +574,7 @@ class PllParser final : public plain::ParserBase<char>
                     if( not parser.has_codepoint() )
                        {
                         parser.restore_context( start ); // Strong guarantee
-                        throw parser.create_parse_error( fmt::format("{} not closed by {}", start_tag, end_tag), start.line );
+                        throw parser.create_parse_error( std::format("{} not closed by {}", start_tag, end_tag), start.line );
                        }
                     else if( parser.got_endline() )
                        {
@@ -587,7 +587,7 @@ class PllParser final : public plain::ParserBase<char>
                            {// Is a description
                             if( pou.has_descr() )
                                {
-                                throw parser.create_parse_error( fmt::format("{} has already a description: {}", start_tag, pou.descr()) );
+                                throw parser.create_parse_error( std::format("{} has already a description: {}", start_tag, pou.descr()) );
                                }
                             pou.set_descr( dir.value() );
                            }
@@ -598,7 +598,7 @@ class PllParser final : public plain::ParserBase<char>
                            }
                         else
                            {
-                            throw parser.create_parse_error( fmt::format("Unexpected directive \"{}\" in {} {}", dir.key(), start_tag, pou.name()) );
+                            throw parser.create_parse_error( std::format("Unexpected directive \"{}\" in {} {}", dir.key(), start_tag, pou.name()) );
                            }
                        }
                     else if( parser.eat_token("VAR_INPUT"sv) )
@@ -639,7 +639,7 @@ class PllParser final : public plain::ParserBase<char>
                        }
                     else
                        {
-                        throw parser.create_parse_error( fmt::format("Unexpected content in {} {} header: {}", start_tag, pou.name(), str::escape(parser.get_rest_of_line())) );
+                        throw parser.create_parse_error( std::format("Unexpected content in {} {} header: {}", start_tag, pou.name(), str::escape(parser.get_rest_of_line())) );
                        }
                    }
                }
@@ -650,7 +650,7 @@ class PllParser final : public plain::ParserBase<char>
         pou.set_name( inherited::get_identifier() );
         if( pou.name().empty() )
            {
-            throw inherited::create_parse_error( fmt::format("No name found for {}", start_tag) );
+            throw inherited::create_parse_error( std::format("No name found for {}", start_tag) );
            }
 
         // Get possible return type
@@ -661,11 +661,11 @@ class PllParser final : public plain::ParserBase<char>
             pou.set_return_type( get_alphabetic() );
             if( pou.return_type().empty() )
                {
-                throw inherited::create_parse_error( fmt::format("Empty return type in {} {}", start_tag, pou.name()) );
+                throw inherited::create_parse_error( std::format("Empty return type in {} {}", start_tag, pou.name()) );
                }
             if( not needs_ret_type )
                {
-                throw inherited::create_parse_error( fmt::format("Return type specified in {} {}", start_tag, pou.name()) );
+                throw inherited::create_parse_error( std::format("Return type specified in {} {}", start_tag, pou.name()) );
                }
             skip_endline();
            }
@@ -673,7 +673,7 @@ class PllParser final : public plain::ParserBase<char>
            {// No return type
             if( needs_ret_type )
                {
-                throw inherited::create_parse_error( fmt::format("Return type not specified in {} {}", start_tag, pou.name()) );
+                throw inherited::create_parse_error( std::format("Return type not specified in {} {}", start_tag, pou.name()) );
                }
            }
 
@@ -772,7 +772,7 @@ class PllParser final : public plain::ParserBase<char>
                            {// Is a description
                             if( macro.has_descr() )
                                {
-                                throw parser.create_parse_error( fmt::format("Macro {} has already a description: {}", macro.name(), macro.descr()) );
+                                throw parser.create_parse_error( std::format("Macro {} has already a description: {}", macro.name(), macro.descr()) );
                                }
                             macro.set_descr( dir.value() );
                            }
@@ -783,7 +783,7 @@ class PllParser final : public plain::ParserBase<char>
                            }
                         else
                            {
-                            throw parser.create_parse_error( fmt::format("Unexpected directive \"{}\" in macro {} header", dir.key(), macro.name()) );
+                            throw parser.create_parse_error( std::format("Unexpected directive \"{}\" in macro {} header", dir.key(), macro.name()) );
                            }
                        }
                     else if( parser.eat_token("PAR_MACRO"sv) )
@@ -797,7 +797,7 @@ class PllParser final : public plain::ParserBase<char>
                        }
                     else
                        {
-                        throw parser.create_parse_error( fmt::format("Unexpected content in macro {} header: {}", macro.name(), str::escape(parser.get_rest_of_line())) );
+                        throw parser.create_parse_error( std::format("Unexpected content in macro {} header: {}", macro.name(), str::escape(parser.get_rest_of_line())) );
                        }
                    }
                }
@@ -839,7 +839,7 @@ class PllParser final : public plain::ParserBase<char>
                 parser.skip_blanks();
                 if( not parser.eat(':') )
                    {
-                    throw parser.create_parse_error( fmt::format("Missing ':' after member name \"{}\"", memb.name()) );
+                    throw parser.create_parse_error( std::format("Missing ':' after member name \"{}\"", memb.name()) );
                    }
 
                 // [Type]
@@ -848,7 +848,7 @@ class PllParser final : public plain::ParserBase<char>
                 parser.skip_blanks();
                 if( !parser.eat(';') )
                    {
-                    throw parser.create_parse_error( fmt::format("Missing ';' after member \"{}\" definition", memb.name()) );
+                    throw parser.create_parse_error( std::format("Missing ';' after member \"{}\" definition", memb.name()) );
                    }
 
                 // [Description]
@@ -904,7 +904,7 @@ class PllParser final : public plain::ParserBase<char>
                         collect_struct_member(parser, memb);
                         if( strct.is_last_member_name_not_unique() )
                            {
-                            throw parser.create_parse_error( fmt::format("Duplicate struct member \"{}\"", memb.name()) );
+                            throw parser.create_parse_error( std::format("Duplicate struct member \"{}\"", memb.name()) );
                            }
                        }
                    }
@@ -923,7 +923,7 @@ class PllParser final : public plain::ParserBase<char>
                 parser.skip_blanks();
                 if( not parser.eat(":="sv) )
                    {
-                    throw parser.create_parse_error( fmt::format("Value not found in enum element \"{}\"", elem.name()) );
+                    throw parser.create_parse_error( std::format("Value not found in enum element \"{}\"", elem.name()) );
                    }
                 parser.skip_blanks();
                 elem.set_value( parser.get_float() );
@@ -967,7 +967,7 @@ class PllParser final : public plain::ParserBase<char>
                 parser.skip_any_space();
                 if( not parser.eat(");"sv) )
                    {
-                    throw parser.create_parse_error( fmt::format("Expected termination \");\" after enum \"{}\"", enm.name()) );
+                    throw parser.create_parse_error( std::format("Expected termination \");\" after enum \"{}\"", enm.name()) );
                    }
 
                 parser.skip_line();
@@ -994,21 +994,21 @@ class PllParser final : public plain::ParserBase<char>
                 parser.skip_blanks();
                 if( not parser.eat(".."sv) )
                    {
-                    throw parser.create_parse_error( fmt::format("Missing \"..\" in subrange \"{}\"", subrng.name()) );
+                    throw parser.create_parse_error( std::format("Missing \"..\" in subrange \"{}\"", subrng.name()) );
                    }
                 parser.skip_blanks();
                 const auto max_val = parser.extract_integer<decltype(subrng.max_value())>();
                 parser.skip_blanks();
                 if( not parser.eat(')') )
                    {
-                    throw parser.create_parse_error( fmt::format("Missing closing ')' in subrange \"{}\" definition", subrng.name()) );
+                    throw parser.create_parse_error( std::format("Missing closing ')' in subrange \"{}\" definition", subrng.name()) );
                    }
                 subrng.set_range(min_val, max_val);
 
                 parser.skip_blanks();
                 if( not parser.eat(';') )
                    {
-                    throw parser.create_parse_error( fmt::format("Missing ';' after subrange \"{}\" definition", subrng.name()) );
+                    throw parser.create_parse_error( std::format("Missing ';' after subrange \"{}\" definition", subrng.name()) );
                    }
 
                 // [Description]
@@ -1038,14 +1038,14 @@ class PllParser final : public plain::ParserBase<char>
                 const std::string_view type_name = inherited::get_identifier();
                 if( type_name.empty() )
                    {
-                    throw inherited::create_parse_error( fmt::format("Unexpected content in TYPE block: {}", str::escape(inherited::get_rest_of_line())) );
+                    throw inherited::create_parse_error( std::format("Unexpected content in TYPE block: {}", str::escape(inherited::get_rest_of_line())) );
                    }
 
                 // Expected a colon after the name
                 inherited::skip_blanks();
                 if( not inherited::eat(':') )
                    {
-                    throw inherited::create_parse_error( fmt::format("Missing ':' after type name \"{}\"", type_name) );
+                    throw inherited::create_parse_error( std::format("Missing ':' after type name \"{}\"", type_name) );
                    }
 
                 // Check what it is (struct, typedef, enum, subrange)

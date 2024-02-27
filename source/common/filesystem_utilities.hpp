@@ -4,10 +4,10 @@
 //  #include "filesystem_utilities.hpp" // fs::*, fsu::*
 //  ---------------------------------------------
 #include <vector>
+#include <format>
 #include <filesystem> // std::filesystem
 namespace fs = std::filesystem;
 
-#include <fmt/format.h> // fmt::format
 
 
 //---------------------------------------------------------------------------
@@ -44,7 +44,7 @@ namespace fsu //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     std::error_code ec;
     fs::path temp_path{ fs::temp_directory_path(ec) };
     if(ec) temp_path = file.parent_path();
-    temp_path /= fmt::format("~{}.tmp", file.filename().string());
+    temp_path /= std::format("~{}.tmp", file.filename().string());
     return temp_path;
 }
 
@@ -57,7 +57,7 @@ namespace fsu //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
        {
         int n = 0;
         do {
-            backup_path.replace_extension( fmt::format(".{}.bck", ++n) );
+            backup_path.replace_extension( std::format(".{}.bck", ++n) );
            }
         while( fs::exists(backup_path) );
        }
@@ -158,13 +158,11 @@ class CurrentPathLocalChanger final
       : original_path(fs::current_path())
        {
         fs::current_path(new_path);
-        //fmt::print("Path changed to: {}\n", fs::current_path().string());
        }
 
     ~CurrentPathLocalChanger()
        {
         fs::current_path( std::move(original_path) );
-        //fmt::print("Path restored to: {}\n", fs::current_path().string());
        }
 
     CurrentPathLocalChanger(const CurrentPathLocalChanger&) = delete; // Prevent copy

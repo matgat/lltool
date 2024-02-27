@@ -4,7 +4,6 @@
 //  ---------------------------------------------
 //  #include "h_file_parser.hpp" // sipro::h_parse()
 //  ---------------------------------------------
-
 #include "sipro.hpp" // sipro::Register
 #include "plc_library.hpp" // plcb::*
 #include "h_parser.hpp" // h::Parser, h::Define
@@ -76,7 +75,7 @@ void h_parse(const std::string& file_path, const std::string_view buf, plcb::Lib
            {// Got something like "vnName vn1782 // descr"
             if( reg.has_index_out_of_range() )
                {
-                notify_issue( fmt::format("Register with index ({}) out of range", reg.index()) );
+                notify_issue( std::format("Register with index ({}) out of range", reg.index()) );
                }
             export_register(reg, def, vars.mutable_variables());
            }
@@ -86,20 +85,20 @@ void h_parse(const std::string& file_path, const std::string_view buf, plcb::Lib
                {
                 //if( not sipro::is_supported_iec_type(def.comment_predecl()) )
                 //   {
-                //    notify_issue( fmt::format("Unsupported IEC type `{}`", def.comment_predecl()) );
+                //    notify_issue( std::format("Unsupported IEC type `{}`", def.comment_predecl()) );
                 //   }
                 export_constant(def, consts.mutable_variables());
                }
             else
                {
-                notify_issue( fmt::format("Unrecognized numerical type `{}`", def.comment_predecl()) );
+                notify_issue( std::format("Unrecognized numerical type `{}`", def.comment_predecl()) );
                }
            }
        }
 
     if( vars.variables().empty() and consts.variables().empty() )
        {
-        notify_issue( fmt::format("No exportable defines found in \"{}\"", file_path) );
+        notify_issue( std::format("No exportable defines found in \"{}\"", file_path) );
        }
 }
 

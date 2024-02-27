@@ -5,10 +5,9 @@
 //  #include "libraries_converter.hpp" // ll::convert_libraries()
 //  ---------------------------------------------
 #include <stdexcept> // std::runtime_error
+#include <format>
 #include <string_view>
 #include <cassert>
-
-#include <fmt/format.h> // fmt::format
 
 #include "filesystem_utilities.hpp" // fs::*, fsu::*
 #include "memory_mapped_file.hpp" // sys::memory_mapped_file
@@ -56,9 +55,7 @@ void prepare_output_dir(const fs::path& dir, const bool clear, fnotify_t const& 
        }
     else if( not fs::exists(dir) )
        {
-      #ifdef _DEBUG
-        fmt::print("Creating directory: {}\n", dir.string());
-      #endif
+        //dbg_print("Creating directory: {}\n", dir.string());
         fs::create_directories(dir);
        }
     else if( fs::is_directory(dir) )
@@ -66,9 +63,7 @@ void prepare_output_dir(const fs::path& dir, const bool clear, fnotify_t const& 
         if( clear )
            {
             [[maybe_unused]] const std::size_t removed_count = fsu::remove_files_with_suffix_in(dir, {".pll", ".plclib", ".log"});
-          #ifdef _DEBUG
-            if(removed_count>0) fmt::print("Cleared {} files in {}", removed_count, dir.string());
-          #endif
+            //if(removed_count>0) dbg_print("Cleared {} files in {}", removed_count, dir.string());
 
             // Notify the presence of uncleared files
             if( not fs::is_empty(dir) )
@@ -77,7 +72,7 @@ void prepare_output_dir(const fs::path& dir, const bool clear, fnotify_t const& 
                    {
                     if( ientry.is_regular_file() and not ientry.path().filename().string().starts_with('.') )
                        {
-                        notify_issue( fmt::format("Uncleared file in output dir: {}", ientry.path().string()) );
+                        notify_issue( std::format("Uncleared file in output dir: \"{}\"", ientry.path().string()) );
                        }
                    }
                }
@@ -85,7 +80,7 @@ void prepare_output_dir(const fs::path& dir, const bool clear, fnotify_t const& 
        }
     else
        {
-        throw std::runtime_error{ fmt::format("Output should be a directory: {}", dir.string()) };
+        throw std::runtime_error{ std::format("Output should be a directory: \"{}\"", dir.string()) };
        }
 }
 
@@ -102,9 +97,7 @@ struct outpaths_t final { fs::path pll, plclib; };
        }
     else if( not fs::exists(output_path) and not output_path.has_extension() )
        {
-      #ifdef _DEBUG
-        fmt::print("Creating directory: {}\n", output_path.string());
-      #endif
+        //dbg_print("Creating directory: {}\n", output_path.string());
         fs::create_directories(output_path);
        }
 
@@ -143,7 +136,7 @@ struct outpaths_t final { fs::path pll, plclib; };
                 break;
 
             default:
-                throw std::runtime_error{ fmt::format("Unhandled output file type: {}"sv, output_path.filename().string()) };
+                throw std::runtime_error{ std::format("Unhandled output file type: \"{}\""sv, output_path.filename().string()) };
            }
        }
 
@@ -154,11 +147,11 @@ struct outpaths_t final { fs::path pll, plclib; };
            {
             if( fs::equivalent(input_file_path, output_file_path) )
                {
-                throw std::invalid_argument( fmt::format("Output file \"{}\" collides with original file", output_file_path.string()) );
+                throw std::invalid_argument( std::format("Output file \"{}\" collides with original file", output_file_path.string()) );
                }
             else if( not can_overwrite )
                {
-                throw std::invalid_argument( fmt::format("Won't overwrite existing file \"{}\"", output_file_path.string()) );
+                throw std::invalid_argument( std::format("Won't overwrite existing file \"{}\"", output_file_path.string()) );
                }
            }
        };
@@ -174,7 +167,7 @@ void parse_library(plcb::Library& lib, const std::string& input_file_fullpath, c
 {
     if( input_file_bytes.empty() )
        {
-        notify_issue( fmt::format("{} is empty", input_file_fullpath) );
+        notify_issue( std::format("\"{}\" is empty", input_file_fullpath) );
        }
 
     switch( input_file_type )
@@ -188,12 +181,12 @@ void parse_library(plcb::Library& lib, const std::string& input_file_fullpath, c
             break;
 
         default:
-            throw std::runtime_error{ fmt::format("Unhandled input file {}"sv, input_file_fullpath) };
+            throw std::runtime_error{ std::format("Unhandled input file \"{}\""sv, input_file_fullpath) };
        }
 
     if( lib.is_empty() )
        {
-        notify_issue( fmt::format("{} generated an empty library", input_file_fullpath) );
+        notify_issue( std::format("\"{}\" generated an empty library", input_file_fullpath) );
        }
 
     if( conv_options.contains("sort") )
@@ -201,9 +194,7 @@ void parse_library(plcb::Library& lib, const std::string& input_file_fullpath, c
         lib.sort();
        }
 
-  #ifdef _DEBUG
-    fmt::print("    {}\n", lib.get_summary());
-  #endif
+    //dbg_print("    {}\n", lib.get_summary());
 }
 
 
@@ -240,7 +231,6 @@ void convert_library(const fs::path& input_file_path, fs::path output_path, cons
 
     const file_type input_file_type = recognize_file_type( input_file_fullpath );
     const auto [out_pll, out] = set_output_paths(input_file_path, input_file_type, output_path, can_overwrite);
-    //fmt::print("{} => `{}`, `{}`"sv, input_file_basename, out_pll.filename().string(), out.filename().string());
 
     plcb::Library lib( input_file_basename );
     const sys::memory_mapped_file input_file_mapped{ input_file_fullpath.c_str() }; // This must live until the end
@@ -250,7 +240,7 @@ void convert_library(const fs::path& input_file_path, fs::path output_path, cons
     const bool something_done = write_library(lib, out_pll, out, conv_options);
     if( not something_done )
        {
-        notify_issue( fmt::format("Nothing to do for: {}"sv, input_file_fullpath) );
+        notify_issue( std::format("Nothing to do for: \"{}\""sv, input_file_fullpath) );
        }
 }
 

@@ -12,7 +12,6 @@ script_dir = sys.path[0]
 projectname = os.path.basename(os.path.dirname(script_dir))
 if os.name=='nt':
     exe = f"../build/bin/win-x64-Release/{projectname}.exe"
-    #exe = f"{projectname}.exe"
 else:
     exe = f"../build/bin/{projectname}"
 
@@ -78,7 +77,7 @@ def wait_for_keypress():
 
 #----------------------------------------------------------------------------
 def launch(command_and_args):
-    print(f"{GRAY}")
+    print(f"{GRAY}", end='', flush=True)
     start_time_s = time.perf_counter() # time.process_time()
     return_code = subprocess.call(command_and_args)
     exec_time_s = time.perf_counter() - start_time_s # time.process_time()
@@ -1191,8 +1190,9 @@ class Tests:
                         '</plcProject>\n',
                         'utf-16' )
         with TemporaryTextFile(prj) as prj_file:
-            ret_code, exec_time_ms = launch([exe, "update", prj_file.path, "-vF" if self.manual_mode else "-qF", "--to", prj_file.path])
-            return ret_code==2 # same output file should give a fatal error
+            ret_code1, exec_time_ms = launch([exe, "update", prj_file.path, "-vF" if self.manual_mode else "-qF", "--to", prj_file.directory])
+            ret_code2, exec_time_ms = launch([exe, "update", prj_file.path, "-vF" if self.manual_mode else "-qF", "--to", prj_file.path])
+            return ret_code1==2 and ret_code2==2 # same output file should give a fatal error
 
 
     #========================================================================
@@ -1236,7 +1236,7 @@ class Tests:
 
 
     #========================================================================
-    def testman_comp_llconv_strato(self):
+    def testman_compare_conv_strato(self):
         prj_fld = os.path.expandvars("%UserProfile%/Macotec/Machines/m32-Strato/sde")
         if not os.path.isdir(prj_fld):
             print(f'{RED}Not existing: {pll}{END}')
@@ -1244,12 +1244,13 @@ class Tests:
         with tempfile.TemporaryDirectory() as temp_dir:
             h_files = os.path.join(prj_fld, "PROG/*.h")
             pll_files = os.path.join(prj_fld, "PLC/*.pll")
-            out_dir1 = os.path.join(temp_dir, "llconv")
-            out_dir2 = os.path.join(temp_dir, "lltool")
-            launch(["prctime.exe", "llconv.exe", "-fussy", "-clear", h_files, pll_files, "-output", out_dir1])
-            launch(["prctime.exe", exe, "convert", h_files, pll_files, "-vF", "--to", out_dir2])
-            if os.path.isdir(out_dir1) and os.path.isdir(out_dir2):
-                show_text_files_comparison(out_dir1, out_dir2)
+            out_org = os.path.join(temp_dir, "org")
+            out_new = os.path.join(temp_dir, "new")
+            #launch(["prctime.exe", "llconv.exe", "-fussy", "-clear", h_files, pll_files, "-output", out_org])
+            launch(["prctime.exe", "lltool", "convert", h_files, pll_files, "-vF", "--to", out_org])
+            launch(["prctime.exe", exe, "convert", h_files, pll_files, "-vF", "--to", out_new])
+            if os.path.isdir(out_org) and os.path.isdir(out_new):
+                show_text_files_comparison(out_org, out_new)
                 return True
 
 
@@ -1357,10 +1358,10 @@ def main():
         sys.exit(1)
     tests = Tests(is_manual_mode());
     if tests.manual_mode:
-        print(f'{BLUE}\nManual tests on {CYAN}{exe}{END}')
+        print(f'\n{BLUE}Manual tests on {CYAN}{exe}{END}')
         while ask_what_to_do(tests.list): pass
     else:
-        print(f'{BLUE}\nSystem tests on {CYAN}{exe}{END}')
+        print(f'\n{BLUE}System tests on {CYAN}{exe}{END}')
         fails_count = run_tests(tests.list)
         if fails_count>0:
             closing_bad(f"{fails_count} {'test' if fails_count==1 else 'tests'} failed!")

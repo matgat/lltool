@@ -13,8 +13,8 @@
 #include <string_view>
 #include <array>
 #include <vector>
+#include <format>
 
-#include <fmt/core.h> // fmt::format
 
 using namespace std::literals; // "..."sv
 
@@ -132,7 +132,7 @@ class Type final
        {
         if( len<=1u )
            {
-            throw std::runtime_error{ fmt::format("Invalid type length: {}", len) };
+            throw std::runtime_error{ std::format("Invalid type length: {}", len) };
            }
         m_Length = len;
        }
@@ -146,7 +146,7 @@ class Type final
        {
         if( idx_start>=idx_last )
            {
-            throw std::runtime_error{ fmt::format("Invalid array range {}..{}", idx_start, idx_last) };
+            throw std::runtime_error{ std::format("Invalid array range {}..{}", idx_start, idx_last) };
            }
         m_ArrayFirstIdx = idx_start;
         m_ArrayDim = idx_last - idx_start + 1u;
@@ -227,7 +227,7 @@ class Variables_Group final
        {
         if( contains(var.name()) )
            {
-            throw std::runtime_error{ fmt::format("Duplicate variable \"{}\" in group \"{}\"", var.name(), name()) };
+            throw std::runtime_error{ std::format("Duplicate variable \"{}\" in group \"{}\"", var.name(), name()) };
            }
         m_Variables.push_back( std::move(var) );
         return m_Variables.back();
@@ -393,7 +393,7 @@ class Enum final
             {
              if( sv.empty() )
                {
-                throw std::runtime_error{ fmt::format("Enum constant {} must have a value",name()) };
+                throw std::runtime_error{ std::format("Enum constant {} must have a value",name()) };
                }
              m_Value = sv;
             }
@@ -490,7 +490,7 @@ class Subrange final
        {
         if( max_val<min_val )
            {
-            throw std::runtime_error{ fmt::format("Invalid range {}..{} of subrange \"{}\"", min_val, max_val, name()) };
+            throw std::runtime_error{ std::format("Invalid range {}..{} of subrange \"{}\"", min_val, max_val, name()) };
            }
         m_MinVal = min_val;
         m_MaxVal = max_val;
@@ -736,7 +736,7 @@ class Library final
             if( const auto ivar=std::ranges::find_if(consts_grp.variables(), [](const Variable& var) noexcept { return not var.has_value(); });
                 ivar!=consts_grp.variables().end() )
                {
-                throw std::runtime_error{ fmt::format("Global constant \"{}\" has no value", ivar->name()) };
+                throw std::runtime_error{ std::format("Global constant \"{}\" has no value", ivar->name()) };
                }
            }
 
@@ -745,19 +745,19 @@ class Library final
            {
             if( not funct.has_return_type() )
                {
-                throw std::runtime_error{ fmt::format("Function \"{}\" has no return type",funct.name()) };
+                throw std::runtime_error{ std::format("Function \"{}\" has no return type",funct.name()) };
                }
             if( not funct.output_vars().empty() )
                {
-                throw std::runtime_error{ fmt::format("Function \"{}\" cannot have output variables",funct.name()) };
+                throw std::runtime_error{ std::format("Function \"{}\" cannot have output variables",funct.name()) };
                }
             if( not funct.inout_vars().empty() )
                {
-                throw std::runtime_error{ fmt::format("Function \"{}\" cannot have in-out variables",funct.name()) };
+                throw std::runtime_error{ std::format("Function \"{}\" cannot have in-out variables",funct.name()) };
                }
             if( not funct.external_vars().empty() )
                {
-                throw std::runtime_error{ fmt::format("Function \"{}\" cannot have external variables",funct.name()) };
+                throw std::runtime_error{ std::format("Function \"{}\" cannot have external variables",funct.name()) };
                }
            }
 
@@ -766,23 +766,23 @@ class Library final
            {
             if( prog.has_return_type() )
                {
-                throw std::runtime_error{ fmt::format("Program \"{}\" cannot have a return type",prog.name()) };
+                throw std::runtime_error{ std::format("Program \"{}\" cannot have a return type",prog.name()) };
                }
             if( not prog.input_vars().empty() )
                {
-                throw std::runtime_error{ fmt::format("Program \"{}\" cannot have input variables",prog.name()) };
+                throw std::runtime_error{ std::format("Program \"{}\" cannot have input variables",prog.name()) };
                }
             if( not prog.output_vars().empty() )
                {
-                throw std::runtime_error{ fmt::format("Program \"{}\" cannot have output variables",prog.name()) };
+                throw std::runtime_error{ std::format("Program \"{}\" cannot have output variables",prog.name()) };
                }
             if( not prog.inout_vars().empty() )
                {
-                throw std::runtime_error{ fmt::format("Program \"{}\" cannot have in-out variables",prog.name()) };
+                throw std::runtime_error{ std::format("Program \"{}\" cannot have in-out variables",prog.name()) };
                }
             if( not prog.external_vars().empty() )
                {
-                throw std::runtime_error{ fmt::format("Program \"{}\" cannot have external variables",prog.name()) };
+                throw std::runtime_error{ std::format("Program \"{}\" cannot have external variables",prog.name()) };
                }
            }
        }
@@ -812,19 +812,19 @@ class Library final
        {
         std::string s;
         s.reserve(512);
-        s += fmt::format("Library \"{}\"", name());
-        if( not global_constants().is_empty() ) s += fmt::format(", {} global constants", global_constants().vars_count());
-        if( not global_retainvars().is_empty() ) s += fmt::format(", {} global retain vars", global_retainvars().vars_count());
-        if( not global_variables().is_empty() ) s += fmt::format(", {} global vars", global_variables().vars_count());
-        if( not functions().empty() ) s += fmt::format(", {} functions", functions().size());
-        if( not function_blocks().empty() ) s += fmt::format(", {} function blocks", function_blocks().size());
-        if( not programs().empty() ) s += fmt::format(", {} programs", programs().size());
-        if( not macros().empty() ) s += fmt::format(", {} macros", macros().size());
-        if( not structs().empty() ) s += fmt::format(", {} structs", structs().size());
-        if( not typedefs().empty() ) s += fmt::format(", {} typedefs", typedefs().size());
-        if( not enums().empty() ) s += fmt::format(", {} enums", enums().size());
-        if( not subranges().empty() ) s += fmt::format(", {} subranges", subranges().size());
-        //if( not interfaces().empty() ) s += fmt::format(", {} interfaces", interfaces().size());
+        s += std::format("Library \"{}\"", name());
+        if( not global_constants().is_empty() ) s += std::format(", {} global constants", global_constants().vars_count());
+        if( not global_retainvars().is_empty() ) s += std::format(", {} global retain vars", global_retainvars().vars_count());
+        if( not global_variables().is_empty() ) s += std::format(", {} global vars", global_variables().vars_count());
+        if( not functions().empty() ) s += std::format(", {} functions", functions().size());
+        if( not function_blocks().empty() ) s += std::format(", {} function blocks", function_blocks().size());
+        if( not programs().empty() ) s += std::format(", {} programs", programs().size());
+        if( not macros().empty() ) s += std::format(", {} macros", macros().size());
+        if( not structs().empty() ) s += std::format(", {} structs", structs().size());
+        if( not typedefs().empty() ) s += std::format(", {} typedefs", typedefs().size());
+        if( not enums().empty() ) s += std::format(", {} enums", enums().size());
+        if( not subranges().empty() ) s += std::format(", {} subranges", subranges().size());
+        //if( not interfaces().empty() ) s += std::format(", {} interfaces", interfaces().size());
         return s;
        }
 };
@@ -879,12 +879,12 @@ std::string to_string(const plcb::Type& type)
 
     if( type.has_length() )
        {
-        s += fmt::format("[{}]"sv, type.length());
+        s += std::format("[{}]"sv, type.length());
        }
 
     if( type.is_array() )
        {
-        s += fmt::format("[{}:{}]"sv, type.array_startidx(), type.array_lastidx());
+        s += std::format("[{}:{}]"sv, type.array_startidx(), type.array_lastidx());
        }
 
     return s;
@@ -893,21 +893,21 @@ std::string to_string(const plcb::Type& type)
 //---------------------------------------------------------------------------
 std::string to_string(const plcb::Variable& var)
 {
-    std::string s = fmt::format("{} {}"sv, var.name(), to_string(var.type()));
+    std::string s = std::format("{} {}"sv, var.name(), to_string(var.type()));
 
     if( var.has_descr() )
        {
-        s += fmt::format(" '{}'"sv, var.descr() );
+        s += std::format(" '{}'"sv, var.descr() );
        }
 
     if( var.has_value() )
        {
-        s += fmt::format(" (={})"sv , var.value() );
+        s += std::format(" (={})"sv , var.value() );
        }
 
     if( var.has_address() )
        {
-        s += fmt::format(" <{}{}{}.{}>"sv
+        s += std::format(" <{}{}{}.{}>"sv
                         , var.address().zone()
                         , var.address().typevar()
                         , var.address().index()

@@ -1,6 +1,5 @@
 ﻿#include <stdexcept> // std::exception, std::invalid_argument
-
-#include <fmt/format.h> // fmt::*
+#include <print>
 
 #include "arguments.hpp" // lltool::Arguments
 #include "issues_collector.hpp" // MG::issues
@@ -18,7 +17,7 @@ int main( const int argc, const char* const argv[] )
         args.parse(argc, argv);
         if( args.verbose() )
            {
-            fmt::print("---- {} (ver. " __DATE__ ") ----\n", lltool::app_name);
+            std::print("---- {} (build " __DATE__ ") ----\n", lltool::app_name);
            }
 
         MG::issues issues;
@@ -26,7 +25,7 @@ int main( const int argc, const char* const argv[] )
            {
             if( args.verbose() )
                {
-                fmt::print("\nUpdating project {}\n", args.prj_path().string());
+                std::print("Updating project {}\n", args.prj_path().string());
                }
             ll::update_project_libraries(args.prj_path(), args.out_path(), std::ref(issues));
            }
@@ -41,7 +40,7 @@ int main( const int argc, const char* const argv[] )
                {
                 if( args.verbose() )
                    {
-                    fmt::print("\nConverting {}\n", input_file_path.string());
+                    std::print("Converting {}\n", input_file_path.string());
                    }
                 ll::convert_library(input_file_path, args.out_path(), args.overwrite_existing(), args.options(), std::ref(issues));
                }
@@ -51,7 +50,7 @@ int main( const int argc, const char* const argv[] )
            {
             for( const auto& issue : issues )
                {
-                fmt::print("! {}\n", issue);
+                std::print("! {}\n", issue);
                }
             return 1;
            }
@@ -61,7 +60,7 @@ int main( const int argc, const char* const argv[] )
 
     catch( std::invalid_argument& e )
        {
-        fmt::print("!! {}\n", e.what());
+        std::print("!! {}\n", e.what());
         if( not args.quiet() )
            {
             args.print_usage();
@@ -70,7 +69,7 @@ int main( const int argc, const char* const argv[] )
 
     catch( parse::error& e)
        {
-        fmt::print("!! {} ({}:{})\n", e.what(), e.file(), e.line());
+        std::print("!! [{}:{}] {}\n", e.file(), e.line(), e.what());
         if( not args.quiet() )
            {
             sys::edit_text_file( e.file(), e.line() );
@@ -79,7 +78,7 @@ int main( const int argc, const char* const argv[] )
 
     catch( std::exception& e )
        {
-        fmt::print("!! {}\n", e.what());
+        std::print("!! {}\n", e.what());
        }
 
     return 2;

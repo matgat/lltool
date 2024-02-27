@@ -471,7 +471,6 @@ template<Enc ENC> class bytes_buffer_t final
         case UTF32BE: return L UTF32BE __VA_ARGS__;\
        }\
     std::unreachable();
-    //throw std::runtime_error{ fmt::format("Unhandled encoding: {}"sv, std::to_underlying(E)) };
 
 
 

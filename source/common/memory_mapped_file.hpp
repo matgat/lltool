@@ -4,11 +4,9 @@
 //  ---------------------------------------------
 //  #include "memory_mapped_file.hpp" // sys::memory_mapped_file
 //  ---------------------------------------------
-#include <stdexcept> // std::runtime_error
 #include <string_view>
-//#include <string>
-//#include <filesystem> // std::filesystem
-#include <fmt/format.h> // fmt::format
+#include <stdexcept> // std::runtime_error
+#include <format>
 
 #include "os-detect.hpp" // MS_WINDOWS, POSIX
 #include "system_base.hpp" // sys::get_lasterr_msg()
@@ -52,7 +50,7 @@ class memory_mapped_file final
         hFile = ::CreateFileA(pth_cstr, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, nullptr);
         if(hFile==INVALID_HANDLE_VALUE)
            {
-            throw std::runtime_error{ fmt::format("Couldn't open {} ({}))", pth_cstr, get_lasterr_msg()) };
+            throw std::runtime_error{ std::format("Couldn't open {} ({}))", pth_cstr, get_lasterr_msg()) };
            }
         m_bufsiz = ::GetFileSize(hFile, nullptr);
 
@@ -60,7 +58,7 @@ class memory_mapped_file final
         if(hMapping==nullptr)
            {
             ::CloseHandle(hFile);
-            throw std::runtime_error{ fmt::format("Couldn't map {} ({})", pth_cstr, get_lasterr_msg()) };
+            throw std::runtime_error{ std::format("Couldn't map {} ({})", pth_cstr, get_lasterr_msg()) };
            }
         //
         m_buf = static_cast<const char*>( ::MapViewOfFile(hMapping, FILE_MAP_READ, 0, 0, 0) );
@@ -68,11 +66,11 @@ class memory_mapped_file final
            {
             ::CloseHandle(hMapping);
             ::CloseHandle(hFile);
-            throw std::runtime_error{ fmt::format("Couldn't create view of {} ({})", pth_cstr, get_lasterr_msg()) };
+            throw std::runtime_error{ std::format("Couldn't create view of {} ({})", pth_cstr, get_lasterr_msg()) };
            }
       #elif defined(POSIX)
         const int fd = open(pth_cstr, O_RDONLY);
-        if(fd==-1) throw std::runtime_error{ fmt::format("Couldn't open {}", pth_cstr) };
+        if(fd==-1) throw std::runtime_error{ std::format("Couldn't open {}", pth_cstr) };
 
         // obtain file size
         struct stat sbuf {};

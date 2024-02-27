@@ -119,7 +119,7 @@ class Parser final : public plain::ParserBase<char>
                    }
                 else
                    {
-                    throw create_parse_error( fmt::format("Unexpected content: {}", str::escape(inherited::get_rest_of_line())) );
+                    throw create_parse_error( std::format("Unexpected content: {}", str::escape(inherited::get_rest_of_line())) );
                    }
                }
            }
@@ -174,7 +174,7 @@ class Parser final : public plain::ParserBase<char>
                }
             else
                {
-                inherited::notify_issue( fmt::format("Unclosed \'[\' in the comment of define {}", def.label()) );
+                inherited::notify_issue( std::format("Unclosed \'[\' in the comment of define {}", def.label()) );
                 def.set_comment( str::trim_right(predecl) );
                 inherited::get_next();
                 return;
@@ -185,7 +185,7 @@ class Parser final : public plain::ParserBase<char>
         def.set_comment( str::trim_right(inherited::get_rest_of_line()) );
         //if( def.comment().empty() )
         //   {
-        //    inherited::notify_issue( fmt::format("Define {} has no comment", def.label()) );
+        //    inherited::notify_issue( std::format("Define {} has no comment", def.label()) );
         //   }
        }
 
@@ -212,7 +212,7 @@ class Parser final : public plain::ParserBase<char>
            }
         //else
         //   {
-        //    inherited::notify_issue( fmt::format("Define {} hasn't a comment", def.label()) );
+        //    inherited::notify_issue( std::format("Define {} hasn't a comment", def.label()) );
         //   }
        }
 };

@@ -9,6 +9,7 @@
 //#include <cmath> // std::fabs
 //#include <limits> // std::numeric_limits
 #include <stdexcept>
+#include <format>
 #include <vector>
 #include <cctype> // std::tolower
 #include <string>
@@ -20,7 +21,6 @@
 #include <fstream> // std::ifstream, std::ofstream
 #include <filesystem> // std::filesystem
 
-#include <fmt/format.h> // fmt::format
 
 namespace fs = std::filesystem;
 using namespace std::literals; // "..."sv
@@ -99,7 +99,7 @@ void sleep_for_seconds(const unsigned int t_s)
 [[nodiscard]] std::string generate_unique_timestamp(const std::string_view prefix)
 {
     const auto milliseconds_epoch = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-    return fmt::format("{}{:0>10}.{:0>3}", prefix, milliseconds_epoch/1000, milliseconds_epoch % 1000);
+    return std::format("{}{:0>10}.{:0>3}", prefix, milliseconds_epoch/1000, milliseconds_epoch % 1000);
 }
 
 
@@ -185,7 +185,7 @@ class TemporaryFile final : public File
        {
         if( exists() )
            {
-            throw std::runtime_error( fmt::format("Temporary file {} already existing!", path().string()) );
+            throw std::runtime_error( std::format("Temporary file {} already existing!", path().string()) );
            }
        }
 
@@ -270,7 +270,7 @@ class TemporaryDirectory final : public Directory
        {
         if( exists() )
            {
-            throw std::runtime_error( fmt::format("Temporary directory {} already existing!", path().string()) );
+            throw std::runtime_error( std::format("Temporary directory {} already existing!", path().string()) );
            }
         create();
        }

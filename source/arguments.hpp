@@ -6,12 +6,13 @@
 //  ---------------------------------------------
 #include <stdexcept> // std::runtime_error, std::invalid_argument
 #include <ranges> // std::ranges::any_of
+#include <format>
+#include <print>
 #include <string_view>
 #include <filesystem> // std::filesystem
 namespace fs = std::filesystem;
 using namespace std::literals; // "..."sv
 
-#include <fmt/format.h> // fmt::*
 
 #include "args_extractor.hpp" // MG::args_extractor
 #include "file_globbing.hpp" // MG::file_glob()
@@ -90,7 +91,7 @@ class Arguments final
                }
             else
                {
-                throw std::invalid_argument{ fmt::format("Unrecognized task: {}", arg) };
+                throw std::invalid_argument{ std::format("Unrecognized task: {}", arg) };
                }
             args.next();
 
@@ -104,7 +105,7 @@ class Arguments final
                         const std::string_view str = args.get_next_value_of(arg);
                         if( not m_out_path.empty() )
                            {
-                            throw std::invalid_argument{ fmt::format("Output was already set to {}", m_out_path.string()) };
+                            throw std::invalid_argument{ std::format("Output was already set to {}", m_out_path.string()) };
                            }
                         m_out_path = str;
                        }
@@ -123,13 +124,13 @@ class Arguments final
                        {// Must be the project path
                         if( not m_prj_path.empty() )
                            {// This must be the project path
-                            throw std::invalid_argument{ fmt::format("Project file was already set to {}", m_prj_path.string()) };
+                            throw std::invalid_argument{ std::format("Project file was already set to {}", m_prj_path.string()) };
                            }
 
                         m_prj_path = arg;
                         if( not fs::exists(m_prj_path) )
                            {
-                            throw std::invalid_argument{ fmt::format("Project file not found: {}", m_prj_path.string()) };
+                            throw std::invalid_argument{ std::format("Project file not found: {}", m_prj_path.string()) };
                            }
                        }
                     else if( task().is_convert() )
@@ -160,20 +161,20 @@ class Arguments final
                 throw std::invalid_argument{"Project file not given"};
                }
 
-            if( fs::exists(out_path()) )
-               {// Specified an existing output path
-                if( fs::is_directory(out_path()) )
-                   {
-                    m_out_path /= prj_path().filename();
-                   }
-                // I'll ensure to not overwrite an existing file
+            if( fs::exists(out_path()) and fs::is_directory(out_path()) )
+               {
+                m_out_path /= prj_path().filename();
+               }
+  
+            if( fs::exists(out_path()) and fs::is_regular_file(out_path()) )
+               {// I'll ensure to not overwrite the existing output file without specific intention
                 if( fs::equivalent(prj_path(), out_path()) )
                    {
-                    throw std::invalid_argument{ fmt::format("Output file \"{}\" collides with project file, if your intent is overwrite don't specify output", out_path().string()) };
+                    throw std::invalid_argument{ std::format("Project file \"{}\" can't be explicitly set as output", out_path().string()) };
                    }
                 else if( not overwrite_existing() )
                    {
-                    throw std::invalid_argument{ fmt::format("Won't overwrite existing file \"{}\" unless you explicitly tell me to", out_path().string()) };
+                    throw std::invalid_argument{ std::format("Won't overwrite existing file \"{}\" (unless you --force me)", out_path().string()) };
                    }
                }
            }
@@ -195,13 +196,13 @@ class Arguments final
                    {//...And can't be the directory of an input file
                     if( std::ranges::any_of(input_files(), [this](const fs::path& input_file_path){return fs::equivalent(out_path(), input_file_path.parent_path());}) )
                        {
-                        throw std::runtime_error{ fmt::format("Output directory \"{}\" contains input files", out_path().string()) };
+                        throw std::runtime_error{ std::format("Output directory \"{}\" contains input files", out_path().string()) };
                        }
                    }
                 // Detect input files name clashes
                 if( const auto dup = MG::find_duplicate_basename(input_files()); dup.has_value() )
                    {
-                    throw std::runtime_error{ fmt::format("Two or more input files have the same name \"{}\"", dup.value()) };
+                    throw std::runtime_error{ std::format("Two or more input files have the same name \"{}\"", dup.value()) };
                    }
                }
            }
@@ -214,7 +215,7 @@ class Arguments final
     //-----------------------------------------------------------------------
     static void print_help_and_exit()
        {
-        fmt::print( "\n{} (ver. " __DATE__ ")\n"
+        std::print( "\n{} (build " __DATE__ ")\n"
                     "{}\n"
                     "\n", app_name, app_descr );
         // The following triggers print_usage()
@@ -224,7 +225,7 @@ class Arguments final
     //-----------------------------------------------------------------------
     static void print_usage()
        {
-        fmt::print( "\nUsage:\n"
+        std::print( "\nUsage:\n"
                     "   {0} [convert|update|help] [switches] [path(s)]\n"
                     "   {0} convert path/to/*.h --force --to path/to/outdir\n"
                     "   {0} update path/to/project.ppjs\n"
@@ -258,8 +259,8 @@ class Arguments final
            }
         else
            {
-            if( full_name.empty() ) throw std::invalid_argument{ fmt::format("Unknown switch: '{}'", brief_name) };
-            else                    throw std::invalid_argument{ fmt::format("Unknown switch: \"{}\"", full_name) };
+            if( full_name.empty() ) throw std::invalid_argument{ std::format("Unknown switch: '{}'", brief_name) };
+            else                    throw std::invalid_argument{ std::format("Unknown switch: \"{}\"", full_name) };
            }
        }
 };

@@ -9,8 +9,8 @@
 #include <vector>
 #include <optional>
 //#include <initializer_list>
+#include <format>
 
-#include <fmt/format.h> // fmt::format
 
 
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -78,7 +78,7 @@ template<typename TKEY, typename TVAL> class vectmap final
        {
         if( contains(key) )
            {
-            throw std::runtime_error{ fmt::format("key '{}' already present in vectmap", key) };
+            throw std::runtime_error{ std::format("key '{}' already present in vectmap", key) };
            }
         return append(std::move(key), std::move(val));
        }
@@ -147,7 +147,7 @@ template<typename TKEY, typename TVAL> class vectmap final
         const_iterator it = find(key);
         if( it==end() )
            {
-            throw std::runtime_error{ fmt::format("key '{}' not found in vectmap", key) };
+            throw std::runtime_error{ std::format("key '{}' not found in vectmap", key) };
            }
         return it->second;
        }
@@ -216,10 +216,10 @@ template<typename TKEY, typename TVAL> class vectmap final
        {
         std::string s;
         const_iterator it = begin();
-        s = fmt::format("{}={}", it->first, it->second);
+        s = std::format("{}={}", it->first, it->second);
         while( ++it!=end() )
            {
-            s += fmt::format(",{}={}", it->first, it->second);
+            s += std::format(",{}={}", it->first, it->second);
            }
         return s;
        }

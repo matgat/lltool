@@ -51,6 +51,8 @@ void shell_execute(const char* const pth, const std::initializer_list<std::strin
 }
 
 //---------------------------------------------------------------------------
+//#include <stdexcept> // std::runtime_error
+//#include <format>
 //[[maybe_unused]] int shell_execute_wait(const char* const pth, const std::initializer_list<std::string_view> args ={})
 //{
 //    const bool show = true;
@@ -73,7 +75,7 @@ void shell_execute(const char* const pth, const std::initializer_list<std::strin
 //    ShExecInfo.hInstApp = NULL;
 //    if( not ::ShellExecuteExA(&ShExecInfo) )
 //       {
-//        throw std::runtime_error{ fmt::format("Cannot run {}: {}", pth, sys::get_lasterr_msg()) };
+//        throw std::runtime_error{ std::format("Cannot run {}: {}", pth, sys::get_lasterr_msg()) };
 //       }
 //
 //    DWORD ret = 0xFFFFFFFF; // A default value to be interpreted as "no exit code"
@@ -93,7 +95,7 @@ void shell_execute(const char* const pth, const std::initializer_list<std::strin
 //            else
 //               {
 //                ::CloseHandle(ShExecInfo.hProcess); // SEE_MASK_NOCLOSEPROCESS
-//                throw std::runtime_error{ fmt::format("ShellExecuteEx: spawn error of {}",pth) };
+//                throw std::runtime_error{ std::format("ShellExecuteEx: spawn error of {}",pth) };
 //               }
 //           }
 //        while(true);

@@ -4,10 +4,11 @@
 //  ---------------------------------------------
 //  #include "string_conversions.hpp" // str::to_num_or<>()
 //  ---------------------------------------------
-#include <stdexcept> // std::runtime_error
 #include <string_view>
 #include <expected>
 #include <charconv> // std::from_chars
+#include <stdexcept> // std::runtime_error
+#include <format>
 
 
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -24,7 +25,7 @@ template<typename T>
     const auto [it, ec] = std::from_chars(sv.data(), it_end, result);
     if( ec!=std::errc() or it!=it_end )
        {
-        return std::unexpected( fmt::format("\"{}\" is not a valid number", sv) );
+        return std::unexpected( std::format("\"{}\" is not a valid number", sv) );
        }
     return result;
 }
@@ -40,7 +41,7 @@ template<typename T>
     const auto [it, ec] = std::from_chars(sv.data(), it_end, result);
     if( ec!=std::errc() or it!=it_end )
        {
-        throw std::runtime_error{ fmt::format("\"{}\" is not a valid number", sv) };
+        throw std::runtime_error{ std::format("\"{}\" is not a valid number", sv) };
        }
     return result;
 }

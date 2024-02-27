@@ -6,8 +6,7 @@
 //  ---------------------------------------------
 #include <string>
 #include <chrono>
-
-#include <fmt/format.h>
+#include <format>
 
 
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -17,7 +16,6 @@ namespace MG //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 //---------------------------------------------------------------------------
 [[nodiscard]] std::string get_human_readable_timestamp(const std::chrono::system_clock::time_point& tp)
 {
-    //return fmt::format("{:%Y-%m-%d %H:%M:%S}", std::chrono::floor<std::chrono::seconds>(tp)); // needs RTTI in <fmt/chrono.h>
     //return std::format("{:%Y-%m-%d %H:%M:%S}", std::chrono::zoned_time(std::chrono::current_zone(), std::chrono::floor<std::chrono::seconds>(tp)));
 
     const auto days_since_epoch = std::chrono::duration_cast<std::chrono::days>(tp.time_since_epoch());
@@ -32,7 +30,7 @@ namespace MG //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
     const auto min = (time.count() % 3600) / 60;
     const auto sec = time.count() % 60;
 
-    return fmt::format("{:04}-{:02}-{:02} {:02}:{:02}:{:02}", year, month, day, hour, min, sec);
+    return std::format("{:04}-{:02}-{:02} {:02}:{:02}:{:02}", year, month, day, hour, min, sec);
 }
 
 //---------------------------------------------------------------------------

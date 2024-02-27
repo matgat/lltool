@@ -78,7 +78,7 @@ def main():
     set_title(__file__)
     os.chdir(script_dir)
 
-    print(f"{BLUE}Building {CYAN}{testprojectname}{END}")
+    print(f"\n{BLUE}Building {CYAN}{testprojectname}{END}")
     if (build_ret:=launch(build_cmd))!=0:
         closing_bad(f"Build error")
         return build_ret

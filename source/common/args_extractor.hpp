@@ -6,11 +6,11 @@
 //  #include "args_extractor.hpp" // MG::args_extractor
 //  ---------------------------------------------
 #include <stdexcept> // std::invalid_argument
+#include <format>
 #include <cassert>
 #include <string_view>
 #include <functional> // std::function
 
-#include <fmt/format.h> // fmt::*
 
 
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -86,12 +86,12 @@ class args_extractor final
         next(); // Expecting a string next
         if( not has_current() )
            {
-            throw std::invalid_argument( fmt::format("Missing value after {}", arg) );
+            throw std::invalid_argument( std::format("Missing value after {}", arg) );
            }
         std::string_view str = current();
         if( is_switch(str) )
            {
-            throw std::invalid_argument( fmt::format("Missing value after {} before {}", arg, str) );
+            throw std::invalid_argument( std::format("Missing value after {} before {}", arg, str) );
            }
         return str;
        }

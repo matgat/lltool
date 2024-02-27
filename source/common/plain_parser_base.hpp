@@ -12,8 +12,7 @@
 #include <concepts> // std::same_as<>, std::predicate<>, std::signed_integral
 #include <limits> // std::numeric_limits<>
 #include <type_traits> // std::make_unsigned_t<>
-
-#include <fmt/format.h> // fmt::format
+#include <format>
 
 #include "parsers_common.hpp" // parse::error
 #include "fnotify_type.hpp" // fnotify_t
@@ -91,12 +90,11 @@ class ParserBase
        }
 
     //-----------------------------------------------------------------------
-    static constexpr void default_notify(std::string&&) {} // { fmt::print(fmt::runtime(msg)); }
+    static constexpr void default_notify(std::string&&) {}
     constexpr void set_on_notify_issue(fnotify_t const& f) { m_on_notify_issue = f; }
     constexpr void notify_issue(const std::string_view msg) const
        {
-        //fmt::print("  ! {}\n"sv, msg);
-        m_on_notify_issue( fmt::format("{} (line {} offset {})"sv, msg, m_line, m_offset) );
+        m_on_notify_issue( std::format("[{}:{}] {}"sv, m_file_path, m_line, msg) ); // m_offset
        }
     constexpr void set_file_path(const std::string& pth)
        {
@@ -215,7 +213,7 @@ class ParserBase
                {
                 const Char offending_codepoint = curr_codepoint();
                 restore_context( start ); // Strong guarantee
-                throw create_parse_error( fmt::format("Unexpected character '{}'"sv, str::escape(offending_codepoint)) );
+                throw create_parse_error( std::format("Unexpected character '{}'"sv, str::escape(offending_codepoint)) );
                }
             else if( not get_next() )
                {// No more data
@@ -266,7 +264,7 @@ class ParserBase
            }
         while( get_next() );
         restore_context( start ); // Strong guarantee
-        throw create_parse_error(fmt::format("Unclosed content (\"{}\" not found)",sv), start.line);
+        throw create_parse_error(std::format("Unclosed content (\"{}\" not found)",sv), start.line);
        }
 
     //-----------------------------------------------------------------------
@@ -295,7 +293,7 @@ class ParserBase
                }
            }
         restore_context( start ); // Strong guarantee
-        throw create_parse_error(fmt::format("Unclosed content (\"{}\" not found)",tok), start.line);
+        throw create_parse_error(std::format("Unclosed content (\"{}\" not found)",tok), start.line);
        }
 
     constexpr void skip_blanks() noexcept { skip_while(ascii::is_blank<Char>); }
@@ -320,7 +318,7 @@ class ParserBase
            }
         else
            {
-            throw create_parse_error( fmt::format("Unexpected content '{}' at line end"sv, str::escape(get_rest_of_line())) );
+            throw create_parse_error( std::format("Unexpected content '{}' at line end"sv, str::escape(get_rest_of_line())) );
            }
        }
 
@@ -372,7 +370,7 @@ class ParserBase
        {
         if( not got_digit() )
            {
-            throw create_parse_error( fmt::format("Invalid char '{}' in number literal"sv, str::escape(curr_codepoint())) );
+            throw create_parse_error( std::format("Invalid char '{}' in number literal"sv, str::escape(curr_codepoint())) );
            }
 
         Uint result = ascii::value_of_digit(curr_codepoint());
@@ -382,7 +380,7 @@ class ParserBase
            {
             if( result>overflow_limit )
                {
-                throw create_parse_error( fmt::format("Integer literal too big ({}x{} would be dangerously near {})", result, base, std::numeric_limits<Uint>::max()/2) );
+                throw create_parse_error( std::format("Integer literal too big ({}x{} would be dangerously near {})", result, base, std::numeric_limits<Uint>::max()/2) );
                }
             result = static_cast<Uint>((base*result) + ascii::value_of_digit(curr_codepoint()));
            }
@@ -969,7 +967,7 @@ ut::test("parsing numbers") = []
     ut::test("huge double") = []
        {
         const double huge = std::numeric_limits<double>::max() / 10.0;
-        const std::string huge_str = fmt::format("{:L}",huge);
+        const std::string huge_str = std::format("{:L}",huge);
         plain::ParserBase<char> parser{huge_str};
         ut::expect( ut::approx(parser.extract_float(), huge, huge*std::numeric_limits<double>::epsilon()) );
        };

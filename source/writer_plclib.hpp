@@ -6,11 +6,10 @@
 //  ---------------------------------------------
 #include <concepts> // std::same_as<>
 #include <stdexcept> // std::runtime_error
+#include <format>
 #include <cassert>
 #include <cstdint> // std::uint16_t
 #include <array>
-
-#include <fmt/format.h> // fmt::format
 
 #include "string_conversions.hpp" // str::to_num<>()
 #include "ascii_parsing_utils.hpp" // ascii::extract_pair<>
@@ -63,14 +62,14 @@ class SchemaVersion final
             const auto [first_num, second_num, remaining] = ascii::extract_pair<std::uint16_t,std::uint16_t>(sv);
             if( not remaining.empty() )
                {
-                throw std::runtime_error{ fmt::format("ignored content \"{}\"", remaining) };
+                throw std::runtime_error{ std::format("ignored content \"{}\"", remaining) };
                }
             m_major_ver = first_num;
             m_minor_ver = second_num;
            }
         catch(std::exception& e)
            {
-            throw std::runtime_error{ fmt::format("Invalid plclib schema version: {} ({})", sv, e.what()) };
+            throw std::runtime_error{ std::format("Invalid plclib schema version: {} ({})", sv, e.what()) };
            }
        }
 
@@ -79,7 +78,7 @@ class SchemaVersion final
 
     [[nodiscard]] auto operator<=>(const SchemaVersion&) const noexcept = default;
 
-    [[nodiscard]] std::string string() const { return fmt::format("{}.{}"sv, major_version(), minor_version()); }
+    [[nodiscard]] std::string string() const { return std::format("{}.{}"sv, major_version(), minor_version()); }
 };
 
 
@@ -460,7 +459,7 @@ void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG:
            {
             return num.value();
            }
-        throw std::runtime_error( fmt::format("invalid plclib-indent:{}", sv) );
+        throw std::runtime_error( std::format("invalid plclib-indent:{}", sv) );
        };
 
     //-----------------------------------------------------------------------

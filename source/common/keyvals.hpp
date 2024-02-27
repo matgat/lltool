@@ -175,6 +175,8 @@ class keyvals final
    }
 
 /////////////////////////////////////////////////////////////////////////////
+#include <format>
+/////////////////////////////////////////////////////////////////////////////
 static ut::suite<"MG::keyvals"> keyvals_tests = []
 {////////////////////////////////////////////////////////////////////////////
 
@@ -225,7 +227,7 @@ ut::test("spaces") = []
 // Parameterized test for accepted strings
 for( auto content : std::vector<std::string_view>{""sv, "key:"sv, "key:val"sv} )
    {
-    ut::test( fmt::format("ok \'{}\'", content) ) = [content]() mutable
+    ut::test( std::format("ok \'{}\'", content) ) = [content]() mutable
        {
         MG::keyvals options;
         options.assign( content );
@@ -237,7 +239,7 @@ for( auto content : std::vector<std::string_view>{""sv, "key:"sv, "key:val"sv} )
 // Parameterized test for bad strings
 for( const auto content : std::vector{"key1:val1:key2"sv, ":key"sv, ":"sv, ",:,:"sv} )
    {
-    ut::test( fmt::format("bad \'{}\'", content) ) = [content]
+    ut::test( std::format("bad \'{}\'", content) ) = [content]
        {
         MG::keyvals options;
         ut::expect( ut::throws([&]{ options.assign( content ); }) ) << '\"' << to_string(options) << "\" should throw\n";

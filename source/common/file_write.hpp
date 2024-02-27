@@ -4,11 +4,11 @@
 //  #include "file_write.hpp" // sys::file_write()
 //  ---------------------------------------------
 #include <cassert>
-#include <stdexcept>
 #include <string_view>
 #include <cstdio> // std::fopen, ::fopen_s (Microsoft)
+#include <stdexcept> // std::runtime_error
+#include <format>
 
-#include <fmt/format.h> // fmt::format
 #include "os-detect.hpp" // MS_WINDOWS, POSIX
 
 
@@ -37,7 +37,7 @@ class file_write final
        {
         if( not m_fstream )
            {
-            throw std::runtime_error{ fmt::format("Cannot write to file `{}`", pth_cstr) };
+            throw std::runtime_error{ std::format("Cannot write to file `{}`", pth_cstr) };
            }
        }
 
