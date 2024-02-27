@@ -23,12 +23,12 @@ jobs:
     - name: Add msbuild to PATH
       uses: microsoft/setup-msbuild@v2
 
-    - name: Install dependencies
-      run: |
-        git clone https://github.com/microsoft/vcpkg.git
-        .\\vcpkg\\bootstrap-vcpkg.bat
-        .\\vcpkg\vcpkg integrate install
-        .\\vcpkg\vcpkg install fmt:x64-windows
+    #- name: Install dependencies
+    #  run: |
+    #    git clone https://github.com/microsoft/vcpkg.git
+    #    .\\vcpkg\\bootstrap-vcpkg.bat
+    #    .\\vcpkg\vcpkg integrate install
+    #    .\\vcpkg\vcpkg install fmt:x64-windows
 
     - name: Build-App
       working-directory: ${{env.GITHUB_WORKSPACE}}
