@@ -44,7 +44,7 @@ def set_title(title):
 #----------------------------------------------------------------------------
 def is_temp_console():
     parent_process = psutil.Process(os.getpid()).parent().name()
-    temp_parents = re.compile(r"(?i)^(explorer.*|.*terminal)$")
+    temp_parents = re.compile(r"(?i)^(py.exe|explorer.*|.*terminal)$")
     return temp_parents.match(parent_process)
 
 #----------------------------------------------------------------------------
@@ -62,7 +62,15 @@ def closing_ok(msg):
 
 #----------------------------------------------------------------------------
 def launch(command_and_args):
-    return ctypes.c_int32( subprocess.call(command_and_args) ).value
+    start_time_s = time.perf_counter()
+    return_code = ctypes.c_int32( subprocess.call(command_and_args) ).value
+    exec_time_s = time.perf_counter() - start_time_s
+    if exec_time_s>0.5:
+        exec_time_str = f"{CYAN}{exec_time_s:.2f}{END}s"
+    else:
+        exec_time_str = f"{CYAN}{1000.0 * exec_time_s:.2f}{END}ms"
+    print(f"{END}{command_and_args[0]} returned: {GREEN if return_code==0 else RED}{return_code}{END} after {exec_time_str}")
+    return return_code
 
 
 #----------------------------------------------------------------------------
@@ -72,7 +80,7 @@ def main():
 
     print(f"{BLUE}Building {CYAN}{testprojectname}{END}")
     if (build_ret:=launch(build_cmd))!=0:
-        closing_bad(f"Build returned {build_ret}")
+        closing_bad(f"Build error")
         return build_ret
 
     if not os.path.isfile(test_exe):
@@ -81,7 +89,7 @@ def main():
 
     print(f"{GRAY}Launching {test_exe}{END}")
     if (tests_ret:=launch([test_exe]))!=0:
-        closing_bad(f"Test returned {tests_ret}")
+        closing_bad(f"Test error")
         return tests_ret
 
     closing_ok(f'{testprojectname}: all tests ok')
