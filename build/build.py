@@ -84,7 +84,8 @@ def main():
 
     if f"{configuration}|{platform}"=="Release|x64" and os.name=='nt' and os.path.isdir(dst_path:=os.path.expandvars('%UserProfile%/Bin')):
         print(f"{GRAY}Copying {END}{exe}{GRAY} to {END}{dst_path}")
-        shutil.copy(exe, dst_path)
+        try: shutil.copy(exe, dst_path)
+        except Exception as e: print(f"{RED}{e}{END}")
 
     closing_ok(f"Build of {projectname} ok")
     return 0
