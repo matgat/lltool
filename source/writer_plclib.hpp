@@ -256,8 +256,12 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Struct& strct, const
             f<< ind(lvl+2) << "<var name=\""sv << memb.name() << '\"';
             write_type_attributes(f, memb.type());
             f<< ">\n"sv;
-            f<< ind(lvl+3) << "<descr>"sv << memb.descr() << "</descr>\n"sv
-             << ind(lvl+2) << "</var>\n"sv;
+            f<< ind(lvl+3) << "<descr>"sv << memb.descr() << "</descr>\n"sv;
+            if( memb.has_value() )
+               {
+                f<< ind(lvl+3) << "<initValue>"sv << memb.value() << "</initValue>\n"sv;
+               }
+            f<< ind(lvl+2) << "</var>\n"sv;
            }
         f<< ind(lvl+1) << "</vars>\n"sv;
        }
@@ -783,6 +787,14 @@ inline static constexpr std::string_view sample_lib_plclib =
     "\t\t\t\t\t<var name=\"member3\" type=\"INT\" dim0=\"12\">\n"
     "\t\t\t\t\t\t<descr>array member</descr>\n"
     "\t\t\t\t\t</var>\n"
+    "\t\t\t\t\t<var name=\"member4\" type=\"INT\">\n"
+    "\t\t\t\t\t\t<descr>initialized int</descr>\n"
+    "\t\t\t\t\t\t<initValue>0</initValue>\n"
+    "\t\t\t\t\t</var>\n"
+    "\t\t\t\t\t<var name=\"member5\" type=\"BOOL\">\n"
+    "\t\t\t\t\t\t<descr>initialized bool</descr>\n"
+    "\t\t\t\t\t\t<initValue>FALSE</initValue>\n"
+    "\t\t\t\t\t</var>\n"
     "\t\t\t\t</vars>\n"
     "\t\t\t\t<iecDeclaration active=\"FALSE\"/>\n"
     "\t\t\t</struct>\n"
@@ -973,6 +985,18 @@ ut::test("plclib::write(plcb::Struct)") = []
         memb.set_name("member3"sv);
         memb.type() = plcb::make_type("INT"sv,0u,11u);
         memb.set_descr("array member"sv);   }
+    {   plcb::Struct::Member& memb = strct.members().emplace_back();
+        memb.set_name("member4"sv);
+        memb.type() = plcb::make_type("INT"sv);
+        memb.set_value("0"sv);
+        memb.set_descr("initialized int"sv);
+       }
+    {   plcb::Struct::Member& memb = strct.members().emplace_back();
+        memb.set_name("member5"sv);
+        memb.type() = plcb::make_type("BOOL"sv);
+        memb.set_value("FALSE"sv);
+        memb.set_descr("initialized bool"sv);
+       }
 
     const std::string_view expected =
         "<struct name=\"structname\" version=\"1.0.0\">\n"
@@ -986,6 +1010,14 @@ ut::test("plclib::write(plcb::Struct)") = []
         "\t\t</var>\n"
         "\t\t<var name=\"member3\" type=\"INT\" dim0=\"12\">\n"
         "\t\t\t<descr>array member</descr>\n"
+        "\t\t</var>\n"
+        "\t\t<var name=\"member4\" type=\"INT\">\n"
+        "\t\t\t<descr>initialized int</descr>\n"
+        "\t\t\t<initValue>0</initValue>\n"
+        "\t\t</var>\n"
+        "\t\t<var name=\"member5\" type=\"BOOL\">\n"
+        "\t\t\t<descr>initialized bool</descr>\n"
+        "\t\t\t<initValue>FALSE</initValue>\n"
         "\t\t</var>\n"
         "\t</vars>\n"
         "\t<iecDeclaration active=\"FALSE\"/>\n"

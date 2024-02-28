@@ -303,6 +303,7 @@ class Struct final
      private:
         std::string_view m_Name;
         Type m_Type;
+        std::string_view m_Value;
         std::string_view m_Descr;
 
      public:
@@ -311,13 +312,24 @@ class Struct final
            {
             if( sv.empty() )
                {
-                throw std::runtime_error{"Empty parameter name"};
+                throw std::runtime_error{"Empty struct member name"};
                }
             m_Name = sv;
            }
 
         [[nodiscard]] Type& type() noexcept { return m_Type; }
         [[nodiscard]] const Type& type() const noexcept { return m_Type; }
+
+        [[nodiscard]] std::string_view value() const noexcept { return m_Value; }
+        [[nodiscard]] bool has_value() const noexcept { return not m_Value.empty(); }
+        void set_value(const std::string_view sv)
+            {
+             if( sv.empty() )
+               {
+                throw std::runtime_error{"Empty struct member initialization value"};
+               }
+             m_Value = sv;
+            }
 
         [[nodiscard]] bool has_descr() const noexcept { return not m_Descr.empty(); }
         [[nodiscard]] std::string_view descr() const noexcept { return m_Descr; }
@@ -1085,6 +1097,18 @@ std::string to_string(const plcb::Variable& var)
         memb.type() = plcb::make_type("INT"sv,0u,11u);
         memb.set_descr("array member"sv);
        }
+       {auto& memb = strct.members().emplace_back();
+        memb.set_name("member4"sv);
+        memb.type() = plcb::make_type("INT"sv);
+        memb.set_value("0"sv);
+        memb.set_descr("initialized int"sv);
+       }
+       {auto& memb = strct.members().emplace_back();
+        memb.set_name("member5"sv);
+        memb.type() = plcb::make_type("BOOL"sv);
+        memb.set_value("FALSE"sv);
+        memb.set_descr("initialized bool"sv);
+       }
    }
 
    {auto& enm = lib.enums().emplace_back();
@@ -1163,6 +1187,7 @@ std::string to_string(const plcb::Variable& var)
 {
     return memb1.name()  == memb2.name()
        and memb1.type()  == memb2.type()
+       and memb1.value() == memb1.value()
        and memb1.descr() == memb2.descr();
 }
 

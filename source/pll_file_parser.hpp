@@ -354,12 +354,8 @@ class PllParser final : public plain::ParserBase<char>
 
         // [Value]
         inherited::skip_blanks();
-        if( inherited::eat(':') )
+        if( inherited::eat(":="sv) )
            {
-            if( not inherited::eat('=') )
-               {
-                throw inherited::create_parse_error( std::format("Unexpected colon in variable \"{}\" type", var.name()) );
-               }
             inherited::skip_blanks();
             if( inherited::got('[') )
                {
@@ -845,7 +841,20 @@ class PllParser final : public plain::ParserBase<char>
                 // [Type]
                 parser.skip_blanks();
                 memb.type() = parser.collect_type();
+                
+                // [Value]
                 parser.skip_blanks();
+                if( parser.eat(":="sv) )
+                   {
+                    parser.skip_blanks();
+                    if( parser.got('[') )
+                       {
+                        throw parser.create_parse_error( std::format("Array initialization not yet supported in member \"{}\"", memb.name()) );
+                       }
+
+                    memb.set_value( str::trim_right(parser.get_until(ascii::is<';'>, ascii::is_any_of<':','=','<','>','\"','\n'>)) );
+                   }
+
                 if( !parser.eat(';') )
                    {
                     throw parser.create_parse_error( std::format("Missing ';' after member \"{}\" definition", memb.name()) );

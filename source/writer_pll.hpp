@@ -148,6 +148,12 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Struct& strct)
        {
         f<< "\t\t"sv << memb.name() << " : "sv;
         write(f, memb.type());
+        
+        if( memb.has_value() )
+           {
+            f<< " := "sv << memb.value();
+           }
+        
         f<< ';';
 
         if( memb.has_descr() )
@@ -688,6 +694,8 @@ inline static constexpr std::string_view sample_lib_pll =
     "\t\tmember1 : DINT; { DE:\"member1 descr\" }\n"
     "\t\tmember2 : STRING[ 80 ]; { DE:\"member2 descr\" }\n"
     "\t\tmember3 : ARRAY[ 0..11 ] OF INT; { DE:\"array member\" }\n"
+    "\t\tmember4 : INT := 0; { DE:\"initialized int\" }\n"
+    "\t\tmember5 : BOOL := FALSE; { DE:\"initialized bool\" }\n"
     "\tEND_STRUCT;\n"
     "\n"
     "END_TYPE\n"
@@ -835,12 +843,26 @@ ut::test("pll::write(plcb::Struct)") = []
         memb.set_name("member3"sv);
         memb.type() = plcb::make_type("INT"sv,0u,11u);
         memb.set_descr("array member"sv);   }
+    {   plcb::Struct::Member& memb = strct.members().emplace_back();
+        memb.set_name("member4"sv);
+        memb.type() = plcb::make_type("INT"sv);
+        memb.set_value("0"sv);
+        memb.set_descr("initialized int"sv);
+       }
+    {   plcb::Struct::Member& memb = strct.members().emplace_back();
+        memb.set_name("member5"sv);
+        memb.type() = plcb::make_type("BOOL"sv);
+        memb.set_value("FALSE"sv);
+        memb.set_descr("initialized bool"sv);
+       }
 
     const std::string_view expected =
         "\n\tstructname : STRUCT { DE:\"testing struct\" }\n"
         "\t\tmember1 : DINT; { DE:\"member1 descr\" }\n"
         "\t\tmember2 : STRING[ 80 ]; { DE:\"member2 descr\" }\n"
         "\t\tmember3 : ARRAY[ 0..11 ] OF INT; { DE:\"array member\" }\n"
+        "\t\tmember4 : INT := 0; { DE:\"initialized int\" }\n"
+        "\t\tmember5 : BOOL := FALSE; { DE:\"initialized bool\" }\n"
         "\tEND_STRUCT;\n"sv;
 
     MG::string_write out;
