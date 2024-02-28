@@ -342,7 +342,7 @@ $ python build/build.py
 To run tests:
 
 ```sh
-$ python tests/run-all-tests.py
+$ python test/run-all-tests.py
 ```
 
 

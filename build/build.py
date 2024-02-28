@@ -39,7 +39,8 @@ def set_title(title):
 #----------------------------------------------------------------------------
 def is_temp_console():
     parent_process = psutil.Process(os.getpid()).parent().name()
-    temp_parents = re.compile(r"(?i)^(py.exe|explorer.*|.*terminal)$")
+    temp_parents = re.compile(r"(?i)^(?:py|python|explorer)\.exe|.*terminal$")
+    #print(f"{parent_process} {'is' if temp_parents.match(parent_process) else 'is not'} temp")
     return temp_parents.match(parent_process)
 
 #----------------------------------------------------------------------------

@@ -32,7 +32,7 @@ current_page=0
 FILE_NAME_0=62;C++;0;EUTF-8;0;1;0;%2Fhome%2Fmat%2Fdev%2Flltool%2Fsource%2Fmain.cpp;0;4
 
 [VTE]
-last_dir=/home/mat/dev/lltool/tests
+last_dir=/home/mat/dev/lltool/test
 
 [build-menu]
 filetypes=C++;
@@ -50,16 +50,16 @@ NF_03_CM=git pull
 NF_03_WD=%p
 EX_00_LB=Run all tests
 EX_00_CM=python run-all-tests.py
-EX_00_WD=%p/tests
+EX_00_WD=%p/test
 EX_01_LB=Run system tests
 EX_01_CM=python run-system-tests.py
-EX_01_WD=%p/tests
+EX_01_WD=%p/test
 EX_02_LB=Run manual tests
 EX_02_CM=python run-manual-tests.py
-EX_02_WD=%p/tests
+EX_02_WD=%p/test
 EX_03_LB=Run
 EX_03_CM=../build/bin/lltool --help
-EX_03_WD=%p/tests
+EX_03_WD=%p/test
 C++FT_00_LB=_Compile
 C++FT_00_CM=g++ -fanalyzer -std=c++2b -fno-rtti -I%p/source -I%p/source/common -fsyntax-only -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wfatal-errors -c "%f"
 C++FT_00_WD=%d

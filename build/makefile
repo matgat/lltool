@@ -6,7 +6,7 @@ CPPS = $(sort $(wildcard $(SRCDIR)/*.cpp $(SRCDIR)/*/*.cpp))
 HEADERS = $(wildcard $(SRCDIR)/*.hpp $(SRCDIR)/*/*.hpp)
 INCLUDEDIRS = $(sort $(SRCDIR) $(dir $(wildcard $(SRCDIR)/*/)))
 TARGET = $(BLDDIR)/$(PRJNAME)
-TEST_MAIN = ../tests/test.cpp
+TEST_MAIN = ../test/test.cpp
 TEST_TARGET = $(BLDDIR)/$(PRJNAME)-test
 
 CXX = g++
