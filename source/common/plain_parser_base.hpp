@@ -104,13 +104,9 @@ class ParserBase
        {
         return create_parse_error(std::move(msg), m_line);
        }
-     [[nodiscard]] parse::error create_parse_error(std::string&& msg, const std::size_t l) const noexcept
+     [[nodiscard]] parse::error create_parse_error(std::string&& msg, const std::size_t ln_idx) const noexcept
        {
-        if( m_file_path.empty() )
-           {// I'm probably parsing a buffer
-            return parse::error(std::move(msg), "buffer", l);
-           }
-        return parse::error(std::move(msg), m_file_path, l);
+        return parse::error(std::move(msg), m_file_path.empty() ? "buffer"s : m_file_path, ln_idx);
        }
 
     //-----------------------------------------------------------------------
@@ -153,6 +149,10 @@ class ParserBase
        {
         return ascii::is_blank(curr_codepoint());
        }
+    [[nodiscard]] constexpr bool got_alpha() const  noexcept
+       {
+        return ascii::is_alpha(curr_codepoint());
+       }
     [[nodiscard]] constexpr bool got_digit() const  noexcept
        {
         return ascii::is_digit(curr_codepoint());
@@ -162,13 +162,13 @@ class ParserBase
         return ascii::is_punct(curr_codepoint());
        }
     //-----------------------------------------------------------------------
-    [[nodiscard]] bool constexpr got(const string_view sv) noexcept
+    [[nodiscard]] bool constexpr got(const string_view sv) const noexcept
        {
         return sv==get_view_of_next(sv.size());
        }
     //-----------------------------------------------------------------------
     template<Char CH1, Char... CHS>
-    [[nodiscard]] constexpr bool got_any_of() noexcept
+    [[nodiscard]] constexpr bool got_any_of() const noexcept
        {
         return ascii::is_any_of<CH1, CHS ...>(curr_codepoint());
        }
@@ -228,7 +228,6 @@ class ParserBase
                    }
                }
            }
-
         return get_view_between(start.offset, curr_offset());
        }
     //-----------------------------------------------------------------------
@@ -441,7 +440,7 @@ class ParserBase
         if( got_digit() )
            {
             mantissa = ascii::value_of_digit(curr_codepoint());
-            while( get_next() && got_digit() )
+            while( get_next() and got_digit() )
                {
                 mantissa = (10.0 * mantissa) + ascii::value_of_digit(curr_codepoint());
                }
@@ -450,7 +449,7 @@ class ParserBase
         if( got('.') )
            {
             double k = 0.1; // shift of decimal part
-            if( get_next() && got_digit() )
+            if( get_next() and got_digit() )
                {
                 do {
                     mantissa += k * ascii::value_of_digit(curr_codepoint());

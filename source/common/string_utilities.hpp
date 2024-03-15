@@ -8,7 +8,7 @@
 #include <string>
 #include <string_view>
 
-#include "ascii_predicates.hpp" // ascii::to_lower()
+#include "ascii_predicates.hpp" // ascii::*
 
 using namespace std::literals; // "..."sv
 
@@ -52,14 +52,14 @@ namespace str //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 }
 
 //-----------------------------------------------------------------------
-[[nodiscard]] constexpr std::string tolower(std::string s) noexcept
+[[nodiscard]] constexpr std::string to_lower(std::string s) noexcept
 {
     for(char& ch : s) ch = ascii::to_lower(ch);
     return s;
 }
 
 //-----------------------------------------------------------------------
-//[[nodiscard]] bool compare_nocase(const std::string_view sv1, const std::string_view sv2) noexcept
+//[[nodiscard]] constexpr bool compare_nocase(const std::string_view sv1, const std::string_view sv2) noexcept
 //{
 //    if( sv1.size()!=sv2.size() ) return false;
 //    //#if defined(MS_WINDOWS)
@@ -71,21 +71,33 @@ namespace str //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 //    return true;
 //}
 
+//-----------------------------------------------------------------------
+//[[nodiscard]] constexpr std::string_view trim_left(std::string_view sv)
+//{
+//    sv.remove_prefix(std::distance(sv.cbegin(), std::find_if_not(sv.cbegin(), sv.cend(), ascii::is_space<char>)));
+//    return sv;
+//}
 
 //-----------------------------------------------------------------------
-[[nodiscard]] std::string_view trim_right(std::string_view sv)
+[[nodiscard]] constexpr std::string_view trim_right(std::string_view sv)
 {
-    if( const std::size_t last_non_space = sv.find_last_not_of(" \t\r"sv);
-        last_non_space!=std::string_view::npos )
-       {
-        sv.remove_suffix(sv.size() - last_non_space - 1u);
-       }
-    else
-       {
-        sv = {};
-       }
+    sv.remove_suffix(std::distance(sv.crbegin(), std::find_if_not(sv.crbegin(), sv.crend(), ascii::is_space<char>)));
     return sv;
 }
+
+//---------------------------------------------------------------------------
+//constexpr std::string& trim_left(std::string& s)
+//{
+//    s.erase(s.begin(), std::find_if_not(s.begin(), s.end(), ascii::is_space<char>));
+//    return s;
+//}
+
+//---------------------------------------------------------------------------
+//constexpr std::string& trim_right(std::string& s)
+//{
+//    s.erase(std::find_if_not(s.rbegin(), s.rend(), ascii::is_space<char>).base(), s.end());
+//    return s;
+//}
 
 
 //---------------------------------------------------------------------------
@@ -119,12 +131,63 @@ namespace str //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
    }
 
 
+//---------------------------------------------------------------------------
+//[[nodiscard]] constexpr std::string quoted(const std::string& s, const char quot ='\"')
+//{
+//    if( s.contains(quot) )
+//       {// TODO: Should escape internal double quotes
+//        throw std::runtime_error( std::format("str::quoted: {} contains already {}"sv,s,quot) );
+//       }
+//    return std::format("{0}{1}{0}"sv,quot,s);
+//}
+
+//---------------------------------------------------------------------------
+[[nodiscard]] constexpr std::string_view unquoted(const std::string_view sv, const char quot ='\"') noexcept
+{
+    if( sv.size()>=2u and sv.front()==quot and sv.back()==quot )
+       {
+        return sv.substr(1u, sv.size()-2u);
+       }
+    return sv;
+}
+
+//---------------------------------------------------------------------------
+// Replace all occurrences in a string
+//constexpr void replace_all(std::string& s, const std::string& from, const std::string& to)
+//{
+//    //std::string::size_type i = 0;
+//    //while( (i = s.find(from, i)) != std::string::npos )
+//    //   {
+//    //    s.replace(i, from.size(), to);
+//    //    i += to.size();
+//    //   }
+//
+//    std::string sout;
+//    sout.reserve(s.size());
+//    std::string::size_type i, i_start=0;
+//    while( (i = s.find(from, i_start)) != std::string::npos )
+//       {
+//        sout.append(s, i_start, i-i_start);
+//        sout.append(to);
+//        i_start = i + from.size();
+//       }
+//    sout.append(s, i_start); //, std::string::npos);
+//    s.swap(sout);
+//}
+
 }//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+
 
 
 
 /////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
+//void print_strings(std::convertible_to<std::string_view> auto&& ...s)
+//{
+//    for(const auto sv : std::initializer_list<std::string_view>{ s... }) std::print("{}\n",sv);
+//}
 /////////////////////////////////////////////////////////////////////////////
 static ut::suite<"string_utilities"> string_utilities_tests = []
 {////////////////////////////////////////////////////////////////////////////
@@ -135,19 +198,21 @@ ut::test("str::join_left()") = []
     ut::expect( ut::that % str::join_left(',', {})==""sv );
    };
 
-ut::test("str::tolower()") = []
+ut::test("str::to_lower()") = []
    {
-    ut::expect( ut::that % str::tolower("AbCdE fGhI 23 L")=="abcde fghi 23 l"sv );
-    ut::expect( ut::that % str::tolower("a")=="a"sv );
-    ut::expect( ut::that % str::tolower("A")=="a"sv );
-    ut::expect( ut::that % str::tolower("1")=="1"sv );
-    ut::expect( ut::that % str::tolower("")==""sv );
+    ut::expect( ut::that % str::to_lower("AbCdE fGhI 23 L")=="abcde fghi 23 l"sv );
+    ut::expect( ut::that % str::to_lower("a")=="a"sv );
+    ut::expect( ut::that % str::to_lower("A")=="a"sv );
+    ut::expect( ut::that % str::to_lower("1")=="1"sv );
+    ut::expect( ut::that % str::to_lower("")==""sv );
    };
 
 ut::test("str::trim_right()") = []
    {
     ut::expect( ut::that % str::trim_right(" abc \t \r"sv)==" abc"sv );
+    ut::expect( ut::that % str::trim_right(" abc\n"sv)==" abc"sv );
     ut::expect( ut::that % str::trim_right(" abc"sv)==" abc"sv );
+    ut::expect( ut::that % str::trim_right("abc"sv)=="abc"sv );
     ut::expect( ut::that % str::trim_right("\t \r"sv)==""sv );
     ut::expect( ut::that % str::trim_right(" "sv)==""sv );
     ut::expect( ut::that % str::trim_right("a"sv)=="a"sv );
@@ -161,6 +226,34 @@ ut::test("str::escape()") = []
     ut::expect( ut::that % str::escape("a"sv)=="a"sv );
     ut::expect( ut::that % str::escape(""sv)==""sv );
    };
+
+ut::test("str::unquoted()") = []
+   {
+    ut::expect( ut::that % str::unquoted("\"abc\""sv)=="abc"sv );
+    ut::expect( ut::that % str::unquoted("\"a\""sv)=="a"sv );
+    ut::expect( ut::that % str::unquoted("\"\""sv)==""sv );
+
+    ut::expect( ut::that % str::unquoted(" \"abc\""sv)==" \"abc\""sv );
+    ut::expect( ut::that % str::unquoted("\"abc\" "sv)=="\"abc\" "sv );
+    ut::expect( ut::that % str::unquoted(" \"abc\" "sv)==" \"abc\" "sv );
+
+    ut::expect( ut::that % str::unquoted("#\"abc\""sv)=="#\"abc\""sv );
+    ut::expect( ut::that % str::unquoted("\"abc\"#"sv)=="\"abc\"#"sv );
+    ut::expect( ut::that % str::unquoted("#\"abc\"#"sv)=="#\"abc\"#"sv );
+    
+    ut::expect( ut::that % str::unquoted("a\""sv)=="a\""sv );
+    ut::expect( ut::that % str::unquoted("\"a"sv)=="\"a"sv );
+    ut::expect( ut::that % str::unquoted("\""sv)=="\""sv );
+
+    ut::expect( ut::that % str::unquoted("abc"sv)=="abc"sv );
+    ut::expect( ut::that % str::unquoted("a"sv)=="a"sv );
+    ut::expect( ut::that % str::unquoted(""sv)==""sv );
+   };
+
+//ut::test("str::quoted()") = []
+//   {
+//    ut::expect( ut::throws([]{ [[maybe_unused]] auto sv = str::quoted("\""sv); }) ) << "refusing to quote a string containing quotes\n";
+//   };
 
 };///////////////////////////////////////////////////////////////////////////
 #endif // TEST_UNITS ////////////////////////////////////////////////////////

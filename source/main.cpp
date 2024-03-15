@@ -1,23 +1,22 @@
 ﻿#include <stdexcept> // std::exception, std::invalid_argument
 #include <print>
 
-#include "arguments.hpp" // lltool::Arguments
+#include "arguments.hpp" // app::Arguments
 #include "issues_collector.hpp" // MG::issues
 #include "edit_text_file.hpp" // sys::edit_text_file()
 
 #include "project_updater.hpp" // ll::update_project_libraries()
 #include "libraries_converter.hpp" // ll::convert_libraries()
 
-
 //---------------------------------------------------------------------------
 int main( const int argc, const char* const argv[] )
 {
-    lltool::Arguments args;
+    app::Arguments args;
     try{
         args.parse(argc, argv);
         if( args.verbose() )
            {
-            std::print("---- {} (build " __DATE__ ") ----\n", lltool::app_name);
+            std::print("---- {} (build " __DATE__ ") ----\n", app::name);
            }
 
         MG::issues issues;

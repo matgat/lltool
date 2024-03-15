@@ -1,4 +1,4 @@
-# [lltool](https://github.com/matgat/lltool.git)
+## [lltool](https://github.com/matgat/lltool.git)
 [![linux-build](https://github.com/matgat/lltool/actions/workflows/linux-build.yml/badge.svg)](https://github.com/matgat/lltool/actions/workflows/linux-build.yml)
 [![ms-build](https://github.com/matgat/lltool/actions/workflows/ms-build.yml/badge.svg)](https://github.com/matgat/lltool/actions/workflows/ms-build.yml)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
@@ -18,6 +18,7 @@ as much as possible.
 
 _________________________________________________________________________
 ## Usage
+
 > [!NOTE]
 > Windows binary is dynamically linked to Microsoft c++ runtime,
 > so needs the installation of

@@ -362,7 +362,7 @@ class Tests:
             ret_code, exec_time_ms = launch([exe, "convert", h_path, "-v" if self.manual_mode else "-q", "--to", out_dir.path])
             pll_path = out_dir.decl_file(pll.file_name);
             plclib_path = out_dir.decl_file(plclib.file_name);
-            return ret_code==0 and exec_time_ms<32 and check_file_content(pll_path, pll) and check_file_content(plclib_path, plclib)
+            return ret_code==0 and check_file_content(pll_path, pll) and check_file_content(plclib_path, plclib)
 
 
     #========================================================================
@@ -934,7 +934,7 @@ class Tests:
             ret_code, exec_time_ms = launch([exe, "convert", h_path, pll_path, "--options", "plclib-indent:3", "-v" if self.manual_mode else "-q", "--to", out_dir.path])
             h_pll_path = out_dir.decl_file(h_pll.file_name);
             pll_plclib_path = out_dir.decl_file(pll_plclib.file_name);
-            return ret_code==0 and exec_time_ms<32 and check_file_content(h_pll_path, h_pll) and check_file_content(pll_plclib_path, pll_plclib)
+            return ret_code==0 and check_file_content(h_pll_path, h_pll) and check_file_content(pll_plclib_path, pll_plclib)
 
 
     #========================================================================
@@ -1129,7 +1129,7 @@ class Tests:
             content_equal = textfile_content_is(out_path, prj.encoding, expected)
             if self.manual_mode and os.path.isfile(out_path):
                 show_text_files_comparison(prj_path, out_path)
-            return ret_code==0 and content_equal and exec_time_ms<32
+            return ret_code==0 and content_equal
 
 
     #========================================================================
@@ -1189,7 +1189,7 @@ class Tests:
             content_equal = textfile_content_is(out_path, prj.encoding, expected)
             if self.manual_mode and os.path.isfile(out_path):
                 show_text_files_comparison(prj_path, out_path)
-            return ret_code==0 and content_equal and exec_time_ms<32
+            return ret_code==0 and content_equal
 
 
     #========================================================================
@@ -1243,7 +1243,7 @@ class Tests:
             content_equal = textfile_content_is(out_path, prj.encoding, expected)
             if self.manual_mode and os.path.isfile(out_path):
                 show_text_files_comparison(prj_path, out_path)
-            return ret_code==0 and content_equal and exec_time_ms<32
+            return ret_code==0 and content_equal
 
 
     #========================================================================

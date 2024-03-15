@@ -1,8 +1,8 @@
 ﻿#pragma once
 //  ---------------------------------------------
-//  Program arguments of lltool
+//  Program arguments
 //  ---------------------------------------------
-//  #include "arguments.hpp" // lltool::Arguments
+//  #include "arguments.hpp" // app::Arguments
 //  ---------------------------------------------
 #include <stdexcept> // std::runtime_error, std::invalid_argument
 #include <ranges> // std::ranges::any_of
@@ -13,20 +13,15 @@
 namespace fs = std::filesystem;
 using namespace std::literals; // "..."sv
 
-
 #include "args_extractor.hpp" // MG::args_extractor
 #include "file_globbing.hpp" // MG::file_glob()
 #include "has_duplicate_basenames.hpp" // MG::find_duplicate_basename()
-#include "keyvals.hpp" // MG::keyvals
+#include "options_map.hpp" // MG::options_map
+#include "app_data.hpp" // app::name, app::descr
 
 
-//:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-namespace lltool //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+namespace app //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 {
-
-inline static constexpr std::string_view app_name = "lltool"sv;
-inline static constexpr std::string_view app_descr = "A tool capable to manipulate LogicLab files"sv;
-
 
 /////////////////////////////////////////////////////////////////////////////
 class Arguments final
@@ -47,7 +42,7 @@ class Arguments final
     fs::path m_prj_path;
     std::vector<fs::path> m_input_files;
     fs::path m_out_path;
-    MG::keyvals m_options;
+    MG::options_map m_options;
     task_t m_task;
     bool m_verbose = false; // More info to stdout
     bool m_quiet = false; // No user interaction
@@ -70,7 +65,7 @@ class Arguments final
         MG::args_extractor args(argc, argv);
         args.apply_switch_by_name_or_char = [this](const std::string_view full_name, const char brief_name) { apply_switch(full_name,brief_name); };
 
-        if( args.has_current() )
+        if( args.has_data() )
            {// As first argument I expect a task
             std::string_view arg = args.current();
             if( arg=="update"sv )
@@ -95,7 +90,7 @@ class Arguments final
                }
             args.next();
 
-            while( args.has_current() )
+            while( args.has_data() )
                {
                 arg = args.current();
                 if( args.is_switch(arg) )
@@ -148,11 +143,11 @@ class Arguments final
                }
            }
 
-        check_if_ok();
+        check_and_postprocess();
        }
 
     //-----------------------------------------------------------------------
-    void check_if_ok()
+    void check_and_postprocess()
        {
         if( task().is_update() )
            {
@@ -165,7 +160,7 @@ class Arguments final
                {
                 m_out_path /= prj_path().filename();
                }
-  
+
             if( fs::exists(out_path()) and fs::is_regular_file(out_path()) )
                {// I'll ensure to not overwrite the existing output file without specific intention
                 if( fs::equivalent(prj_path(), out_path()) )
@@ -217,7 +212,7 @@ class Arguments final
        {
         std::print( "\n{} (build " __DATE__ ")\n"
                     "{}\n"
-                    "\n", app_name, app_descr );
+                    "\n", app::name, app::descr );
         // The following triggers print_usage()
         throw std::invalid_argument{"Exiting after printing help"};
        }
@@ -234,7 +229,7 @@ class Arguments final
                     "       --force/-F (Overwrite/clear output files)\n"
                     "       --verbose/-v (Print more info on stdout)\n"
                     "       --quiet/-q (No user interaction)\n"
-                    "\n", app_name );
+                    "\n", app::name );
        }
 
  private:

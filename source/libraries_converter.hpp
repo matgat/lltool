@@ -11,7 +11,7 @@
 
 #include "filesystem_utilities.hpp" // fs::*, fsu::*
 #include "memory_mapped_file.hpp" // sys::memory_mapped_file
-#include "keyvals.hpp" // MG::keyvals
+#include "options_map.hpp" // MG::options_map
 #include "plc_library.hpp" // plcb::Library
 #include "h_file_parser.hpp" // sipro::h_parse()
 #include "pll_file_parser.hpp" // ll::pll_parse()
@@ -163,7 +163,7 @@ struct outpaths_t final { fs::path pll, plclib; };
 
 
 //---------------------------------------------------------------------------
-void parse_library(plcb::Library& lib, const std::string& input_file_fullpath, const file_type input_file_type, const std::string_view input_file_bytes, const MG::keyvals& conv_options, fnotify_t const& notify_issue)
+void parse_library(plcb::Library& lib, const std::string& input_file_fullpath, const file_type input_file_type, const std::string_view input_file_bytes, const MG::options_map& conv_options, fnotify_t const& notify_issue)
 {
     if( input_file_bytes.empty() )
        {
@@ -199,7 +199,7 @@ void parse_library(plcb::Library& lib, const std::string& input_file_fullpath, c
 
 
 //---------------------------------------------------------------------------
-bool write_library(const plcb::Library& lib, const fs::path& out_pll, const fs::path& out, const MG::keyvals& conv_options)
+bool write_library(const plcb::Library& lib, const fs::path& out_pll, const fs::path& out, const MG::options_map& conv_options)
 {
     bool something_done = false;
 
@@ -224,7 +224,7 @@ bool write_library(const plcb::Library& lib, const fs::path& out_pll, const fs::
 
 
 //---------------------------------------------------------------------------
-void convert_library(const fs::path& input_file_path, fs::path output_path, const bool can_overwrite, const MG::keyvals& conv_options, fnotify_t const& notify_issue)
+void convert_library(const fs::path& input_file_path, fs::path output_path, const bool can_overwrite, const MG::options_map& conv_options, fnotify_t const& notify_issue)
 {
     const std::string input_file_fullpath{ input_file_path.string() };
     const std::string input_file_basename{ input_file_path.stem().string() };
@@ -251,8 +251,6 @@ void convert_library(const fs::path& input_file_path, fs::path output_path, cons
 
 /////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
-#include "ansi_escape_codes.hpp" // ANSI_RED, ...
 /////////////////////////////////////////////////////////////////////////////
 static ut::suite<"libraries_converter"> libraries_converter_tests = []
 {
@@ -344,7 +342,7 @@ ut::test("ll::convert_library()") = []
         test::TemporaryDirectory dir;
         auto in = dir.create_file("~empty.pll", "\n"sv);
         struct issues_t final { int num=0; void operator()(std::string&&) noexcept {++num;}; } issues;
-        ll::convert_library(in.path().string(), {}, false, MG::keyvals{"plclib-indent:2"}, std::ref(issues));
+        ll::convert_library(in.path().string(), {}, false, MG::options_map{"plclib-indent:2"}, std::ref(issues));
         ut::expect( ut::that % issues.num==1 ) << "should rise an issue related to empty lib\n";
         auto out = dir.decl_file("~empty.plclib");
         ut::expect( out.exists() );
@@ -380,7 +378,7 @@ ut::test("ll::convert_library()") = []
                                             "END_PROGRAM\n"sv);
         auto out = dir.decl_file("~out.plclib");
         struct issues_t final { int num=0; void operator()(std::string&& msg) noexcept {++num; ut::log << msg << '\n';}; } issues;
-        ll::convert_library(in.path().string(), out.path(), false, MG::keyvals{"plclib-indent:2"}, std::ref(issues));
+        ll::convert_library(in.path().string(), out.path(), false, MG::options_map{"plclib-indent:2"}, std::ref(issues));
         ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
         ut::expect( out.exists() );
         ut::expect( ut::that % out.content() == "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n"
@@ -426,13 +424,12 @@ ut::test("ll::convert_library()") = []
 
         try{
             struct issues_t final { int num=0; void operator()(std::string&& msg) noexcept {++num; ut::log << msg << '\n';}; } issues;
-            ll::convert_library(in.path().string(), {}, false, MG::keyvals{"plclib-indent:2"}, std::ref(issues));
+            ll::convert_library(in.path().string(), {}, false, MG::options_map{"plclib-indent:2"}, std::ref(issues));
             ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
            }
         catch( parse::error& e )
            {
-            ut::log << ANSI_MAGENTA "Exception: " ANSI_RED << e.what() << ANSI_DEFAULT "(line " << e.line() << ")\n";
-            throw;
+            ut::expect(false) << std::format("Exception: {} (line {})\n", e.what(), e.line());
            }
 
         auto out_pll = dir.decl_file("sample-def.pll");
@@ -563,13 +560,12 @@ ut::test("ll::convert_library()") = []
 
         try{
             struct issues_t final { int num=0; void operator()(std::string&& msg) noexcept {++num; ut::log << msg << '\n';}; } issues;
-            ll::convert_library(in.path().string(), {}, false, MG::keyvals{"plclib-indent:2"}, std::ref(issues));
+            ll::convert_library(in.path().string(), {}, false, MG::options_map{"plclib-indent:2"}, std::ref(issues));
             ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
            }
         catch( parse::error& e )
            {
-            ut::log << ANSI_MAGENTA "Exception: " ANSI_RED << e.what() << ANSI_DEFAULT "(line " << e.line() << ")\n";
-            throw;
+            ut::expect(false) << std::format("Exception: {} (line {})\n", e.what(), e.line());
            }
 
         auto out = dir.decl_file("sample-lib.plclib");

@@ -94,13 +94,9 @@ class ParserBase
        {
         return create_parse_error(std::move(msg), m_line);
        }
-     [[nodiscard]] parse::error create_parse_error(std::string&& msg, const std::size_t l) const noexcept
+     [[nodiscard]] parse::error create_parse_error(std::string&& msg, const std::size_t ln_idx) const noexcept
        {
-        if( m_file_path.empty() )
-           {// I'm probably parsing a buffer
-            return parse::error(std::move(msg), "buffer", l);
-           }
-        return parse::error(std::move(msg), m_file_path, l);
+        return parse::error(std::move(msg), m_file_path.empty() ? "buffer"s : m_file_path, ln_idx);
        }
 
     //-----------------------------------------------------------------------

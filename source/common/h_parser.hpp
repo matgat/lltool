@@ -79,13 +79,13 @@ class Define final
 
 /////////////////////////////////////////////////////////////////////////////
 class Parser final : public plain::ParserBase<char>
-{         using inherited = plain::ParserBase<char>;
+{              using base = plain::ParserBase<char>;
  private:
     Define m_curr_def;
 
  public:
     Parser(const std::string_view buf)
-      : inherited(buf)
+      : base(buf)
        {}
 
     //-----------------------------------------------------------------------
@@ -95,31 +95,31 @@ class Parser final : public plain::ParserBase<char>
         try{
             while( true )
                {
-                inherited::skip_blanks();
-                if( not inherited::has_codepoint() )
+                base::skip_blanks();
+                if( not base::has_codepoint() )
                    {// No more data
                     break;
                    }
                 else if( eat_line_comment_start() )
                    {
-                    inherited::skip_line();
+                    base::skip_line();
                    }
                 else if( eat_block_comment_start() )
                    {
                     skip_block_comment();
                    }
-                else if( inherited::got_endline() )
+                else if( base::got_endline() )
                    {
-                    inherited::get_next();
+                    base::get_next();
                    }
-                else if( inherited::eat_token("#define"sv) )
+                else if( base::eat_token("#define"sv) )
                    {
                     collect_define(m_curr_def);
                     break;
                    }
                 else
                    {
-                    throw create_parse_error( std::format("Unexpected content: {}", str::escape(inherited::get_rest_of_line())) );
+                    throw create_parse_error( std::format("Unexpected content: {}", str::escape(base::get_rest_of_line())) );
                    }
                }
            }
@@ -140,52 +140,52 @@ class Parser final : public plain::ParserBase<char>
     //-----------------------------------------------------------------------
     [[nodiscard]] bool eat_line_comment_start() noexcept
        {
-        return inherited::eat("//"sv);
+        return base::eat("//"sv);
        }
 
     //-----------------------------------------------------------------------
     [[nodiscard]] bool eat_block_comment_start() noexcept
        {
-        return inherited::eat("/*"sv);
+        return base::eat("/*"sv);
        }
 
     //-----------------------------------------------------------------------
     void skip_block_comment()
        {
-        [[maybe_unused]] auto cmt = inherited::get_until("*/");
+        [[maybe_unused]] auto cmt = base::get_until("*/");
        }
 
     //-----------------------------------------------------------------------
     void collect_define_comment( Define& def )
        {// [INT] Descr
-        inherited::skip_blanks();
+        base::skip_blanks();
 
         // Detect possible pre-declaration in square brackets like: // [xxx] comment
-        if( inherited::got('[') )
+        if( base::got('[') )
            {
-            inherited::get_next();
-            inherited::skip_blanks();
-            std::string_view predecl = inherited::get_until_or_endline<']'>();
-            if( inherited::got(']') )
+            base::get_next();
+            base::skip_blanks();
+            std::string_view predecl = base::get_until_or_endline<']'>();
+            if( base::got(']') )
                {
                 def.set_comment_predecl( str::trim_right(predecl) );
-                inherited::get_next();
-                inherited::skip_blanks();
+                base::get_next();
+                base::skip_blanks();
                }
             else
                {
-                inherited::notify_issue( std::format("Unclosed \'[\' in the comment of define {}", def.label()) );
+                base::notify_issue( std::format("Unclosed \'[\' in the comment of define {}", def.label()) );
                 def.set_comment( str::trim_right(predecl) );
-                inherited::get_next();
+                base::get_next();
                 return;
                }
            }
 
         // Collect the remaining comment text
-        def.set_comment( str::trim_right(inherited::get_rest_of_line()) );
+        def.set_comment( str::trim_right(base::get_rest_of_line()) );
         //if( def.comment().empty() )
         //   {
-        //    inherited::notify_issue( std::format("Define {} has no comment", def.label()) );
+        //    base::notify_issue( std::format("Define {} has no comment", def.label()) );
         //   }
        }
 
@@ -197,22 +197,22 @@ class Parser final : public plain::ParserBase<char>
         // Contract: '#define' already eat
 
         // [Label]
-        inherited::skip_blanks();
-        def.set_label( inherited::get_identifier() );
+        base::skip_blanks();
+        def.set_label( base::get_identifier() );
 
         // [Value]
-        inherited::skip_blanks();
-        def.set_value( inherited::get_until_space_or_end() );
+        base::skip_blanks();
+        def.set_value( base::get_until_space_or_end() );
 
         // [Comment]
-        inherited::skip_blanks();
+        base::skip_blanks();
         if( eat_line_comment_start() )
            {
             collect_define_comment( def );
            }
         //else
         //   {
-        //    inherited::notify_issue( std::format("Define {} hasn't a comment", def.label()) );
+        //    base::notify_issue( std::format("Define {} hasn't a comment", def.label()) );
         //   }
        }
 };
@@ -226,11 +226,11 @@ class Parser final : public plain::ParserBase<char>
 /////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
-#include "ansi_escape_codes.hpp" // ANSI_RED, ...
+//#include "ansi_escape_codes.hpp" // ANSI_BLUE, ...
 /////////////////////////////////////////////////////////////////////////////
 static ut::suite<"h::Parser"> h_parser_tests = []
 {////////////////////////////////////////////////////////////////////////////
-//auto notify_sink = [](const std::string_view msg) -> void { ut::log << ANSI_BLUE "parser: " ANSI_DEFAULT << msg; };
+
 ut::test("basic") = []
    {
     const std::string_view buf =
@@ -247,7 +247,7 @@ ut::test("basic") = []
         "#define last x //  [ y 2 ]  A last macro"sv;
 
     h::Parser parser(buf);
-    //parser.set_on_notify_issue(notify_sink);
+    //parser.set_on_notify_issue([](const std::string_view msg) -> void { ut::log << ANSI_BLUE "parser: " ANSI_DEFAULT << msg; });
 
     std::size_t n_event = 0u;
     try{
@@ -298,7 +298,7 @@ ut::test("basic") = []
        }
     catch( parse::error& e )
        {
-        ut::log << ANSI_MAGENTA "Exception: " ANSI_RED << e.what() << ANSI_DEFAULT "(event " << n_event << " line " << e.line() << ")\n";
+        ut::expect(false) << std::format("Exception: {} (event {} line {})\n", e.what(), n_event, e.line());
        }
     ut::expect( ut::that % n_event==5u ) << "events number should match";
    };

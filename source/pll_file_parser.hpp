@@ -18,16 +18,16 @@ namespace ll
 
 /////////////////////////////////////////////////////////////////////////////
 class PllParser final : public plain::ParserBase<char>
-{            using inherited = plain::ParserBase<char>;
+{                 using base = plain::ParserBase<char>;
  public:
     PllParser(const std::string_view buf)
-      : inherited(buf)
+      : base(buf)
        {}
 
     //-----------------------------------------------------------------------
     void check_heading_comment(plcb::Library& lib)
        {
-        inherited::skip_any_space();
+        base::skip_any_space();
         if( eat_block_comment_start() )
            {// Could be my custom header
             //(*
@@ -38,13 +38,13 @@ class PllParser final : public plain::ParserBase<char>
             //    dependencies: Common.pll, defvar.pll, iomap.pll, messages.pll
             //*)
             // Yes, using a parser inside a parser!
-            inherited parser{ get_block_comment() };
+            base parser{ get_block_comment() };
             struct keyvalue_t final
                {
                 std::string_view key;
                 std::string_view value;
 
-                [[nodiscard]] bool get_next( inherited& parser )
+                [[nodiscard]] bool get_next( base& parser )
                    {
                     while( true )
                        {
@@ -90,39 +90,39 @@ class PllParser final : public plain::ParserBase<char>
     //-----------------------------------------------------------------------
     void collect_next(plcb::Library& lib)
        {
-        inherited::skip_any_space();
-        if( not inherited::has_codepoint() )
+        base::skip_any_space();
+        if( not base::has_codepoint() )
            {
            }
         else if( eat_block_comment_start() )
            {
             skip_block_comment();
            }
-        else if( inherited::eat_token("PROGRAM"sv) )
+        else if( base::eat_token("PROGRAM"sv) )
            {
             auto& pou = lib.programs().emplace_back();
             collect_pou(pou, "PROGRAM"sv, "END_PROGRAM"sv);
            }
-        else if( inherited::eat_token("FUNCTION_BLOCK"sv) )
+        else if( base::eat_token("FUNCTION_BLOCK"sv) )
            {
             auto& pou = lib.function_blocks().emplace_back();
             collect_pou(pou, "FUNCTION_BLOCK"sv, "END_FUNCTION_BLOCK"sv);
            }
-        else if( inherited::eat_token("FUNCTION"sv) )
+        else if( base::eat_token("FUNCTION"sv) )
            {
             auto& pou = lib.functions().emplace_back();
             collect_pou(pou, "FUNCTION"sv, "END_FUNCTION"sv, true);
            }
-        else if( inherited::eat_token("MACRO"sv) )
+        else if( base::eat_token("MACRO"sv) )
            {
             auto& macro = lib.macros().emplace_back();
             collect_macro(macro);
            }
-        else if( inherited::eat_token("TYPE"sv) )
+        else if( base::eat_token("TYPE"sv) )
            {// struct/typdef/enum/subrange
             collect_types(lib);
            }
-        else if( inherited::eat_token("VAR_GLOBAL"sv) )
+        else if( base::eat_token("VAR_GLOBAL"sv) )
            {
             const auto [ constants, retain ] = collect_var_block_modifiers();
             if( constants )
@@ -140,7 +140,7 @@ class PllParser final : public plain::ParserBase<char>
            }
         else
            {
-            throw inherited::create_parse_error( std::format("Unexpected content: {}", str::escape(inherited::get_rest_of_line())) );
+            throw base::create_parse_error( std::format("Unexpected content: {}", str::escape(base::get_rest_of_line())) );
            }
        }
 
@@ -150,21 +150,21 @@ class PllParser final : public plain::ParserBase<char>
     //-----------------------------------------------------------------------
     [[nodiscard]] bool eat_block_comment_start() noexcept
        {
-        return inherited::eat("(*"sv);
+        return base::eat("(*"sv);
        }
     [[nodiscard]] std::string_view get_block_comment()
        {
-        return inherited::get_until("*)");
+        return base::get_until("*)");
        }
     void skip_block_comment()
        {
-        [[maybe_unused]] auto cmt = inherited::get_until("*)");
+        [[maybe_unused]] auto cmt = base::get_until("*)");
        }
 
     //-----------------------------------------------------------------------
     [[nodiscard]] bool got_directive_start() noexcept
        {// { DE:"some string" }
-        return inherited::got('{');
+        return base::got('{');
        }
 
     //-----------------------------------------------------------------------
@@ -172,36 +172,36 @@ class PllParser final : public plain::ParserBase<char>
        {// { DE:"some string" } or { CODE:ST }
         plcb::Directive dir;
 
-        assert( inherited::got('{') );
-        inherited::get_next();
+        assert( base::got('{') );
+        base::get_next();
 
-        inherited::skip_blanks();
-        dir.set_key( inherited::get_identifier() );
+        base::skip_blanks();
+        dir.set_key( base::get_identifier() );
 
-        inherited::skip_blanks();
-        if( not inherited::got(':') )
+        base::skip_blanks();
+        if( not base::got(':') )
            {
-            throw inherited::create_parse_error( std::format("Missing ':' after directive {}", dir.key()) );
+            throw base::create_parse_error( std::format("Missing ':' after directive {}", dir.key()) );
            }
-        inherited::get_next();
-        inherited::skip_blanks();
+        base::get_next();
+        base::skip_blanks();
 
-        if( inherited::got('\"') )
+        if( base::got('\"') )
            {
-            inherited::get_next();
-            dir.set_value( inherited::get_until_and_skip(ascii::is<'\"'>, ascii::is_any_of<'<','>','\n'>) );
+            base::get_next();
+            dir.set_value( base::get_until_and_skip(ascii::is<'\"'>, ascii::is_any_of<'<','>','\n'>) );
            }
         else
            {
-            dir.set_value( inherited::get_identifier() );
+            dir.set_value( base::get_identifier() );
            }
 
-        inherited::skip_blanks();
-        if( not inherited::got('}') )
+        base::skip_blanks();
+        if( not base::got('}') )
            {
-            throw inherited::create_parse_error( std::format("Unclosed directive {} after {}", dir.key(), dir.value()) );
+            throw base::create_parse_error( std::format("Unclosed directive {} after {}", dir.key(), dir.value()) );
            }
-        inherited::get_next();
+        base::get_next();
 
         return dir;
        }
@@ -211,7 +211,7 @@ class PllParser final : public plain::ParserBase<char>
        {// { DE:"some string" }
         std::optional<std::string_view> descr;
 
-        inherited::skip_blanks();
+        base::skip_blanks();
         if( got_directive_start() )
            {
             const plcb::Directive dir = collect_directive();
@@ -221,12 +221,12 @@ class PllParser final : public plain::ParserBase<char>
                }
             else
                {
-                throw inherited::create_parse_error( std::format("Unexpected directive \"{}\"", dir.key()) );
+                throw base::create_parse_error( std::format("Unexpected directive \"{}\"", dir.key()) );
                }
-            inherited::skip_blanks();
+            base::skip_blanks();
            }
 
-        inherited::check_and_eat_endline();
+        base::check_and_eat_endline();
 
         return descr;
        }
@@ -239,40 +239,40 @@ class PllParser final : public plain::ParserBase<char>
         plcb::Variable var;
 
         // [Name]
-        inherited::skip_blanks();
-        var.set_name( inherited::get_identifier() );
-        inherited::skip_blanks();
-        if( inherited::got(',') )
+        base::skip_blanks();
+        var.set_name( base::get_identifier() );
+        base::skip_blanks();
+        if( base::got(',') )
            {
-            throw inherited::create_parse_error( std::format("Multiple names not supported in declaration of variable \"{}\"", var.name()) );
+            throw base::create_parse_error( std::format("Multiple names not supported in declaration of variable \"{}\"", var.name()) );
            }
 
         // [Location address]
-        if( inherited::eat_token("AT"sv) )
+        if( base::eat_token("AT"sv) )
            {// Specified a location address %<type><typevar><index>.<subindex>
-            inherited::skip_blanks();
-            if( not inherited::eat('%') )
+            base::skip_blanks();
+            if( not base::eat('%') )
                {
-                throw inherited::create_parse_error( std::format("Missing '%' in address of variable \"{}\" address", var.name()) );
+                throw base::create_parse_error( std::format("Missing '%' in address of variable \"{}\" address", var.name()) );
                }
             // Here expecting something like: MB300.6000
-            var.address().set_zone( inherited::curr_codepoint() ); // Typically M or Q
-            inherited::get_next();
-            var.address().set_typevar( inherited::curr_codepoint() );
-            inherited::get_next();
-            var.address().set_index( inherited::extract_index<decltype(var.address().index())>() );
-            if( not inherited::eat('.') )
+            var.address().set_zone( base::curr_codepoint() ); // Typically M or Q
+            base::get_next();
+            var.address().set_typevar( base::curr_codepoint() );
+            base::get_next();
+            var.address().set_index( base::extract_index<decltype(var.address().index())>() );
+            if( not base::eat('.') )
                {
-                throw inherited::create_parse_error( std::format("Missing '.' in variable \"{}\" address", var.name()) );
+                throw base::create_parse_error( std::format("Missing '.' in variable \"{}\" address", var.name()) );
                }
-            var.address().set_subindex( inherited::extract_index<decltype(var.address().subindex())>() );
-            inherited::skip_blanks();
+            var.address().set_subindex( base::extract_index<decltype(var.address().subindex())>() );
+            base::skip_blanks();
            }
 
         // [Name/Type separator]
-        if( not inherited::eat(':') )
+        if( not base::eat(':') )
            {
-            throw inherited::create_parse_error( std::format("Missing ':' before variable \"{}\" type", var.name()) );
+            throw base::create_parse_error( std::format("Missing ':' before variable \"{}\" type", var.name()) );
            }
         collect_variable_data(var);
         return var;
@@ -288,55 +288,55 @@ class PllParser final : public plain::ParserBase<char>
         plcb::Type type;
 
         // [Array data]
-        inherited::skip_blanks();
-        if( inherited::eat_token("ARRAY"sv) )
+        base::skip_blanks();
+        if( base::eat_token("ARRAY"sv) )
            {// Specifying an array ex. ARRAY[ 0..999 ] OF BOOL;
             // Get array size
-            inherited::skip_blanks();
-            if( not inherited::eat('[') )
+            base::skip_blanks();
+            if( not base::eat('[') )
                {
-                throw inherited::create_parse_error("Missing '[' in array declaration");
+                throw base::create_parse_error("Missing '[' in array declaration");
                }
 
-            inherited::skip_blanks();
-            const auto idx_start = inherited::extract_index<decltype(type.array_startidx())>();
-            inherited::skip_blanks();
-            if( not inherited::eat(".."sv) )
+            base::skip_blanks();
+            const auto idx_start = base::extract_index<decltype(type.array_startidx())>();
+            base::skip_blanks();
+            if( not base::eat(".."sv) )
                {
-                throw inherited::create_parse_error("Missing \"..\" in array range declaration");
+                throw base::create_parse_error("Missing \"..\" in array range declaration");
                }
-            inherited::skip_blanks();
-            const auto idx_last = inherited::extract_index<decltype(type.array_lastidx())>();
-            inherited::skip_blanks();
-            if( inherited::got(',') )
+            base::skip_blanks();
+            const auto idx_last = base::extract_index<decltype(type.array_lastidx())>();
+            base::skip_blanks();
+            if( base::got(',') )
                {
-                throw inherited::create_parse_error("Multidimensional arrays not yet supported");
+                throw base::create_parse_error("Multidimensional arrays not yet supported");
                }
             // ...Support multidimensional arrays?
-            if( not inherited::eat(']') )
+            if( not base::eat(']') )
                {
-                throw inherited::create_parse_error("Missing ']' in array declaration");
+                throw base::create_parse_error("Missing ']' in array declaration");
                }
-            inherited::skip_blanks();
-            if( not inherited::eat_token("OF"sv) )
+            base::skip_blanks();
+            if( not base::eat_token("OF"sv) )
                {
-                throw inherited::create_parse_error("Missing \"OF\" in array declaration");
+                throw base::create_parse_error("Missing \"OF\" in array declaration");
                }
             type.set_array_range(idx_start, idx_last);
-            inherited::skip_blanks();
+            base::skip_blanks();
            }
 
         // [Type name]
-        type.set_name( inherited::get_identifier() );
-        inherited::skip_blanks();
-        if( inherited::eat('[') )
+        type.set_name( base::get_identifier() );
+        base::skip_blanks();
+        if( base::eat('[') )
            {// There's a length
-            inherited::skip_blanks();
+            base::skip_blanks();
             type.set_length( extract_index<decltype(type.length())>() );
-            inherited::skip_blanks();
-            if( not inherited::eat(']') )
+            base::skip_blanks();
+            if( not base::eat(']') )
                {
-                throw inherited::create_parse_error("Missing ']' in type length");
+                throw base::create_parse_error("Missing ']' in type length");
                }
            }
 
@@ -353,21 +353,21 @@ class PllParser final : public plain::ParserBase<char>
         var.type() = collect_type();
 
         // [Value]
-        inherited::skip_blanks();
-        if( inherited::eat(":="sv) )
+        base::skip_blanks();
+        if( base::eat(":="sv) )
            {
-            inherited::skip_blanks();
-            if( inherited::got('[') )
+            base::skip_blanks();
+            if( base::got('[') )
                {
-                throw inherited::create_parse_error( std::format("Array initialization not yet supported in variable \"{}\"", var.name()) );
+                throw base::create_parse_error( std::format("Array initialization not yet supported in variable \"{}\"", var.name()) );
                }
 
-            var.set_value( str::trim_right(inherited::get_until(ascii::is<';'>, ascii::is_any_of<':','=','<','>','\"','\n'>)) );
+            var.set_value( str::trim_right(base::get_until(ascii::is<';'>, ascii::is_any_of<':','=','<','>','\"','\n'>)) );
            }
 
-        if( !inherited::eat(';') )
+        if( !base::eat(';') )
            {
-            throw inherited::create_parse_error( std::format("Missing ';' after variable \"{}\" definition", var.name()) );
+            throw base::create_parse_error( std::format("Missing ';' after variable \"{}\" definition", var.name()) );
            }
 
         // [Description]
@@ -394,20 +394,20 @@ class PllParser final : public plain::ParserBase<char>
         // Since I'm appending I won't support more than one for each global groups
         if( not vgroups.empty() )
            {
-            throw inherited::create_parse_error("Multiple blocks of global variables declarations not allowed");
+            throw base::create_parse_error("Multiple blocks of global variables declarations not allowed");
            }
 
-        const auto start = inherited::save_context();
+        const auto start = base::save_context();
         while( true )
            {
-            inherited::skip_blanks();
-            if( not inherited::has_codepoint() )
+            base::skip_blanks();
+            if( not base::has_codepoint() )
                {
-                throw inherited::create_parse_error("VAR_GLOBAL not closed by END_VAR", start.line);
+                throw base::create_parse_error("VAR_GLOBAL not closed by END_VAR", start.line);
                }
-            else if( inherited::got_endline() )
+            else if( base::got_endline() )
                {// Skip empty lines
-                inherited::get_next();
+                base::get_next();
                }
             else if( eat_block_comment_start() )
                {
@@ -422,10 +422,10 @@ class PllParser final : public plain::ParserBase<char>
                    }
                 else
                    {
-                    throw inherited::create_parse_error( std::format("Unexpected directive \"{}\" in global vars", dir.key()) );
+                    throw base::create_parse_error( std::format("Unexpected directive \"{}\" in global vars", dir.key()) );
                    }
                }
-            else if( inherited::eat_token("END_VAR"sv) )
+            else if( base::eat_token("END_VAR"sv) )
                {
                 break;
                }
@@ -439,7 +439,7 @@ class PllParser final : public plain::ParserBase<char>
 
                 if( value_needed and !var.has_value() )
                    {
-                    throw inherited::create_parse_error( std::format("Value not specified for \"{}\"", var.name()) );
+                    throw base::create_parse_error( std::format("Value not specified for \"{}\"", var.name()) );
                    }
                }
            }
@@ -452,17 +452,17 @@ class PllParser final : public plain::ParserBase<char>
        {
         varblock_modifiers_t modifiers;
 
-        while( not inherited::got_endline() and inherited::has_codepoint() )
+        while( not base::got_endline() and base::has_codepoint() )
            {
-            inherited::skip_blanks();
-            const std::string_view modifier = inherited::get_notspace();
+            base::skip_blanks();
+            const std::string_view modifier = base::get_notspace();
             if( not modifier.empty() )
                {
                 if( modifier=="CONSTANT"sv )
                    {
                     if( modifiers.retain )
                        {
-                        throw inherited::create_parse_error("`CONSTANT` conflicts with `RETAIN`");
+                        throw base::create_parse_error("`CONSTANT` conflicts with `RETAIN`");
                        }
                     modifiers.constants = true;
                    }
@@ -470,17 +470,17 @@ class PllParser final : public plain::ParserBase<char>
                    {
                     if( modifiers.constants )
                        {
-                        throw inherited::create_parse_error("`RETAIN` conflicts with `CONSTANT`");
+                        throw base::create_parse_error("`RETAIN` conflicts with `CONSTANT`");
                        }
                     modifiers.retain = true;
                    }
                 else
                    {
-                    throw inherited::create_parse_error( std::format("Modifier `{}` not supported"sv, modifier) );
+                    throw base::create_parse_error( std::format("Modifier `{}` not supported"sv, modifier) );
                    }
                }
            }
-        inherited::get_next(); // skip endline
+        base::get_next(); // skip endline
 
         return modifiers;
        }
@@ -642,26 +642,26 @@ class PllParser final : public plain::ParserBase<char>
            }; ///////////////////////////////////////////////////////////////
 
         // Get name
-        inherited::skip_blanks();
-        pou.set_name( inherited::get_identifier() );
+        base::skip_blanks();
+        pou.set_name( base::get_identifier() );
         if( pou.name().empty() )
            {
-            throw inherited::create_parse_error( std::format("No name found for {}", start_tag) );
+            throw base::create_parse_error( std::format("No name found for {}", start_tag) );
            }
 
         // Get possible return type
-        inherited::skip_blanks();
-        if( inherited::eat(':') )
+        base::skip_blanks();
+        if( base::eat(':') )
            {// Got a return type!
-            inherited::skip_blanks();
+            base::skip_blanks();
             pou.set_return_type( get_alphabetic() );
             if( pou.return_type().empty() )
                {
-                throw inherited::create_parse_error( std::format("Empty return type in {} {}", start_tag, pou.name()) );
+                throw base::create_parse_error( std::format("Empty return type in {} {}", start_tag, pou.name()) );
                }
             if( not needs_ret_type )
                {
-                throw inherited::create_parse_error( std::format("Return type specified in {} {}", start_tag, pou.name()) );
+                throw base::create_parse_error( std::format("Return type specified in {} {}", start_tag, pou.name()) );
                }
             skip_endline();
            }
@@ -669,12 +669,12 @@ class PllParser final : public plain::ParserBase<char>
            {// No return type
             if( needs_ret_type )
                {
-                throw inherited::create_parse_error( std::format("Return type not specified in {} {}", start_tag, pou.name()) );
+                throw base::create_parse_error( std::format("Return type not specified in {} {}", start_tag, pou.name()) );
                }
            }
 
         local::collect_pou_header(*this, pou, start_tag, end_tag);
-        pou.set_body( trim_pou_body(inherited::get_until_newline_token(end_tag)) );
+        pou.set_body( trim_pou_body(base::get_until_newline_token(end_tag)) );
         skip_endline();
        }
 
@@ -799,15 +799,15 @@ class PllParser final : public plain::ParserBase<char>
                }
            }; ///////////////////////////////////////////////////////////////
 
-        inherited::skip_blanks();
-        macro.set_name( inherited::get_identifier() );
+        base::skip_blanks();
+        macro.set_name( base::get_identifier() );
         if( macro.name().empty() )
            {
-            throw inherited::create_parse_error("No name found for MACRO");
+            throw base::create_parse_error("No name found for MACRO");
            }
 
         local::collect_macro_header(*this, macro);
-        macro.set_body( trim_pou_body(inherited::get_until_newline_token("END_MACRO"sv)) );
+        macro.set_body( trim_pou_body(base::get_until_newline_token("END_MACRO"sv)) );
         skip_endline();
        }
 
@@ -1032,40 +1032,40 @@ class PllParser final : public plain::ParserBase<char>
         const auto start = save_context();
         while( true )
            {
-            inherited::skip_any_space();
-            if( not inherited::has_codepoint() )
+            base::skip_any_space();
+            if( not base::has_codepoint() )
                {
                 restore_context( start ); // Strong guarantee
-                throw inherited::create_parse_error("TYPE not closed by END_TYPE", start.line );
+                throw base::create_parse_error("TYPE not closed by END_TYPE", start.line );
                }
-            else if( inherited::eat_token("END_TYPE"sv) )
+            else if( base::eat_token("END_TYPE"sv) )
                {
                 break;
                }
             else
                {// Expected a type name token here
-                const std::string_view type_name = inherited::get_identifier();
+                const std::string_view type_name = base::get_identifier();
                 if( type_name.empty() )
                    {
-                    throw inherited::create_parse_error( std::format("Unexpected content in TYPE block: {}", str::escape(inherited::get_rest_of_line())) );
+                    throw base::create_parse_error( std::format("Unexpected content in TYPE block: {}", str::escape(base::get_rest_of_line())) );
                    }
 
                 // Expected a colon after the name
-                inherited::skip_blanks();
-                if( not inherited::eat(':') )
+                base::skip_blanks();
+                if( not base::eat(':') )
                    {
-                    throw inherited::create_parse_error( std::format("Missing ':' after type name \"{}\"", type_name) );
+                    throw base::create_parse_error( std::format("Missing ':' after type name \"{}\"", type_name) );
                    }
 
                 // Check what it is (struct, typedef, enum, subrange)
-                inherited::skip_blanks();
-                if( inherited::eat_token("STRUCT"sv) )
+                base::skip_blanks();
+                if( base::eat_token("STRUCT"sv) )
                    {// <name> : STRUCT ...
                     plcb::Struct& strct = lib.structs().emplace_back();
                     strct.set_name(type_name);
                     local::collect_struct_body(*this, strct);
                    }
-                else if( inherited::eat('(') )
+                else if( base::eat('(') )
                    {// <name> : ( ...
                     plcb::Enum& enm = lib.enums().emplace_back();
                     enm.set_name(type_name);
@@ -1078,15 +1078,15 @@ class PllParser final : public plain::ParserBase<char>
                     // Either way I expect a type
                     const plcb::Type type = collect_type();
 
-                    inherited::skip_blanks();
-                    if( inherited::eat(';') )
+                    base::skip_blanks();
+                    if( base::eat(';') )
                        {// <name> : <type>; { DE:"a typedef" }
                         plcb::TypeDef& tdef = lib.typedefs().emplace_back();
                         tdef.set_name(type_name);
                         tdef.type() = type;
                         local::collect_typedef_body(*this, tdef);
                        }
-                    else if( inherited::eat('(') )
+                    else if( base::eat('(') )
                        {// <name> : <type> (<min>..<max>); { DE:"a subrange" }
                         plcb::Subrange& subrng = lib.subranges().emplace_back();
                         subrng.set_name(type_name);
@@ -1095,7 +1095,7 @@ class PllParser final : public plain::ParserBase<char>
                        }
                     else
                        {
-                        throw inherited::create_parse_error("Invalid type definition (not struct, enum, typedef or subrange)");
+                        throw base::create_parse_error("Invalid type definition (not struct, enum, typedef or subrange)");
                        }
                    }
                }
@@ -1105,8 +1105,8 @@ class PllParser final : public plain::ParserBase<char>
     //-----------------------------------------------------------------------
     void skip_endline()
        {
-        inherited::skip_blanks();
-        inherited::check_and_eat_endline();
+        base::skip_blanks();
+        base::check_and_eat_endline();
        }
        
     //-----------------------------------------------------------------------
@@ -1604,8 +1604,7 @@ ut::test("ll::pll_parse(sample-lib)") = []
        }
     catch( parse::error& e )
        {
-        ut::log << ANSI_MAGENTA "Exception: " ANSI_RED << e.what() << ANSI_DEFAULT "(line " << e.line() << ")\n";
-        throw;
+        ut::expect(false) << std::format("Exception: {} (line {})\n", e.what(), e.line());
        }
 
     const plcb::Library sample_lib = plcb::make_sample_lib();
@@ -1816,8 +1815,7 @@ ut::test("ll::pll_parse(test_lib)") = []
        }
     catch( parse::error& e )
        {
-        ut::log << ANSI_MAGENTA "Exception: " ANSI_RED << e.what() << ANSI_DEFAULT "(line " << e.line() << ")\n";
-        throw;
+        ut::expect(false) << std::format("Exception: {} (line {})\n", e.what(), e.line());
        }
 
     ut::expect( ut::that % lib.version() == "1.2.3"sv );

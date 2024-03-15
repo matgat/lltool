@@ -2,11 +2,11 @@
 //  ---------------------------------------------
 //  A map of string pairs
 //  ---------------------------------------------
-//  #include "keyvals.hpp" // MG::keyvals
+//  #include "options_map.hpp" // MG::options_map
 //  ---------------------------------------------
-#include <stdexcept> // std::runtime_error
 #include "string_map.hpp" // MG::string_map<>
 #include "ascii_simple_lexer.hpp" // ascii::simple_lexer
+#include <stdexcept> // std::runtime_error
 
 
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -14,32 +14,29 @@ namespace MG //::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 {
 
 /////////////////////////////////////////////////////////////////////////////
-class keyvals final
+class options_map final
 {
- public:
     using container_type = MG::string_map<std::string, std::optional<std::string>>;
 
  private:
     container_type m_map;
 
  public:
-    keyvals() noexcept = default;
-    explicit keyvals(const std::string_view input)
+    options_map() noexcept = default;
+    explicit options_map(const std::string_view input) { assign(input); }
+
+    [[nodiscard]] constexpr bool operator==(options_map const& other) const noexcept
        {
-        assign(input);
+        return m_map == other.m_map;
        }
 
-    //-----------------------------------------------------------------------
-    // Get from strings like: "key1:val1,key2,key3:val3"
     void assign(const std::string_view input)
-       {
+       {// Get from strings like: "key1:val1,key2,key3:val3"
         class lexer_t final : public ascii::simple_lexer<char>
         {
          private:
-            std::size_t i_key_start = 0;
-            std::size_t i_key_end = 0;
-            std::size_t i_val_start = 0;
-            std::size_t i_val_end = 0;
+            std::string_view m_key_token;
+            std::string_view m_val_token;
 
          public:
             explicit lexer_t(const std::string_view buf) noexcept
@@ -51,16 +48,28 @@ class keyvals final
                 while( got_data() )
                    {
                     skip_any_space();
-                    if( eat(',') )
+                    if( got(ascii::is_any_of<',',';'>) )
                        {
-                        skip_any_space();
+                        get_next();
                        }
-                    if( got(ascii::is_any_of<':','='>) )
+                    else if( got(ascii::is_any_of<':','='>) )
                        {
                         throw std::runtime_error{"invalid key-value pairs"};
                        }
-                    else if( got_key_token() )
+                    else if( m_key_token = get_until(ascii::is_space_or_any_of<',',';',':','='>);
+                             not m_key_token.empty() )
                        {
+                        skip_any_space();
+                        if( got(ascii::is_any_of<':','='>) )
+                           {
+                            get_next();
+                            skip_any_space();
+                            m_val_token = get_until(ascii::is_space_or_any_of<',',';',':','='>);
+                           }
+                        else
+                           {
+                            m_val_token = {};
+                           }
                         return true;
                        }
                     else
@@ -71,36 +80,14 @@ class keyvals final
                 return false;
                }
 
-            [[nodiscard]] bool got_key_token() noexcept
-               {
-                i_key_start = pos();
-                while( not got(ascii::is_space_or_any_of<',',':','='>) and get_next() ) ;
-                i_key_end = pos();
-                if( i_key_end>i_key_start )
-                   {
-                    skip_any_space();
-                    i_val_start = i_val_end = 0u;
-                    if( eat(':') or eat('=') )
-                       {
-                        skip_any_space();
-                        i_val_start = pos();
-                        while( not got(ascii::is_space_or_any_of<',',':','='>) and get_next() ) ;
-                        i_val_end = pos();
-                       }
-                    return true;
-                   }
-                return false;
-               }
-
-            [[nodiscard]] std::string_view key() const noexcept { return input.substr(i_key_start, i_key_end-i_key_start); }
-            [[nodiscard]] std::string_view val() const noexcept { return input.substr(i_val_start, i_val_end-i_val_start); }
+            [[nodiscard]] std::string_view key() const noexcept { return m_key_token; }
+            [[nodiscard]] std::string_view val() const noexcept { return m_val_token; }
         } lexer{input};
-
 
         while( lexer.got_key() )
            {
             std::optional<std::string> val;
-            if( !lexer.val().empty() ) val = std::string{lexer.val()};
+            if( not lexer.val().empty() ) val = std::string{lexer.val()};
             m_map.insert_or_assign( std::string(lexer.key()), std::move(val));
            }
        }
@@ -148,7 +135,7 @@ class keyvals final
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 //---------------------------------------------------------------------------
-[[nodiscard]] std::string to_string(const MG::keyvals& kv)
+[[nodiscard]] std::string to_string(const MG::options_map& kv)
    {
     std::string s;
     auto it = kv.begin();
@@ -177,12 +164,12 @@ class keyvals final
 /////////////////////////////////////////////////////////////////////////////
 #include <format>
 /////////////////////////////////////////////////////////////////////////////
-static ut::suite<"MG::keyvals"> keyvals_tests = []
+static ut::suite<"MG::options_map"> keyvals_tests = []
 {////////////////////////////////////////////////////////////////////////////
 
 ut::test("basic") = []
    {
-    MG::keyvals options;
+    MG::options_map options;
     const std::string_view content = "key1:val1,key2,key3,key4:val4"sv;
     options.assign( content );
     ut::expect( ut::that % to_string(options)==content );
@@ -205,7 +192,7 @@ ut::test("basic") = []
 
 ut::test("spaces") = []
    {
-    MG::keyvals options;
+    MG::options_map options;
     const std::string_view content = "  key1  :  val1  ,  key2  ,  key3  ,  key4  :  val4  "sv;
     const std::string_view content_trimmed = "key1:val1,key2,key3,key4:val4"sv;
     options.assign( content );
@@ -229,7 +216,7 @@ for( auto content : std::vector<std::string_view>{""sv, "key:"sv, "key:val"sv} )
    {
     ut::test( std::format("ok \'{}\'", content) ) = [content]() mutable
        {
-        MG::keyvals options;
+        MG::options_map options;
         options.assign( content );
         if( content.ends_with(':') ) content.remove_suffix(1);
         ut::expect( ut::that % to_string(options)==content );
@@ -241,7 +228,7 @@ for( const auto content : std::vector{"key1:val1:key2"sv, ":key"sv, ":"sv, ",:,:
    {
     ut::test( std::format("bad \'{}\'", content) ) = [content]
        {
-        MG::keyvals options;
+        MG::options_map options;
         ut::expect( ut::throws([&]{ options.assign( content ); }) ) << '\"' << to_string(options) << "\" should throw\n";
        };
     }

@@ -16,6 +16,17 @@ namespace text { namespace xml
 /////////////////////////////////////////////////////////////////////////////
 class ParserEvent final
 {
+    enum class type : char
+       {
+        NONE = '\0'
+       ,COMMENT // <!-- ... -->
+       ,TEXT // >...<
+       ,OPENTAG // <tag attr1 attr2=val>
+       ,CLOSETAG // </tag> or />
+       ,PROCINST // <? ... ?>
+       ,SPECIALBLOCK // <!xxx ... !>
+       };
+
  public:
     using Attributes = MG::string_map<std::u32string, std::optional<std::u32string>>;
 
@@ -23,16 +34,7 @@ class ParserEvent final
     std::u32string m_value;
     std::size_t m_start_byte_offset = 0;
     Attributes m_attributes;
-    enum class type : char
-       {
-        NONE = 0
-       ,COMMENT // <!-- ... -->
-       ,TEXT // >...<
-       ,OPENTAG // <tag attr1 attr2=val>
-       ,CLOSETAG // </tag> or />
-       ,PROCINST // <? ... ?>
-       ,SPECIALBLOCK // <!xxx ... !>
-       } m_type = type::NONE;
+    type m_type = type::NONE;
 
  public:
     constexpr void set_as_none() noexcept
@@ -135,7 +137,7 @@ class ParserEvent final
 /////////////////////////////////////////////////////////////////////////////
 template<utxt::Enc ENC>
 class Parser final : public text::ParserBase<ENC>
-{         using inherited = text::ParserBase<ENC>;
+{              using base = text::ParserBase<ENC>;
  private:
     ParserEvent m_event; // Current event
     bool m_must_emit_tag_close_event = false; // To signal a deferred tag close
@@ -176,21 +178,21 @@ class Parser final : public text::ParserBase<ENC>
         else
            {
             try{
-                inherited::skip_any_space();
-                m_event.set_start_byte_offset( inherited::curr_codepoint_byte_offset() );
-                if( inherited::has_codepoint() )
+                base::skip_any_space();
+                m_event.set_start_byte_offset( base::curr_codepoint_byte_offset() );
+                if( base::has_codepoint() )
                    {
-                    if( inherited::eat(U'<') )
+                    if( base::eat(U'<') )
                        {
                         parse_xml_markup();
                        }
                     else if( options().is_collect_text_sections() )
                        {
-                        m_event.set_as_text( inherited::collect_until(ascii::is<U'<'>) ); // Trim right?
+                        m_event.set_as_text( base::collect_until(ascii::is<U'<'>) ); // Trim right?
                        }
                     else
                        {
-                        [[maybe_unused]] const auto text = inherited::get_bytes_until(ascii::is<U'<'>); // Trim right?
+                        [[maybe_unused]] const auto text = base::get_bytes_until(ascii::is<U'<'>); // Trim right?
                         m_event.set_as_text();
                        }
                    }
@@ -205,7 +207,7 @@ class Parser final : public text::ParserBase<ENC>
                }
             catch(std::runtime_error& e)
                {
-                throw inherited::create_parse_error( std::string(e.what()) );
+                throw base::create_parse_error( std::string(e.what()) );
                }
            }
 
@@ -217,31 +219,31 @@ class Parser final : public text::ParserBase<ENC>
     //-----------------------------------------------------------------------
     constexpr void parse_xml_markup()
        {
-        if( inherited::eat(U'!') )
+        if( base::eat(U'!') )
            {
-            if( inherited::eat(U"--") )
+            if( base::eat(U"--") )
                {// A comment ex. <!-- ... -->
                 if( options().is_collect_comment_text() )
                    {
-                    m_event.set_as_comment( inherited::template collect_until<U'-',U'-',U'>'>() );
+                    m_event.set_as_comment( base::template collect_until<U'-',U'-',U'>'>() );
                    }
                 else
                    {
-                    [[maybe_unused]] const auto text = inherited::template get_bytes_until<U'-',U'-',U'>'>();
+                    [[maybe_unused]] const auto text = base::template get_bytes_until<U'-',U'-',U'>'>();
                     m_event.set_as_comment();
                    }
                }
-            else if( inherited::eat(U'[') )
+            else if( base::eat(U'[') )
                {
-                if( inherited::eat(U"CDATA["sv) )
+                if( base::eat(U"CDATA["sv) )
                    {// A CDATA section <![CDATA[ ... ]]>
                     if( options().is_collect_text_sections() )
                        {
-                        m_event.set_as_text( inherited::template collect_until<U']',U']',U'>'>() );
+                        m_event.set_as_text( base::template collect_until<U']',U']',U'>'>() );
                        }
                     else
                        {
-                        [[maybe_unused]] const auto text = inherited::template get_bytes_until<U']',U']',U'>'>();
+                        [[maybe_unused]] const auto text = base::template get_bytes_until<U']',U']',U'>'>();
                         m_event.set_as_text();
                        }
                    }
@@ -250,27 +252,27 @@ class Parser final : public text::ParserBase<ENC>
                     throw std::runtime_error{"Conditional sections not yet supported"};
                    }
                }
-            else if( not inherited::has_codepoint() )
+            else if( not base::has_codepoint() )
                {
                 throw std::runtime_error{"Unclosed <!"};
                }
             else
                {// A special block: ex. <!DOCTYPE HTML>
-                m_event.set_as_special_block( inherited::template collect_until<U'>'>() );
-                //m_event.set_as_special_block( inherited::template collect_until(U"]>"sv) );
+                m_event.set_as_special_block( base::template collect_until<U'>'>() );
+                //m_event.set_as_special_block( base::template collect_until(U"]>"sv) );
                }
            }
-        else if( inherited::eat(U'?') )
+        else if( base::eat(U'?') )
            {// A processing instruction ex. <?xml version="1.0" encoding="utf-8"?>
-            //m_event.set_as_proc_instr( inherited::template collect_until(U"?>") );
-            [[maybe_unused]] const auto text = inherited::template get_bytes_until<U'?',U'>'>();
+            //m_event.set_as_proc_instr( base::template collect_until(U"?>") );
+            [[maybe_unused]] const auto text = base::template get_bytes_until<U'?',U'>'>();
             m_event.set_as_proc_instr(U""s);
            }
-        else if( inherited::eat(U'/') )
+        else if( base::eat(U'/') )
            {// A close tag
             m_event.set_as_close_tag( collect_tag_name() );
-            inherited::skip_any_space();
-            if( not inherited::eat(U'>') )
+            base::skip_any_space();
+            if( not base::eat(U'>') )
                {
                 throw std::runtime_error{"Invalid close tag"};
                }
@@ -278,8 +280,8 @@ class Parser final : public text::ParserBase<ENC>
         else
            {// A tag
             m_event.set_as_open_tag( collect_tag_name() );
-            inherited::skip_any_space();
-            if( not inherited::eat(U'>') )
+            base::skip_any_space();
+            if( not base::eat(U'>') )
                {
                 // Collect attributes
                 auto namval = collect_attribute();
@@ -287,23 +289,23 @@ class Parser final : public text::ParserBase<ENC>
                    {
                     if( m_event.attributes().contains(namval.first) )
                        {
-                        throw inherited::create_parse_error( std::format("Duplicated attribute `{}`", utxt::to_utf8(namval.first)) );
+                        throw base::create_parse_error( std::format("Duplicated attribute `{}`", utxt::to_utf8(namval.first)) );
                        }
                     m_event.attributes().append( std::move(namval) );
                     namval = collect_attribute();
                    }
 
                 // Detect immediate tag close
-                if( inherited::eat(U'/') )
+                if( base::eat(U'/') )
                    {// Next event will be a tag close
                     m_must_emit_tag_close_event = true;
                     //skip_any_space();
                    }
 
                 // Expect >
-                if( not inherited::eat(U'>') )
+                if( not base::eat(U'>') )
                    {
-                    throw inherited::create_parse_error( std::format("Tag `{}` must be closed with >", utxt::to_utf8(m_event.value())) );
+                    throw base::create_parse_error( std::format("Tag `{}` must be closed with >", utxt::to_utf8(m_event.value())) );
                    }
                }
            }
@@ -312,19 +314,19 @@ class Parser final : public text::ParserBase<ENC>
     //-----------------------------------------------------------------------
     [[nodiscard]] constexpr ParserEvent::Attributes::item_type collect_attribute()
        {
-        assert( not inherited::got_space() ); // collect_attribute() expects non-space char
+        assert( not base::got_space() ); // collect_attribute() expects non-space char
         ParserEvent::Attributes::item_type namval;
 
         namval.first = collect_attr_name();
         if( not namval.first.empty() )
            {// Check possible value
-            inherited::skip_any_space();
-            if( inherited::eat(U'=') )
+            base::skip_any_space();
+            if( base::eat(U'=') )
                {
-                inherited::skip_any_space();
-                namval.second = inherited::eat(U'\"') ? collect_quoted_attr_value()
+                base::skip_any_space();
+                namval.second = base::eat(U'\"') ? collect_quoted_attr_value()
                                                       : collect_unquoted_attr_value();
-                inherited::skip_any_space();
+                base::skip_any_space();
                }
            }
         return namval;
@@ -333,26 +335,26 @@ class Parser final : public text::ParserBase<ENC>
     //-----------------------------------------------------------------------
     [[nodiscard]] constexpr std::u32string collect_tag_name()
        {
-        inherited::skip_any_space();
+        base::skip_any_space();
         try{
-            return inherited::collect_until(ascii::is_space_or_any_of<U'>',U'/'>, ascii::is_punct_and_none_of<U'-',U':'>);
+            return base::collect_until(ascii::is_space_or_any_of<U'>',U'/'>, ascii::is_punct_and_none_of<U'-',U':'>);
            }
         catch(std::exception& e)
            {
-            throw inherited::create_parse_error( std::format("Invalid tag name: {}"sv, e.what()) );
+            throw base::create_parse_error( std::format("Invalid tag name: {}"sv, e.what()) );
            }
        }
 
     //-----------------------------------------------------------------------
     [[nodiscard]] constexpr std::u32string collect_attr_name()
        {
-        assert( not inherited::got_space() ); // collect_unquoted_attr_name() expects non-space char"
+        assert( not base::got_space() ); // collect_unquoted_attr_name() expects non-space char"
         try{
-            return inherited::collect_until(ascii::is_space_or_any_of<U'=',U'>',U'/'>, ascii::is_punct_and_none_of<U'-'>);
+            return base::collect_until(ascii::is_space_or_any_of<U'=',U'>',U'/'>, ascii::is_punct_and_none_of<U'-'>);
            }
         catch(std::exception& e)
            {
-            throw inherited::create_parse_error( std::format("Invalid attribute name: {}"sv, e.what()) );
+            throw base::create_parse_error( std::format("Invalid attribute name: {}"sv, e.what()) );
            }
        }
 
@@ -360,24 +362,24 @@ class Parser final : public text::ParserBase<ENC>
     [[nodiscard]] constexpr std::u32string collect_quoted_attr_value()
        {
         try{
-            return inherited::collect_until_and_skip(ascii::is<U'\"'>, ascii::is_endline<char32_t>);
+            return base::collect_until_and_skip(ascii::is<U'\"'>, ascii::is_endline<char32_t>);
            }
         catch(std::exception& e)
            {
-            throw inherited::create_parse_error( std::format("Invalid attribute quoted value: {}"sv, e.what()) );
+            throw base::create_parse_error( std::format("Invalid attribute quoted value: {}"sv, e.what()) );
            }
        }
 
     //-----------------------------------------------------------------------
     [[nodiscard]] constexpr std::u32string collect_unquoted_attr_value()
        {
-        assert( not inherited::got_space() ); // collect_unquoted_attr_value() expects non-space char"
+        assert( not base::got_space() ); // collect_unquoted_attr_value() expects non-space char"
         try{
-            return inherited::collect_until(ascii::is_space_or_any_of<U'>',U'/'>, ascii::is_any_of<U'<',U'=',U'\"'>);
+            return base::collect_until(ascii::is_space_or_any_of<U'>',U'/'>, ascii::is_any_of<U'<',U'=',U'\"'>);
            }
         catch(std::exception& e)
            {
-            throw inherited::create_parse_error( std::format("Invalid attribute value: {}"sv, e.what()) );
+            throw base::create_parse_error( std::format("Invalid attribute value: {}"sv, e.what()) );
            }
        }
 };
@@ -391,7 +393,7 @@ class Parser final : public text::ParserBase<ENC>
 /////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
-#include "ansi_escape_codes.hpp" // ANSI_RED, ...
+#include "ansi_escape_codes.hpp" // ANSI_BLUE, ...
 /////////////////////////////////////////////////////////////////////////////
 //---------------------------------------------------------------------------
 [[nodiscard]] constexpr std::string to_string( text::xml::ParserEvent::Attributes const& attrs )
@@ -549,7 +551,7 @@ ut::test("generic xml") = [&notify_sink]
        }
     catch( parse::error& e )
        {
-        ut::log << ANSI_MAGENTA "Exception: " ANSI_RED << e.what() << ANSI_DEFAULT "(event " << n_event << " line " << e.line() << ")\n";
+        ut::expect(false) << std::format("Exception: {} (event {} line {})\n", e.what(), n_event, e.line());
        }
     expect( that % n_event==25u ) << "events number should match";
    };
@@ -631,13 +633,13 @@ ut::test("interface.xml sample") = [&notify_sink]
                 case 24: expect(event.is_comment()) << "got: " << to_string(event) << '\n'; break;
                 case 25: expect(event.is_close_tag(U"interface")) << "got: " << to_string(event) << '\n'; break;
                 default: expect(false) << "unexpected event:\"" << to_string(event) << "\"\n";
-                
+
                }
            }
        }
     catch( parse::error& e )
        {
-        ut::log << ANSI_MAGENTA "Exception: " ANSI_RED << e.what() << ANSI_DEFAULT "(event " << n_event << " line " << e.line() << ")\n";
+        ut::expect(false) << std::format("Exception: {} (event {} line {})\n", e.what(), n_event, e.line());
        }
     expect( that % n_event==25u ) << "events number should match";
    };

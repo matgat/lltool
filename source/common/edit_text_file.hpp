@@ -1,6 +1,7 @@
 ﻿#pragma once
 //  ---------------------------------------------
-//  Edit a text file
+//  Open a text file with external editor
+//  ---------------------------------------------
 //  #include "edit_text_file.hpp" // sys::edit_text_file()
 //  ---------------------------------------------
 #include <format>

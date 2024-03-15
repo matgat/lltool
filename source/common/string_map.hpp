@@ -1,17 +1,22 @@
 ﻿#pragma once
 //  ---------------------------------------------
-//  A map that preserves the original insertion
-//  order optimized to use strings as keys
-//  (uses string views to query keys)
+//  A map implemented with vector optimized to
+//  use strings as keys (string_views in queries)
+//  .Preserves the original insertion order
+//  .Cache friendly, performance degrades with N
 //  ---------------------------------------------
 //  #include "string_map.hpp" // MG::string_map<>
 //  ---------------------------------------------
-#include <concepts> // std::same_as<>
-#include <stdexcept> // std::runtime_error
+#include <utility> // std::pair
 #include <vector>
 #include <string>
 #include <string_view>
+#include <concepts> // std::same_as<>, std::predicate
 #include <optional>
+//#include <initializer_list>
+#include <stdexcept> // std::runtime_error
+#include <format>
+
 
 
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -21,6 +26,11 @@ namespace MG
 template<typename T>
 concept StdBasicString = std::same_as<T, std::basic_string<typename T::value_type, typename T::traits_type, typename T::allocator_type>>;
 
+//template<typename T>
+//concept ConvertibleToStringView = std::convertible_to<T, std::string_view>;
+
+//template<typename T>
+//concept formattable = requires (T& v, std::format_context ctx) { std::formatter<std::remove_cvref_t<T>>().format(v, ctx); };
 
 /////////////////////////////////////////////////////////////////////////////
 template<StdBasicString TKEY, typename TVAL> class string_map final
@@ -39,6 +49,10 @@ template<StdBasicString TKEY, typename TVAL> class string_map final
     container_type m_v;
 
  public:
+    //constexpr string_map(std::initializer_list<item_type> lst)
+    //  : m_v{lst}
+    //   {}
+
     [[nodiscard]] constexpr auto size() const noexcept { return m_v.size(); }
     [[nodiscard]] constexpr bool is_empty() const noexcept { return m_v.empty(); }
 
@@ -58,7 +72,6 @@ template<StdBasicString TKEY, typename TVAL> class string_map final
            }
         return true;
        }
-
 
 
     [[maybe_unused]] constexpr value_type& insert_if_missing(key_type&& key, value_type&& val)
@@ -83,7 +96,9 @@ template<StdBasicString TKEY, typename TVAL> class string_map final
        {
         if( contains(key) )
            {
-            throw std::runtime_error{"key already present in string_map"};
+            if constexpr(std::formattable<key_type,char>)
+                 throw std::runtime_error{ std::format("key '{}' already present in stringmap", key) };
+            else throw std::runtime_error{ "key already present in stringmap" };
            }
         return append( item_type{std::move(key), std::move(val)} );
        }
@@ -153,7 +168,9 @@ template<StdBasicString TKEY, typename TVAL> class string_map final
         const_iterator it = find(key);
         if( it==end() )
            {
-            throw std::runtime_error{"key not found in string_map"};
+            if constexpr(std::formattable<key_view_type,char>)
+                 throw std::runtime_error{ std::format("key '{}' not found in string_map", key) };
+            else throw std::runtime_error{ "key not found in string_map" };
            }
         return it->second;
        }
@@ -169,11 +186,7 @@ template<StdBasicString TKEY, typename TVAL> class string_map final
         return val;
        }
 
-
-
-    //#include <concepts>
-    //template <typename T> concept iterator_predicate = requires(T t) { { t(const_iterator{}) } -> std::same_as<bool>; };
-    constexpr void erase_if(auto condition)
+    constexpr void erase_if(std::predicate<const_iterator> auto condition)
        {
         for( const_iterator it=begin(); it!=end(); )
            {
@@ -226,30 +239,18 @@ template<StdBasicString TKEY, typename TVAL> class string_map final
 
 /////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
-//---------------------------------------------------------------------------
+/////////////////////////////////////////////////////////////////////////////
 template<typename TVAL>
-[[nodiscard]] constexpr std::string to_string( MG::string_map<std::string,TVAL> const& strmap )
+[[nodiscard]] constexpr std::string to_string(MG::string_map<std::string,TVAL> const& strmap)
    {
     std::string s;
     auto it = strmap.begin();
     if( it!=strmap.end() )
        {
-        s += it->first;
-        s += '=';
-        if constexpr(std::same_as<TVAL, std::string>)
-            s += it->second;
-        else
-            s += std::to_string(it->second);
-
+        s = std::format("{}={}", it->first, it->second);
         while( ++it!=strmap.end() )
            {
-            s += ',';
-            s += it->first;
-            s += '=';
-            if constexpr(std::same_as<TVAL, std::string>)
-                s += it->second;
-            else
-                s += std::to_string(it->second);
+            s += std::format(",{}={}", it->first, it->second);
            }
        }
     return s;
@@ -257,66 +258,74 @@ template<typename TVAL>
 /////////////////////////////////////////////////////////////////////////////
 static ut::suite<"MG::string_map<>"> string_map_tests = []
 {////////////////////////////////////////////////////////////////////////////
-using ut::expect;
-using ut::that;
-using ut::throws;
 
 ut::test("basic operations") = []
    {
-    MG::string_map<std::string,std::string> v;
-    expect( that % v.is_empty() and v.size()==0u );
+    MG::string_map<std::string,std::string> m;
+    ut::expect( m.is_empty() );
+    ut::expect( ut::that % m.size()==0u );
 
     // Inserting
-    v.insert_or_assign("key1","val1");
-    expect( that % v.size()==1u and to_string(v)=="key1=val1"s );
+    m.insert_or_assign("key1","val1");
+    ut::expect( ut::that % m.size()==1u );
+    ut::expect( ut::that % to_string(m)=="key1=val1"sv );
 
-    v.insert_if_missing("key2","old2");
-    expect( that % v.size()==2u and to_string(v)=="key1=val1,key2=old2"s );
+    m.insert_if_missing("key2","old2");
+    ut::expect( ut::that % m.size()==2u );
+    ut::expect( ut::that % to_string(m)=="key1=val1,key2=old2"sv );
 
-    v.insert_unique("key3","val3");
-    expect( that % v.size()==3u and to_string(v)=="key1=val1,key2=old2,key3=val3"s );
+    m.insert_unique("key3","val3");
+    ut::expect( ut::that % m.size()==3u );
+    ut::expect( ut::that % to_string(m)=="key1=val1,key2=old2,key3=val3"sv );
 
-    v.insert_if_missing("key2","val2");
-    expect( that % v.size()==3u and to_string(v)=="key1=val1,key2=old2,key3=val3"s ) << "shouldn't modify already existing key\n";
+    m.insert_if_missing("key2","val2");
+    ut::expect( ut::that % m.size()==3u );
+    ut::expect( ut::that % to_string(m)=="key1=val1,key2=old2,key3=val3"sv ) << "shouldn't modify already existing key\n";
 
     // Overwriting
-    v.insert_or_assign("key2","val2");
-    expect( that % v.size()==3u and to_string(v)=="key1=val1,key2=val2,key3=val3"s ) << "should have modified key2\n";
-    expect( throws<std::runtime_error>([v] { ut::mut(v).insert_unique("key1",""); })) << "should throw runtime_error inserting already existing key\n";
+    m.insert_or_assign("key2","val2");
+    ut::expect( ut::that % m.size()==3u );
+    ut::expect( ut::that % to_string(m)=="key1=val1,key2=val2,key3=val3"sv ) << "should have modified key2\n";
+    ut::expect( ut::throws<std::runtime_error>([m] { ut::mut(m).insert_unique("key1",""); })) << "should throw already existing key\n";
 
     // Accessing not existing
-    expect( throws<std::runtime_error>([&v] { [[maybe_unused]] auto s = v["x"]; })) << "should throw runtime_error accessing not existing key\n";
-    expect( not v.value_of("x").has_value() );
-    expect( that % v.value_or("x","def")=="def"s );
+    ut::expect( ut::throws<std::runtime_error>([&m] { [[maybe_unused]] auto s = m["x"]; })) << "should throw not existing key\n";
+    ut::expect( not m.value_of("x").has_value() );
+    ut::expect( ut::that % m.value_or("x","def")=="def"sv );
 
     // Accessing existing
-    expect( that % v["key1"]=="val1"s and v["key2"]=="val2"s and v["key3"]=="val3"s );
-    expect( that % v.value_of("key3")->get()=="val3"s );
-    expect( that % v.value_or("key3","def")=="val3"s );
+    ut::expect( ut::that % m["key1"]=="val1"sv );
+    ut::expect( ut::that % m["key2"]=="val2"sv );
+    ut::expect( ut::that % m["key3"]=="val3"sv );
+    ut::expect( ut::that % m.value_of("key3")->get()=="val3"sv );
+    ut::expect( ut::that % m.value_or("key3","def")=="val3"sv );
 
     // Erasing
-    v.erase("x");
-    expect( that % v.size()==3u and to_string(v)=="key1=val1,key2=val2,key3=val3"s ) << "erasing not existing key does nothing\n";
-    v.erase("key1");
-    expect( that % v.size()==2u and to_string(v)=="key2=val2,key3=val3"s ) << "erasing first key\n";
-    v.clear();
-    expect(that % v.is_empty() and v.size()==0u) << "should be empty after clear\n";
+    m.erase("x");
+    ut::expect( ut::that % m.size()==3u );
+    ut::expect( ut::that % to_string(m)=="key1=val1,key2=val2,key3=val3"sv ) << "erasing not existing key does nothing\n";
+    m.erase("key1");
+    ut::expect( ut::that % m.size()==2u );
+    ut::expect( ut::that % to_string(m)=="key2=val2,key3=val3"sv ) << "key1 should be erased\n";
+    m.clear();
+    ut::expect( m.is_empty() ) << "should be empty after clear\n";
+    ut::expect( ut::that % m.size()==0u );
    };
 
 
 ut::test("loop erase") = []
    {
-    MG::string_map<std::string,int> v;
-    v.insert_unique("1",1);
-    v.insert_unique("2",2);
-    v.insert_unique("3",3);
-    v.insert_unique("4",4);
-    v.insert_unique("5",5);
-    expect( that % to_string(v)=="1=1,2=2,3=3,4=4,5=5"s );
+    MG::string_map<std::string,int> m;
+    m.insert_unique("1",1);
+    m.insert_unique("2",2);
+    m.insert_unique("3",3);
+    m.insert_unique("4",4);
+    m.insert_unique("5",5);
+    ut::expect( ut::that % to_string(m)=="1=1,2=2,3=3,4=4,5=5"sv );
 
     // Erase odd values
-    v.erase_if( [](decltype(v)::const_iterator it) constexpr -> bool { return it->second % 2; } );
-    expect( that % to_string(v)=="2=2,4=4"s );
+    m.erase_if( [](decltype(m)::const_iterator it) noexcept -> bool { return it->second % 2; } );
+    ut::expect( ut::that % to_string(m)=="2=2,4=4"sv );
    };
 
 };///////////////////////////////////////////////////////////////////////////

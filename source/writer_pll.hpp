@@ -6,7 +6,7 @@
 //  ---------------------------------------------
 #include <cassert>
 
-#include "keyvals.hpp" // MG::keyvals
+#include "options_map.hpp" // MG::options_map
 #include "timestamp.hpp" // MG::get_human_readable_timestamp()
 #include "plc_library.hpp" // plcb::*
 #include "output_streamable_concept.hpp" // MG::OutputStreamable
@@ -282,7 +282,7 @@ inline void write(MG::OutputStreamable auto& f, const plcb::Variables_Groups& va
 
 
 //---------------------------------------------------------------------------
-void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG::keyvals& options)
+void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG::options_map& options)
 {
     // [Options]
     const std::string_view sects_spacer = "\n\n\n"sv; // options.value_or("pll-sects-spacer", 3);

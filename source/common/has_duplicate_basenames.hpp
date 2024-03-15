@@ -32,7 +32,7 @@ namespace details
     [[nodiscard]] std::string path2stem(const fs::path& p)
        {
       #if defined(MS_WINDOWS)
-        return str::tolower(p.stem().string());
+        return str::to_lower(p.stem().string());
       #else
         return p.stem().string();
       #endif

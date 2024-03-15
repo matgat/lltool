@@ -39,14 +39,14 @@ class args_extractor final
         ++m_curridx;
        }
 
-    [[nodiscard]] bool has_current() const noexcept
+    [[nodiscard]] bool has_data() const noexcept
        {
         return m_curridx<m_argc;
        }
 
     [[nodiscard]] std::string_view current() const noexcept
        {
-        assert( has_current() );
+        assert( has_data() );
         return std::string_view{ m_argv[m_curridx] };
        }
 
@@ -84,7 +84,7 @@ class args_extractor final
     std::string_view get_next_value_of( const std::string_view arg )
        {
         next(); // Expecting a string next
-        if( not has_current() )
+        if( not has_data() )
            {
             throw std::invalid_argument( std::format("Missing value after {}", arg) );
            }

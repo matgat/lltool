@@ -13,7 +13,7 @@
 
 #include "string_conversions.hpp" // str::to_num<>()
 #include "ascii_parsing_utils.hpp" // ascii::extract_pair<>
-#include "keyvals.hpp" // MG::keyvals
+#include "options_map.hpp" // MG::options_map
 #include "timestamp.hpp" // MG::get_human_readable_timestamp()
 #include "plc_library.hpp" // plcb::*
 #include "output_streamable_concept.hpp" // MG::OutputStreamable
@@ -453,10 +453,10 @@ void write_preamble(MG::OutputStreamable auto& f, const plcb::Library& lib, cons
 
 
 //---------------------------------------------------------------------------
-void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG::keyvals& options)
+void write_lib(MG::OutputStreamable auto& f, const plcb::Library& lib, const MG::options_map& options)
 {
     //-----------------------------------------------------------------------
-    const auto get_indent = [](const MG::keyvals& opts) -> std::size_t
+    const auto get_indent = [](const MG::options_map& opts) -> std::size_t
        {
         const std::string_view sv = opts.value_or("plclib-indent", "2"sv);
         if( const auto num = str::to_num_or<std::size_t>(sv) )
@@ -1137,7 +1137,7 @@ ut::test("plclib::write(plcb::Library)") = []
     const plcb::Library lib = plcb::make_sample_lib();
 
     MG::string_write out;
-    plclib::write_lib(out, lib, MG::keyvals{"plclib-indent:2"});
+    plclib::write_lib(out, lib, MG::options_map{"plclib-indent:2"});
     ut::expect( ut::that % out.str() == sample_lib_plclib );
    };
 

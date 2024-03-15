@@ -26,7 +26,6 @@ namespace sys
 class memory_mapped_file final
 {
  private:
-    std::string m_path;
     const char* m_buf = nullptr;
     std::size_t m_bufsiz = 0;
   #if defined(MS_WINDOWS)
@@ -35,14 +34,6 @@ class memory_mapped_file final
   #endif
 
  public:
-    //explicit memory_mapped_file( const std::filesystem::path& pth )
-    //  : memory_mapped_file(pth.string().c_str()) // fails??
-    //   {}
-
-    //explicit memory_mapped_file( std::string&& pth )
-    //  : memory_mapped_file(pth.c_str())
-    //   {}
-
     explicit memory_mapped_file( const char* const pth_cstr )
        {
       #if defined(MS_WINDOWS)
@@ -62,7 +53,7 @@ class memory_mapped_file final
            }
         //
         m_buf = static_cast<const char*>( ::MapViewOfFile(hMapping, FILE_MAP_READ, 0, 0, 0) );
-        if(m_buf==nullptr)
+        if( m_buf==nullptr )
            {
             ::CloseHandle(hMapping);
             ::CloseHandle(hFile);
@@ -81,7 +72,7 @@ class memory_mapped_file final
         m_bufsiz = static_cast<std::size_t>(sbuf.st_size);
 
         m_buf = static_cast<const char*>(mmap(nullptr, m_bufsiz, PROT_READ, MAP_PRIVATE, fd, 0U));
-        if(m_buf==MAP_FAILED)
+        if( m_buf==MAP_FAILED )
            {
             m_buf = nullptr;
             throw std::runtime_error{"Cannot map file"};
@@ -91,7 +82,7 @@ class memory_mapped_file final
 
     ~memory_mapped_file() noexcept
        {
-        if(m_buf)
+        if( m_buf )
            {
           #if defined(MS_WINDOWS)
             ::UnmapViewOfFile(m_buf);
