@@ -251,7 +251,7 @@ The recognized fields are `descr` and `version`, for example:
 
 ```
 (*
-    author: Jon Doe
+    author: John Doe
     descr: Machine logic
     version: 1.2.31
 *)
