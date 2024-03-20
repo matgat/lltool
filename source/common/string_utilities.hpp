@@ -19,13 +19,13 @@ namespace str //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 //---------------------------------------------------------------------------
 //template<std::same_as<std::string_view>... Args>
-//[[nodiscard]] constexpr std::string concat(Args... args, const char delim)
+//[[nodiscard]] constexpr std::string concat(const std::string_view first, Args... others, const char delim)
 //{
 //    std::string s;
-//    const std::size_t totsiz = sizeof...(args) + (std::size(args) + ...);
+//    const std::size_t totsiz = std::size(first) + (std::size(others) + ...) + sizeof...(others);
 //    s.reserve(totsiz);
-//    ((s+=args, s+=delim), ...);
-//    if(!s.empty()) s.resize(s.size()-1);
+//    s += first;
+//    ((s+=delim, s+=others), ...);
 //    return s;
 //}
 
@@ -132,14 +132,15 @@ namespace str //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
 
 //---------------------------------------------------------------------------
-//[[nodiscard]] constexpr std::string quoted(const std::string& s, const char quot ='\"')
-//{
-//    if( s.contains(quot) )
-//       {// TODO: Should escape internal double quotes
-//        throw std::runtime_error( std::format("str::quoted: {} contains already {}"sv,s,quot) );
-//       }
-//    return std::format("{0}{1}{0}"sv,quot,s);
-//}
+[[nodiscard]] /*constexpr*/ std::string quoted(const std::string_view sv, const char quot ='\"')
+{
+    if( sv.contains(quot) )
+       {// TODO: Should escape internal double quotes
+        throw std::runtime_error( std::format("str::quoted: {} contains already {}"sv, sv, quot) );
+       }
+    return std::format("{0}{1}{0}"sv, quot, sv);
+}
+
 
 //---------------------------------------------------------------------------
 [[nodiscard]] constexpr std::string_view unquoted(const std::string_view sv, const char quot ='\"') noexcept
@@ -192,6 +193,13 @@ namespace str //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 static ut::suite<"string_utilities"> string_utilities_tests = []
 {////////////////////////////////////////////////////////////////////////////
 
+//ut::test("str::concat()") = []
+//   {
+//    ut::expect( ut::that % str::concat("a","b","c",';'})=="a;b;c"sv );
+//    ut::expect( ut::that % str::concat("a",';'})=="a;b;c"sv );
+//    ut::expect( ut::that % str::concat("",';')==""sv );
+//   };
+
 ut::test("str::join_left()") = []
    {
     ut::expect( ut::that % str::join_left(';', {"a","b","c"})==";a;b;c"sv );
@@ -227,6 +235,13 @@ ut::test("str::escape()") = []
     ut::expect( ut::that % str::escape(""sv)==""sv );
    };
 
+ut::test("str::quoted()") = []
+   {
+    ut::expect( ut::that % str::quoted("abc"sv)=="\"abc\""sv );
+    ut::expect( ut::that % str::quoted(""sv)=="\"\""sv );
+    ut::expect( ut::throws([]{ [[maybe_unused]] auto s = str::quoted("a\"bc"sv); }) ) << "quoting a string containing quotes\n";
+   };
+
 ut::test("str::unquoted()") = []
    {
     ut::expect( ut::that % str::unquoted("\"abc\""sv)=="abc"sv );
@@ -240,7 +255,7 @@ ut::test("str::unquoted()") = []
     ut::expect( ut::that % str::unquoted("#\"abc\""sv)=="#\"abc\""sv );
     ut::expect( ut::that % str::unquoted("\"abc\"#"sv)=="\"abc\"#"sv );
     ut::expect( ut::that % str::unquoted("#\"abc\"#"sv)=="#\"abc\"#"sv );
-    
+
     ut::expect( ut::that % str::unquoted("a\""sv)=="a\""sv );
     ut::expect( ut::that % str::unquoted("\"a"sv)=="\"a"sv );
     ut::expect( ut::that % str::unquoted("\""sv)=="\""sv );
@@ -249,11 +264,6 @@ ut::test("str::unquoted()") = []
     ut::expect( ut::that % str::unquoted("a"sv)=="a"sv );
     ut::expect( ut::that % str::unquoted(""sv)==""sv );
    };
-
-//ut::test("str::quoted()") = []
-//   {
-//    ut::expect( ut::throws([]{ [[maybe_unused]] auto sv = str::quoted("\""sv); }) ) << "refusing to quote a string containing quotes\n";
-//   };
 
 };///////////////////////////////////////////////////////////////////////////
 #endif // TEST_UNITS ////////////////////////////////////////////////////////

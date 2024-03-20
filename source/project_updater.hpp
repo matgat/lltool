@@ -389,8 +389,12 @@ void update_project_libraries( const fs::path& project_file_path, fs::path outpu
 /////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
+#include "issues_collector.hpp" // MG::issues
+/////////////////////////////////////////////////////////////////////////////
 static ut::suite<"project_updater"> project_updater_tests = []
-{
+{////////////////////////////////////////////////////////////////////////////
+
+struct issueslog_t final { int num=0; void operator()(std::string&& msg) noexcept {++num; ut::log << msg << '\n';}; };
 
 ut::test("ll::update_project_libraries()") = []
    {
@@ -408,9 +412,10 @@ ut::test("ll::update_project_libraries()") = []
     ut::should("Updating a project with no libs") = []
        {
         test::TemporaryFile nolibs_prj("~nolibs.ppjs", "<plcProject>\n<libraries>\n</libraries>\n</plcProject>\n");
-        struct issues_t final { int num=0; void operator()(std::string&&) noexcept {++num;}; } issues;
+        MG::issues issues;
         ll::update_project_libraries(nolibs_prj.path(), {}, std::ref(issues));
-        ut::expect( ut::that % issues.num==1 ) << "should raise an issue\n";
+        ut::expect( ut::that % issues.size()==1u ) << "one issue expected\n";
+        ut::expect( ut::that % issues.at(0)=="No libraries found"sv );
        };
 
     ut::should("Using the project itself as output") = []
@@ -447,9 +452,10 @@ ut::test("ll::update_project_libraries()") = []
                                                 "        <lib link=\"true\" name=\"not-existing.pll\"></lib>\n"
                                                 "    </libraries>\n"
                                                 "</plcProject>\n");
-        struct issues_t final { int num=0; void operator()(std::string&&) noexcept {++num;}; } issues;
+        MG::issues issues;
         ll::update_project_libraries(prj_with_nonextlib.path(), {}, std::ref(issues));
-        ut::expect( ut::that % issues.num==1 ) << "should raise an issue\n";
+        ut::expect( ut::that % issues.size()==1u ) << "one issue expected\n";
+        ut::expect( issues.at(0).contains("Skipping broken linked library"sv) ) << issues.at(0) << '\n';
        };
 
     ut::should("update simple") = []
@@ -475,7 +481,7 @@ ut::test("ll::update_project_libraries()") = []
             "    </libraries>\n"
             "</plcProject>\n"sv;
 
-        struct issues_t final { int num=0; void operator()(std::string&& msg) noexcept {++num; ut::log << msg << '\n';}; } issues;
+        issueslog_t issues;
         ll::update_project_libraries(prj_file.path(), {}, std::ref(issues));
         ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
         ut::expect( ut::that % prj_file.content() == expected );

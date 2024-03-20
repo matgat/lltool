@@ -15,12 +15,26 @@
   #include <Windows.h> // DWORD, ...
 #elif defined(POSIX)
   //#include <unistd.h> // ...
+  //#include <time.h>   // nanosleep
 #endif
 
 
 //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 namespace sys //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 {
+
+//---------------------------------------------------------------------------
+//void sleep_ms( const int ms )
+//{
+//  #if defined(MS_WINDOWS)
+//    ::Sleep(ms);
+//  #elif defined(POSIX)
+//    timespec ts;
+//    ts.tv_sec = ms / 1000;
+//    ts.tv_nsec = (ms % 1000) * 1000000;
+//    nanosleep(&ts, NULL);
+//  #endif
+//}
 
 #if defined(MS_WINDOWS)
 
@@ -67,9 +81,7 @@ void add_to_path_expanding_vars(const std::initializer_list<std::string_view> fo
                  : std::string("Unknown error ") + std::to_string(e);
 }
 
-
 #endif // MS_WINDOWS
-
 
 
 }//::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::

@@ -252,8 +252,12 @@ void convert_library(const fs::path& input_file_path, fs::path output_path, cons
 /////////////////////////////////////////////////////////////////////////////
 #ifdef TEST_UNITS ///////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
+#include "issues_collector.hpp" // MG::issues
+/////////////////////////////////////////////////////////////////////////////
 static ut::suite<"libraries_converter"> libraries_converter_tests = []
-{
+{////////////////////////////////////////////////////////////////////////////
+
+struct issueslog_t final { int num=0; void operator()(std::string&& msg) noexcept {++num; ut::log << msg << '\n';}; };
 
 ut::test("reparse a header") = []
    {
@@ -341,9 +345,11 @@ ut::test("ll::convert_library()") = []
        {
         test::TemporaryDirectory dir;
         auto in = dir.create_file("~empty.pll", "\n"sv);
-        struct issues_t final { int num=0; void operator()(std::string&&) noexcept {++num;}; } issues;
+        MG::issues issues;
         ll::convert_library(in.path().string(), {}, false, MG::options_map{"plclib-indent:2"}, std::ref(issues));
-        ut::expect( ut::that % issues.num==1 ) << "should rise an issue related to empty lib\n";
+        ut::expect( ut::that % issues.size()==1u ) << "one issue expected\n";
+        ut::expect( ut::that % issues.at(0).contains("generated an empty library"sv) ) << issues.at(0) << '\n';
+
         auto out = dir.decl_file("~empty.plclib");
         ut::expect( out.exists() );
         ut::expect( ut::that % out.content() == "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n"
@@ -377,7 +383,7 @@ ut::test("ll::convert_library()") = []
                                             "    { CODE:ST }Body\n"
                                             "END_PROGRAM\n"sv);
         auto out = dir.decl_file("~out.plclib");
-        struct issues_t final { int num=0; void operator()(std::string&& msg) noexcept {++num; ut::log << msg << '\n';}; } issues;
+        issueslog_t issues;
         ll::convert_library(in.path().string(), out.path(), false, MG::options_map{"plclib-indent:2"}, std::ref(issues));
         ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
         ut::expect( out.exists() );
@@ -423,7 +429,7 @@ ut::test("ll::convert_library()") = []
         auto in = dir.create_file("sample-def.h", sample_def_header);
 
         try{
-            struct issues_t final { int num=0; void operator()(std::string&& msg) noexcept {++num; ut::log << msg << '\n';}; } issues;
+            issueslog_t issues;
             ll::convert_library(in.path().string(), {}, false, MG::options_map{"plclib-indent:2"}, std::ref(issues));
             ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
            }
@@ -559,7 +565,7 @@ ut::test("ll::convert_library()") = []
         auto in = dir.create_file("sample-lib.pll", sample_lib_pll);
 
         try{
-            struct issues_t final { int num=0; void operator()(std::string&& msg) noexcept {++num; ut::log << msg << '\n';}; } issues;
+            issueslog_t issues;
             ll::convert_library(in.path().string(), {}, false, MG::options_map{"plclib-indent:2"}, std::ref(issues));
             ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
            }

@@ -93,9 +93,13 @@ def launch(command_and_args):
 #----------------------------------------------------------------------------
 def create_text_file(dir, fname, text_content, encoding):
     file_path = os.path.join(dir, fname)
-    with open(file_path, 'wb') as f:
-        f.write( text_content.encode(encoding) )
-    return file_path
+    try:
+        with open(file_path, 'wb') as f:
+            f.write( text_content.encode(encoding) )
+        return file_path
+    except Exception as e:
+        print(f'{RED}Cannot create file: {END}{file_path}')
+        print(f'{RED}{e}{END}')
 
 #----------------------------------------------------------------------------
 class TextFile:
@@ -146,14 +150,18 @@ def check_strings_equality(str1, str2):
     print(''.join(result))
     return False
 
-
 #----------------------------------------------------------------------------
 def textfile_content_is(file_path, encoding, expected):
-    with open(file_path, 'rb') as file:
-        content = file.read().decode(encoding)
-        return check_strings_equality(content,expected)
-        #print(f'{GRAY}expected:{END}\n{expected}')
-        #print(f'{GRAY}actual:{END}\n{content}')
+    try:
+        with open(file_path, 'rb') as file:
+            content = file.read().decode(encoding)
+            return check_strings_equality(content,expected)
+            #print(f'{GRAY}expected:{END}\n{expected}')
+            #print(f'{GRAY}actual:{END}\n{content}')
+    except Exception as e:
+        print(f'{RED}Cannot read file: {END}{file_path}')
+        print(f'{RED}{e}{END}')
+        return False
 
 #----------------------------------------------------------------------------
 def check_file_content(path, file):

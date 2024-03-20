@@ -32,6 +32,7 @@ class ParserBase
     using string_view = std::basic_string_view<Char>;
 
  public:
+    static const Char cend = '\0'; // Codepoint for no data
     struct context_t final
        {
         std::size_t line;
@@ -53,7 +54,7 @@ class ParserBase
     const string_view m_buf;
     std::size_t m_line = 1; // Current line number
     std::size_t m_offset = 0; // Index of current codepoint
-    Char m_curr_codepoint = '\0'; // Current extracted codepoint
+    Char m_curr_codepoint = cend; // Current extracted codepoint
     fnotify_t m_on_notify_issue = default_notify;
     std::string m_file_path; // Just for create_parse_error()
 
@@ -78,6 +79,7 @@ class ParserBase
     //-----------------------------------------------------------------------
     [[nodiscard]] constexpr std::size_t curr_line() const noexcept { return m_line; }
     [[nodiscard]] constexpr std::size_t curr_offset() const noexcept { return m_offset; }
+    [[nodiscard]] constexpr Char curr_codepoint() const noexcept { return m_curr_codepoint; }
 
     [[nodiscard]] constexpr string_view get_view_between(const std::size_t from_byte_pos, const std::size_t to_byte_pos) const noexcept
        {
@@ -90,21 +92,26 @@ class ParserBase
        }
 
     //-----------------------------------------------------------------------
+    constexpr void set_file_path(const std::string& pth) { m_file_path = pth; }
     static constexpr void default_notify(std::string&&) {}
     constexpr void set_on_notify_issue(fnotify_t const& f) { m_on_notify_issue = f; }
     constexpr void notify_issue(const std::string_view msg) const
        {
         m_on_notify_issue( std::format("[{}:{}] {}"sv, m_file_path, m_line, msg) ); // m_offset
        }
-    constexpr void set_file_path(const std::string& pth)
+    //template<std::formattable<char> ...Args> void notify_issue(const std::string_view msg, Args&&... args)
+    //   {
+    //    m_on_notify_issue( std::vformat(msg, std::make_format_args(std::forward<Args>(args)...)) );
+    //   }
+    template<typename ...Args> void print(const std::string_view msg, Args&&... args)
        {
-        m_file_path = pth;
+        std::print("[{}:{}] {}"sv, m_file_path, m_line, std::vformat(msg, std::make_format_args(std::forward<Args>(args)...)));
        }
-     [[nodiscard]] parse::error create_parse_error(std::string&& msg) const noexcept
+    [[nodiscard]] parse::error create_parse_error(std::string&& msg) const noexcept
        {
         return create_parse_error(std::move(msg), m_line);
        }
-     [[nodiscard]] parse::error create_parse_error(std::string&& msg, const std::size_t ln_idx) const noexcept
+    [[nodiscard]] parse::error create_parse_error(std::string&& msg, const std::size_t ln_idx) const noexcept
        {
         return parse::error(std::move(msg), m_file_path.empty() ? "buffer"s : m_file_path, ln_idx);
        }
@@ -114,24 +121,15 @@ class ParserBase
     [[maybe_unused]] constexpr bool get_next() noexcept
        {
         if( ascii::is_endline(m_curr_codepoint) ) ++m_line;
-        if( ++m_offset<m_buf.size() ) [[likely]]
-           {
-            m_curr_codepoint = m_buf[m_offset];
-            return true;
-           }
-        m_curr_codepoint = static_cast<Char>('\0');
-        m_offset = m_buf.size();
-        return false;
+        ++m_offset;
+        return see_curr_codepoint();
        }
-    [[nodiscard]] constexpr Char curr_codepoint() const noexcept
-       {
-        return m_curr_codepoint;
-       }
+
     //-----------------------------------------------------------------------
     // Querying current codepoint
     [[nodiscard]] constexpr bool has_codepoint() const noexcept
        {
-        return m_offset<m_buf.size();
+        return m_offset<m_buf.size(); // curr_codepoint()!=cend
        }
     [[nodiscard]] constexpr bool got(const Char cp) const noexcept
        {
@@ -248,7 +246,7 @@ class ParserBase
     template<Char end_codepoint>
     [[nodiscard]] constexpr string_view get_until_or_endline()
        {
-        return get_until(ascii::is_any_of<end_codepoint,'\n','\0'>, ascii::is_always_false<Char>);
+        return get_until(ascii::is_any_of<end_codepoint,'\n',cend>, ascii::is_always_false<Char>);
        }
 
     //-----------------------------------------------------------------------
@@ -298,9 +296,9 @@ class ParserBase
     constexpr void skip_blanks() noexcept { skip_while(ascii::is_blank<Char>); }
     constexpr void skip_any_space() noexcept { skip_while(ascii::is_space<Char>); }
     constexpr void skip_line() noexcept { skip_until(ascii::is_endline<Char>); get_next(); }
-    [[nodiscard]] constexpr string_view get_rest_of_line() noexcept { return get_until_and_skip(ascii::is_any_of<Char('\n'),'\0'>); }
-    [[nodiscard]] constexpr string_view get_until_space_or_end() noexcept { return get_until_and_skip(ascii::is_space_or_any_of<Char('\0')>); }
-    [[nodiscard]] constexpr string_view get_notspace() noexcept { return get_until(ascii::is_space_or_any_of<Char('\0')>); }
+    [[nodiscard]] constexpr string_view get_rest_of_line() noexcept { return get_until_and_skip(ascii::is_any_of<Char('\n'),cend>); }
+    [[nodiscard]] constexpr string_view get_until_space_or_end() noexcept { return get_until_and_skip(ascii::is_space_or_any_of<cend>); }
+    [[nodiscard]] constexpr string_view get_notspace() noexcept { return get_until(ascii::is_space_or_any_of<cend>); }
     [[nodiscard]] constexpr string_view get_alphabetic() noexcept { return get_while(ascii::is_alpha<Char>); }
     [[nodiscard]] constexpr string_view get_alnums() noexcept { return get_while(ascii::is_alnum<Char>); }
     [[nodiscard]] constexpr string_view get_identifier() noexcept { return get_while(ascii::is_ident<Char>); }
@@ -315,7 +313,7 @@ class ParserBase
            {
             get_next();
            }
-        else
+        else if( has_codepoint() )
            {
             throw create_parse_error( std::format("Unexpected content '{}' at line end"sv, str::escape(get_rest_of_line())) );
            }
@@ -493,22 +491,34 @@ class ParserBase
 
  private:
     //-----------------------------------------------------------------------
-    void constexpr advance_of(const std::size_t codepoints_num)
+    [[maybe_unused]] constexpr bool see_curr_codepoint() noexcept
        {
-        assert( codepoints_num>0 );
-        m_offset += codepoints_num-1;
-        // Note: assuming same m_line
-        get_next();
+        if( m_offset<m_buf.size() ) [[likely]]
+           {
+            m_curr_codepoint = m_buf[m_offset];
+            return true;
+           }
+        m_curr_codepoint = cend;
+        m_offset = m_buf.size();
+        return false;
        }
 
     //-----------------------------------------------------------------------
-    void constexpr check_and_skip_bom()
+    constexpr void advance_of(const std::size_t len)
+       {
+        assert( not get_view_of_next(len).contains('\n') ); // Assuming same m_line
+        m_offset += len;
+        see_curr_codepoint();
+       }
+
+    //-----------------------------------------------------------------------
+    constexpr void check_and_skip_bom()
        {
         if constexpr( std::same_as<Char, char32_t> )
            {
             if( got(U'\uFEFF') )
                {
-                m_offset += 1;
+                advance_of(1u);
                }
            }
         //else if constexpr( std::same_as<Char, char16_t> )
@@ -519,7 +529,7 @@ class ParserBase
         //       }
         //    else if( got(u'\xFEFF') )
         //       {
-        //        m_offset += 1;
+        //        advance_of(1u);
         //       }
         //   }
         else // char, unsigned char, char8_t
@@ -543,7 +553,7 @@ class ParserBase
                }
             else if( got("\xEF\xBB\xBF"sv) )
                {
-                m_offset += 3;
+                advance_of(3u);
                }
            }
        }
@@ -565,6 +575,33 @@ static ut::suite<"plain::ParserBase"> plain_parser_base_tests = []
 {////////////////////////////////////////////////////////////////////////////
 
 //auto notify_sink = [](const std::string_view msg) -> void { ut::log << ANSI_BLUE "parser: " ANSI_DEFAULT << msg; };
+
+ut::test("bom") = []
+   {
+    ut::test("utf-8 bom with content") = []
+       {
+        plain::ParserBase<char> parser{"\xEF\xBB\xBF" "abcd"sv};
+        ut::expect( ut::that % parser.curr_codepoint()=='a' );
+        ut::expect( parser.eat("abcd"sv) );
+        ut::expect( not parser.has_codepoint() );
+        ut::expect( ut::that % parser.curr_codepoint()==parser.cend );
+       };
+
+    ut::test("just utf-8 bom") = []
+       {
+        plain::ParserBase<char> parser{"\xEF\xBB\xBF"sv};
+        ut::expect( not parser.has_codepoint() );
+        ut::expect( ut::that % parser.curr_codepoint()==parser.cend );
+       };
+
+    ut::test("rejected boms") = []
+       {
+        ut::expect( ut::throws([]{ [[maybe_unused]] plain::ParserBase<char> parser{"\x00\x00\xFE\xFF blah"sv}; }) ) << "char should reject utf-32-be\n";
+        ut::expect( ut::throws([]{ [[maybe_unused]] plain::ParserBase<char> parser{"\xFF\xFE blah"sv}; }) ) << "char should reject utf-16-le\n";
+        //ut::expect( ut::throws([]{ [[maybe_unused]] plain::ParserBase<char16_t> parser{u"\xFEFF\x0000 blah"sv}; }) ) << "char16_t should reject utf-32-be\n";
+       };
+   };
+
 
 ut::test("basic stuff") = []
    {
@@ -621,13 +658,13 @@ ut::test("basic stuff") = []
     ut::expect( not parser.has_codepoint() );
     ut::expect( ut::that % parser.curr_offset()==8u );
     ut::expect( ut::that % parser.curr_line()==3u );
-    ut::expect( ut::that % parser.curr_codepoint()=='\0' );
+    ut::expect( ut::that % parser.curr_codepoint()==parser.cend );
     ut::expect( not parser.get_next() );
 
     ut::expect( not parser.has_codepoint() );
     ut::expect( ut::that % parser.curr_offset()==8u );
     ut::expect( ut::that % parser.curr_line()==3u );
-    ut::expect( ut::that % parser.curr_codepoint()=='\0' );
+    ut::expect( ut::that % parser.curr_codepoint()==parser.cend );
    };
 
 
@@ -700,14 +737,6 @@ ut::test("no data to parse") = []
         plain::ParserBase<char32_t> parser{U"\uFEFF"sv};
         ut::expect( not parser.has_codepoint() );
        };
-   };
-
-
-ut::test("rejected boms") = []
-   {
-    ut::expect( ut::throws([]{ [[maybe_unused]] plain::ParserBase<char> parser{"\x00\x00\xFE\xFF blah"sv}; }) ) << "char should reject utf-32-be\n";
-    ut::expect( ut::throws([]{ [[maybe_unused]] plain::ParserBase<char> parser{"\xFF\xFE blah"sv}; }) ) << "char should reject utf-16-le\n";
-    //ut::expect( ut::throws([]{ [[maybe_unused]] plain::ParserBase<char16_t> parser{u"\xFEFF\x0000 blah"sv}; }) ) << "char16_t should reject utf-32-be\n";
    };
 
 
@@ -806,7 +835,7 @@ ut::test("getting primitives") = []
     ut::expect( ut::that % parser.curr_codepoint()=='a' );
 
     ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto sv = parser.get_until(ascii::is<';'>); }) ) << "should complain for termination not found\n";
-    ut::expect( ut::that % parser.get_until(ascii::is_any_of<'\0',';'>)=="a3==b3"sv );
+    ut::expect( ut::that % parser.get_until(ascii::is_any_of<';',parser.cend>)=="a3==b3"sv );
    };
 
 

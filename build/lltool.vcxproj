@@ -90,7 +90,7 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
-  <Target Name="PrintTargetPath" AfterTargets="Build">
-    <Message Importance="high" Text="TargetPath is: $(TargetPath)" />
+  <Target Name="PrintInfo" BeforeTargets="ClCompile">
+    <Message Importance="high" Text="ver:$(VisualStudioVersion) tgt:$(TargetPath)" />
   </Target>
 </Project>

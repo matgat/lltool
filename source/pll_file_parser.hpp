@@ -841,7 +841,7 @@ class PllParser final : public plain::ParserBase<char>
                 // [Type]
                 parser.skip_blanks();
                 memb.type() = parser.collect_type();
-                
+
                 // [Value]
                 parser.skip_blanks();
                 if( parser.eat(":="sv) )
@@ -1108,7 +1108,7 @@ class PllParser final : public plain::ParserBase<char>
         base::skip_blanks();
         base::check_and_eat_endline();
        }
-       
+
     //-----------------------------------------------------------------------
     [[nodiscard]] std::string_view trim_pou_body(std::string_view sv) noexcept
        {
@@ -1162,6 +1162,8 @@ void pll_parse(const std::string& file_path, const std::string_view buf, plcb::L
 /////////////////////////////////////////////////////////////////////////////
 static ut::suite<"pll_file_parser"> pll_file_parser_tests = []
 {////////////////////////////////////////////////////////////////////////////
+
+struct issueslog_t final { int num=0; void operator()(std::string&& msg) noexcept {++num; ut::log << msg << '\n';}; };
 
 ut::test("ll::PllParser::check_heading_comment()") = []
    {
@@ -1450,7 +1452,7 @@ ut::test("Duplicate variable") = []
         "    var2 := var1;\n"
         "\n"
         "END_FUNCTION_BLOCK\n"sv};
-    
+
     ut::expect( ut::throws([&parser]{ plcb::Pou fb; parser.collect_pou(fb, "FUNCTION_BLOCK"sv, "END_FUNCTION_BLOCK"sv); }) ) << "should complain for duplicate variable\n";
    };
 
@@ -1598,7 +1600,7 @@ ut::test("ll::pll_parse(sample-lib)") = []
     plcb::Library parsed_lib("sample-lib"sv);
 
     try{
-        struct issues_t final { int num=0; void operator()(std::string&& msg) noexcept {++num; ut::log << msg << '\n';}; } issues;
+        issueslog_t issues;
         ll::pll_parse(parsed_lib.name(), sample_lib_pll, parsed_lib, std::ref(issues));
         ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
        }
@@ -1809,7 +1811,7 @@ ut::test("ll::pll_parse(test_lib)") = []
     plcb::Library lib("test_lib");
 
     try{
-        struct issues_t final { int num=0; void operator()(std::string&& msg) noexcept {++num; ut::log << msg << '\n';}; } issues;
+        issueslog_t issues;
         ll::pll_parse(lib.name(), buf, lib, std::ref(issues));
         ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
        }

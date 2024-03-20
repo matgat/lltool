@@ -213,8 +213,7 @@ class Arguments final
         std::print( "\n{} (build " __DATE__ ")\n"
                     "{}\n"
                     "\n", app::name, app::descr );
-        // The following triggers print_usage()
-        throw std::invalid_argument{"Exiting after printing help"};
+        throw std::invalid_argument{"Exiting after printing help"}; // Triggers print_usage()
        }
 
     //-----------------------------------------------------------------------

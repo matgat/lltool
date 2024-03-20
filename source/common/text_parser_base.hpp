@@ -205,7 +205,7 @@ class ParserBase
            {
             get_next();
            }
-        else
+        else if( has_codepoint() )
            {
             throw create_parse_error( std::format("Unexpected content '{}' at line end"sv, utxt::to_utf8(curr_codepoint())) );
            }
@@ -443,8 +443,8 @@ class ParserBase
     void advance_of(const std::size_t bytes_num)
        {
         assert( bytes_num>0 );
-        m_buf.advance_of( bytes_num );
         // Note: assuming same m_line
+        m_buf.advance_of( bytes_num );
         //m_curr_codepoint_offset += codepoints_num;
         get_next();
        }
