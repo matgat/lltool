@@ -10,7 +10,7 @@ TEST_MAIN = ../test/test.cpp
 TEST_TARGET = $(BLDDIR)/$(PRJNAME)-test
 
 CXX = g++
-CXXFLAGS = -std=c++2b -fno-rtti -O3 $(addprefix -I, $(INCLUDEDIRS))
+CXXFLAGS = -std=c++23 -fno-rtti -O3 $(addprefix -I, $(INCLUDEDIRS))
 CXXFLAGS += -march=native
 CXXFLAGS += -Wall -Wextra -Wpedantic -Wfatal-errors -Werror
 CXXFLAGS += -Wshadow -Wconversion -Wsign-conversion

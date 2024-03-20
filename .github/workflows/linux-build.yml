@@ -47,4 +47,4 @@ jobs:
 
     - name: Run-Unit-Tests
       working-directory: ./build/bin
-      run: lltool-test
+      run: ${{github.event.repository.name}}-test

@@ -113,6 +113,16 @@ class TextFile:
         return create_text_file(dir, self.file_name, provided_content, self.encoding)
 
 #----------------------------------------------------------------------------
+class TemporaryPath:
+    def __init__(self, fname):
+        self.path = os.path.join(tempfile.gettempdir(), fname)
+    def __enter__(self):
+        return self
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        try: os.remove(self.path)
+        except: pass
+
+#----------------------------------------------------------------------------
 class TemporaryTextFile:
     def __init__(self, txt_file, directory=None):
         if not isinstance(txt_file, TextFile):
@@ -175,6 +185,22 @@ def check_file_content(path, file):
         print(f'{RED}{path} {MAGENTA}not created{END}')
 
 #----------------------------------------------------------------------------
+def have_same_content(path1, path2):
+    equal = False
+    if not os.path.isfile(path1):
+        print(f'{RED}{path1} {MAGENTA}not existing{END}')
+    elif not os.path.isfile(path2):
+        print(f'{RED}{path2} {MAGENTA}not existing{END}')
+    else:
+        try:
+            with open(path1, 'r') as file1, open(path2, 'r') as file2:
+                equal = check_strings_equality(file1.read(), file2.read())
+            if is_manual_mode() and not equal: show_text_files_comparison(path1, path2)
+        except Exception as e:
+            print(f'{RED}{e}{END}')
+    return equal
+
+#----------------------------------------------------------------------------
 def show_text_file(file_path):
     print(f"opening {file_path}")
     subprocess.run(['start' if os.name=='nt' else 'xdg-open', file_path])
@@ -196,6 +222,10 @@ def show_text_files_comparison(left_file, middle_file, right_file =""):
         command_and_args = ["meld", left_file, middle_file]
         if right_file: command_and_args.append(right_file)
     subprocess.call(command_and_args)
+
+#----------------------------------------------------------------------------
+def get_test_file_path(fname):
+    return os.path.join(script_dir, "testfiles", fname)
 
 #----------------------------------------------------------------------------
 def create_plclib_full_content(name, inner_content):
@@ -222,13 +252,69 @@ class Tests:
     def __init__(self, manual_mode):
         self.list = []
         self.manual_mode = manual_mode
-        prefix_auto = 'test_'
-        prefix_just_man = 'testman_'
-        for name, func in inspect.getmembers(self, inspect.ismethod):
+        # Collect the test methods sorted by definition position
+        prefix = 'test'
+        test_methods = [(name, func) for name, func in inspect.getmembers(self, inspect.ismethod) if name.startswith(prefix)]
+        def linenumber_of(m):
+            try: return m[1].__func__.__code__.co_firstlineno
+            except: return -1
+        test_methods.sort(key=linenumber_of)
+        prefix_auto = f'{prefix}_'
+        prefix_man = f'{prefix}man_'
+        for name, func in test_methods:
             if name.startswith(prefix_auto):
                 self.list.append(Test(name[len(prefix_auto):], func))
-            elif manual_mode and name.startswith(prefix_just_man) :
-                self.list.append(Test(name[len(prefix_just_man):], func))
+            elif manual_mode and name.startswith(prefix_man) :
+                self.list.append(Test(name[len(prefix_man):], func))
+
+
+    #========================================================================
+    def test_convert_no_file(self):
+        ret_code, exec_time_ms = launch([exe, "convert", "-v" if self.manual_mode else "-q"])
+        return ret_code==2 # no file given should give a fatal error
+
+
+    #========================================================================
+    def test_convert_empty_pll(self):
+        pll = TextFile('empty.pll', '\n')
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pll_path = pll.create_in(temp_dir)
+            ret_code, exec_time_ms = launch([exe, "convert", pll_path, "-F", "-v" if self.manual_mode else "-q"])
+            return ret_code==1 # empty pll should raise an issue
+
+
+    #========================================================================
+    def test_convert_name_clash(self):
+        h = TextFile('file.h', '\n')
+        pll = TextFile('file.pll', '\n')
+        with tempfile.TemporaryDirectory() as temp_dir:
+            h_path = h.create_in(temp_dir)
+            pll_path = pll.create_in(temp_dir)
+            out_dir = Directory("out", temp_dir)
+            ret_code, exec_time_ms = launch([exe, "convert", h_path, pll_path, "-v" if self.manual_mode else "-q", "--to", out_dir.path])
+            return ret_code==2 # should complain about name clash
+
+
+    #========================================================================
+    def test_convert_overwrite(self):
+        h = TextFile('file.h', '\n')
+        plclib = TextFile('file.plclib', '\n')
+        with tempfile.TemporaryDirectory() as temp_dir:
+            h_path = h.create_in(temp_dir)
+            plclib.create_in(temp_dir)
+            ret_code, exec_time_ms = launch([exe, "convert", h_path, "-v" if self.manual_mode else "-q", "--to", temp_dir])
+            return ret_code==2 # should complain about overwrite existing
+
+
+    #========================================================================
+    def test_convert_same_dir(self):
+        h1 = TextFile('file1.h', '\n')
+        h2 = TextFile('file2.h', '\n')
+        with tempfile.TemporaryDirectory() as temp_dir:
+            h1.create_in(temp_dir)
+            h2.create_in(temp_dir)
+            ret_code, exec_time_ms = launch([exe, "convert", os.path.join(temp_dir,"*.h"), "-F", "-v" if self.manual_mode else "-q", "--to", temp_dir])
+            return ret_code==2 # should complain about outputting in the input directory
 
 
     #========================================================================
@@ -252,15 +338,6 @@ class Tests:
             ret_code, exec_time_ms = launch([exe, "convert", pll_file.path, "-F", "-v" if self.manual_mode else "-q"])
             time.sleep(0.5) # Give the time to show the bad file
             return ret_code==2 # should complain about duplicate variable
-
-
-    #========================================================================
-    def test_convert_empty_pll(self):
-        pll = TextFile('empty.pll', '\n')
-        with tempfile.TemporaryDirectory() as temp_dir:
-            pll_path = pll.create_in(temp_dir)
-            ret_code, exec_time_ms = launch([exe, "convert", pll_path, "-F", "-v" if self.manual_mode else "-q"])
-            return ret_code==1 # empty pll should raise an issue
 
 
     #========================================================================
@@ -371,46 +448,6 @@ class Tests:
             pll_path = out_dir.decl_file(pll.file_name);
             plclib_path = out_dir.decl_file(plclib.file_name);
             return ret_code==0 and check_file_content(pll_path, pll) and check_file_content(plclib_path, plclib)
-
-
-    #========================================================================
-    def test_convert_name_clash(self):
-        h = TextFile('file.h', '\n')
-        pll = TextFile('file.pll', '\n')
-        with tempfile.TemporaryDirectory() as temp_dir:
-            h_path = h.create_in(temp_dir)
-            pll_path = pll.create_in(temp_dir)
-            out_dir = Directory("out", temp_dir)
-            ret_code, exec_time_ms = launch([exe, "convert", h_path, pll_path, "-v" if self.manual_mode else "-q", "--to", out_dir.path])
-            return ret_code==2 # should complain about name clash
-
-
-    #========================================================================
-    def test_convert_no_file(self):
-        ret_code, exec_time_ms = launch([exe, "convert", "-v" if self.manual_mode else "-q"])
-        return ret_code==2 # no file given should give a fatal error
-
-
-    #========================================================================
-    def test_convert_overwrite(self):
-        h = TextFile('file.h', '\n')
-        plclib = TextFile('file.plclib', '\n')
-        with tempfile.TemporaryDirectory() as temp_dir:
-            h_path = h.create_in(temp_dir)
-            plclib.create_in(temp_dir)
-            ret_code, exec_time_ms = launch([exe, "convert", h_path, "-v" if self.manual_mode else "-q", "--to", temp_dir])
-            return ret_code==2 # should complain about overwrite existing
-
-
-    #========================================================================
-    def test_convert_same_dir(self):
-        h1 = TextFile('file1.h', '\n')
-        h2 = TextFile('file2.h', '\n')
-        with tempfile.TemporaryDirectory() as temp_dir:
-            h1.create_in(temp_dir)
-            h2.create_in(temp_dir)
-            ret_code, exec_time_ms = launch([exe, "convert", os.path.join(temp_dir,"*.h"), "-F", "-v" if self.manual_mode else "-q", "--to", temp_dir])
-            return ret_code==2 # should complain about outputting in the input directory
 
 
     #========================================================================
@@ -946,49 +983,6 @@ class Tests:
 
 
     #========================================================================
-    def test_update_bad_plclib(self):
-        bad_plclib = TextFile( 'bad.plclib',
-                               '<lib>forbidden nested</lib>' )
-        prj = TextFile( 'badlib.ppjs',
-                        '<plcProject>\n'
-                        '    <libraries>\n'
-                       f'        <lib link="true" name="{bad_plclib.file_name}">\n'
-                        '            <![CDATA[...]]>\n'
-                        '        </lib>\n'
-                        '    </libraries>\n'
-                        '</plcProject>\n',
-                        'utf-16' )
-        with tempfile.TemporaryDirectory() as temp_dir:
-            bad_plclib.create_with_content_in(temp_dir, create_plclib_full_content(bad_plclib.file_name, bad_plclib.content))
-            prj_path = prj.create_in(temp_dir)
-            if self.manual_mode:
-                ret_code, exec_time_ms = launch([exe, "update", prj_path, "-v"])
-                time.sleep(0.5) # Give the time to show the bad file
-            else:
-                ret_code, exec_time_ms = launch([exe, "update", prj_path, "-q"])
-            return ret_code==2 # bad library should give a fatal error
-
-
-    #========================================================================
-    def test_update_bad_prj(self):
-        prj = TextFile( 'bad.ppjs',
-                        '<plcProject>\n'
-                        '    <libraries>\n'
-                        '        <lib link="true" name="unclosed">\n'
-                        '            <![CDATA[...]]>\n'
-                        '    </libraries>\n'
-                        '</plcProject>\n',
-                        'utf-16' )
-        with TemporaryTextFile(prj) as prj_file:
-            if self.manual_mode:
-                ret_code, exec_time_ms = launch([exe, "update", prj_file.path, "-v"])
-                time.sleep(0.5) # Give the time to show the bad file
-            else:
-                ret_code, exec_time_ms = launch([exe, "update", prj_file.path, "-q"])
-            return ret_code==2 # bad project should give a fatal error
-
-
-    #========================================================================
     def test_update_empty(self):
         prj = TextFile('empty.ppjs', '\n')
         with TemporaryTextFile(prj) as prj_file:
@@ -1015,6 +1009,63 @@ class Tests:
 
 
     #========================================================================
+    def test_update_same_prj(self):
+        prj = TextFile( 'same.ppjs',
+                        '<plcProject>\n'
+                        '    <libraries>\n'
+                        '    </libraries>\n'
+                        '</plcProject>\n',
+                        'utf-16' )
+        with TemporaryTextFile(prj) as prj_file:
+            ret_code1, exec_time_ms = launch([exe, "update", prj_file.path, "-vF" if self.manual_mode else "-qF", "--to", prj_file.directory])
+            ret_code2, exec_time_ms = launch([exe, "update", prj_file.path, "-vF" if self.manual_mode else "-qF", "--to", prj_file.path])
+            return ret_code1==2 and ret_code2==2 # same output file should give a fatal error
+
+
+    #========================================================================
+    def test_update_bad_prj(self):
+        prj = TextFile( 'bad.ppjs',
+                        '<plcProject>\n'
+                        '    <libraries>\n'
+                        '        <lib link="true" name="unclosed">\n'
+                        '            <![CDATA[...]]>\n'
+                        '    </libraries>\n'
+                        '</plcProject>\n',
+                        'utf-16' )
+        with TemporaryTextFile(prj) as prj_file:
+            if self.manual_mode:
+                ret_code, exec_time_ms = launch([exe, "update", prj_file.path, "-v"])
+                time.sleep(0.5) # Give the time to show the bad file
+            else:
+                ret_code, exec_time_ms = launch([exe, "update", prj_file.path, "-q"])
+            return ret_code==2 # bad project should give a fatal error
+
+
+    #========================================================================
+    def test_update_bad_plclib(self):
+        bad_plclib = TextFile( 'bad.plclib',
+                               '<lib>forbidden nested</lib>' )
+        prj = TextFile( 'badlib.ppjs',
+                        '<plcProject>\n'
+                        '    <libraries>\n'
+                       f'        <lib link="true" name="{bad_plclib.file_name}">\n'
+                        '            <![CDATA[...]]>\n'
+                        '        </lib>\n'
+                        '    </libraries>\n'
+                        '</plcProject>\n',
+                        'utf-16' )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bad_plclib.create_with_content_in(temp_dir, create_plclib_full_content(bad_plclib.file_name, bad_plclib.content))
+            prj_path = prj.create_in(temp_dir)
+            if self.manual_mode:
+                ret_code, exec_time_ms = launch([exe, "update", prj_path, "-v"])
+                time.sleep(0.5) # Give the time to show the bad file
+            else:
+                ret_code, exec_time_ms = launch([exe, "update", prj_path, "-q"])
+            return ret_code==2 # bad library should give a fatal error
+
+
+    #========================================================================
     def test_update_nonexistent_lib(self):
         pll1 = TextFile( 'lib1.pll',
                          'content of pll1' )
@@ -1036,6 +1087,45 @@ class Tests:
             content_equal = textfile_content_is(prj_path, prj.encoding, expected)
             return ret_code==1 # nonexistent library should raise an issue
 
+
+    #========================================================================
+    def test_update_simple_prj(self):
+        pll1 = TextFile( 'lib1.pll',
+                         'content of pll1' )
+        pll2 = TextFile( 'lib2.pll',
+                         'content of pll2',
+                         'utf-8-sig' )
+        plclib1 = TextFile( 'lib1.plclib',
+                            'content of plclib1' )
+        plclib2 = TextFile( 'lib2.plclib',
+                            'content of plclib2',
+                            'utf-8-sig' )
+        prj = TextFile( 'original.xml',
+                        '<plcProject>\n'
+                        '    <libraries>\n'
+                       f'        <lib link="true" name="{pll1.file_name}"><![CDATA[prev content]]></lib>\n'
+                       f'        <lib link="true" name="{pll2.file_name}"></lib>\n'
+                       f'        <lib link="true" name="{plclib1.file_name}">prev content</lib>\n'
+                       f'        <lib link="true" name="{plclib2.file_name}"></lib>\n'
+                        '    </libraries>\n'
+                        '</plcProject>\n',
+                        'utf-16' )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pll1.create_in(temp_dir)
+            pll2.create_in(temp_dir)
+            plclib1.create_with_content_in(temp_dir, create_plclib_full_content(plclib1.file_name, plclib1.content))
+            plclib2.create_with_content_in(temp_dir, create_plclib_full_content(plclib2.file_name, plclib2.content))
+            prj_path = prj.create_in(temp_dir)
+            out_path = os.path.join(temp_dir, "updated.xml")
+            ret_code, exec_time_ms = launch([exe, "update", prj_path, "-vF" if self.manual_mode else "-qF", "--to", out_path])
+            expected = ( prj.content.replace(f'name="{pll1.file_name}"><![CDATA[prev content]]>', f'name="{pll1.file_name}"><![CDATA[{pll1.content}]]>')
+                                    .replace(f'name="{pll2.file_name}">', f'name="{pll2.file_name}"><![CDATA[{pll2.content}]]>')
+                                    .replace(f'name="{plclib1.file_name}">prev content', f'name="{plclib1.file_name}">{plclib1.content}')
+                                    .replace(f'name="{plclib2.file_name}">', f'name="{plclib2.file_name}">{plclib2.content}') )
+            content_equal = textfile_content_is(out_path, prj.encoding, expected)
+            if self.manual_mode and os.path.isfile(out_path):
+                show_text_files_comparison(prj_path, out_path)
+            return ret_code==0 and content_equal
 
     #========================================================================
     def test_update_plcprj(self):
@@ -1201,60 +1291,6 @@ class Tests:
 
 
     #========================================================================
-    def test_update_same_prj(self):
-        prj = TextFile( 'same.ppjs',
-                        '<plcProject>\n'
-                        '    <libraries>\n'
-                        '    </libraries>\n'
-                        '</plcProject>\n',
-                        'utf-16' )
-        with TemporaryTextFile(prj) as prj_file:
-            ret_code1, exec_time_ms = launch([exe, "update", prj_file.path, "-vF" if self.manual_mode else "-qF", "--to", prj_file.directory])
-            ret_code2, exec_time_ms = launch([exe, "update", prj_file.path, "-vF" if self.manual_mode else "-qF", "--to", prj_file.path])
-            return ret_code1==2 and ret_code2==2 # same output file should give a fatal error
-
-
-    #========================================================================
-    def test_update_simple_prj(self):
-        pll1 = TextFile( 'lib1.pll',
-                         'content of pll1' )
-        pll2 = TextFile( 'lib2.pll',
-                         'content of pll2',
-                         'utf-8-sig' )
-        plclib1 = TextFile( 'lib1.plclib',
-                            'content of plclib1' )
-        plclib2 = TextFile( 'lib2.plclib',
-                            'content of plclib2',
-                            'utf-8-sig' )
-        prj = TextFile( 'original.xml',
-                        '<plcProject>\n'
-                        '    <libraries>\n'
-                       f'        <lib link="true" name="{pll1.file_name}"><![CDATA[prev content]]></lib>\n'
-                       f'        <lib link="true" name="{pll2.file_name}"></lib>\n'
-                       f'        <lib link="true" name="{plclib1.file_name}">prev content</lib>\n'
-                       f'        <lib link="true" name="{plclib2.file_name}"></lib>\n'
-                        '    </libraries>\n'
-                        '</plcProject>\n',
-                        'utf-16' )
-        with tempfile.TemporaryDirectory() as temp_dir:
-            pll1.create_in(temp_dir)
-            pll2.create_in(temp_dir)
-            plclib1.create_with_content_in(temp_dir, create_plclib_full_content(plclib1.file_name, plclib1.content))
-            plclib2.create_with_content_in(temp_dir, create_plclib_full_content(plclib2.file_name, plclib2.content))
-            prj_path = prj.create_in(temp_dir)
-            out_path = os.path.join(temp_dir, "updated.xml")
-            ret_code, exec_time_ms = launch([exe, "update", prj_path, "-vF" if self.manual_mode else "-qF", "--to", out_path])
-            expected = ( prj.content.replace(f'name="{pll1.file_name}"><![CDATA[prev content]]>', f'name="{pll1.file_name}"><![CDATA[{pll1.content}]]>')
-                                    .replace(f'name="{pll2.file_name}">', f'name="{pll2.file_name}"><![CDATA[{pll2.content}]]>')
-                                    .replace(f'name="{plclib1.file_name}">prev content', f'name="{plclib1.file_name}">{plclib1.content}')
-                                    .replace(f'name="{plclib2.file_name}">', f'name="{plclib2.file_name}">{plclib2.content}') )
-            content_equal = textfile_content_is(out_path, prj.encoding, expected)
-            if self.manual_mode and os.path.isfile(out_path):
-                show_text_files_comparison(prj_path, out_path)
-            return ret_code==0 and content_equal
-
-
-    #========================================================================
     def testman_compare_conv_strato(self):
         prj_fld = os.path.expandvars("%UserProfile%/Macotec/Machines/m32-Strato/sde")
         if not os.path.isdir(prj_fld):
@@ -1275,7 +1311,7 @@ class Tests:
 
     #========================================================================
     def testman_rewrite_strato_pll(self):
-        pll = os.path.expandvars("%UserProfile%/Macotec/Machines/m32-Strato/sde/PLC/Strato.pll") 
+        pll = os.path.expandvars("%UserProfile%/Macotec/Machines/m32-Strato/sde/PLC/Strato.pll")
         if not os.path.isfile(pll):
             print(f'{RED}Not existing: {pll}{END}')
             return False

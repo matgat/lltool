@@ -1,18 +1,17 @@
 name: ms-build
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  workflow_dispatch
+  #push:
+  #  branches: [ "main" ]
+  #pull_request:
+  #  branches: [ "main" ]
 
 jobs:
   build-and-test:
     runs-on: windows-latest
 
     env:
-      PROJECT_FILE_PATH: build/lltool.vcxproj
-      TEST_PROJECT_FILE_PATH: build/lltool-test.vcxproj
       BUILD_CONFIGURATION: Release
       TEST_BUILD_CONFIGURATION: Release
       BUILD_PLATFORM: x64
@@ -32,14 +31,14 @@ jobs:
 
     - name: Build-App
       working-directory: ${{env.GITHUB_WORKSPACE}}
-      run: msbuild ${{env.PROJECT_FILE_PATH}} -t:rebuild -p:Configuration=${{env.BUILD_CONFIGURATION}} -p:Platform=${{env.BUILD_PLATFORM}}
+      run: msbuild build/${{github.event.repository.name}}.vcxproj -t:rebuild -p:Configuration=${{env.BUILD_CONFIGURATION}} -p:Platform=${{env.BUILD_PLATFORM}}
 
     - name: Build-Unit-Tests
       working-directory: ${{env.GITHUB_WORKSPACE}}
-      run: msbuild ${{env.TEST_PROJECT_FILE_PATH}} -t:rebuild -p:Configuration=${{env.TEST_BUILD_CONFIGURATION}} -p:Platform=${{env.BUILD_PLATFORM}}
+      run: msbuild build/${{github.event.repository.name}}-test.vcxproj -t:rebuild -p:Configuration=${{env.TEST_BUILD_CONFIGURATION}} -p:Platform=${{env.BUILD_PLATFORM}}
 
     - name: Run-Unit-Tests
       working-directory: build/bin/win-${{env.BUILD_PLATFORM}}-${{env.TEST_BUILD_CONFIGURATION}}
       run: |
         dir .
-        ./lltool-test.exe
+        ./${{github.event.repository.name}}-test.exe

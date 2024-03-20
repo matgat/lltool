@@ -224,7 +224,7 @@ class Arguments final
                     "   {0} convert path/to/*.h --force --to path/to/outdir\n"
                     "   {0} update path/to/project.ppjs\n"
                     "       --to/--out/-o (Specify output file/directory)\n"
-                    "       --options/-p (Specify comma separated key:value)\n"
+                    "       --options/-p (Specify options, ex: plclib-schemaver:2.8,plclib-indent:3,sort,timestamp)\n"
                     "       --force/-F (Overwrite/clear output files)\n"
                     "       --verbose/-v (Print more info on stdout)\n"
                     "       --quiet/-q (No user interaction)\n"

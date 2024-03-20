@@ -14,17 +14,19 @@ this introduces some limitations on the accepted input files, mainly
 related to using the raw content avoiding dynamic memory allocations
 as much as possible.
 
+_________________________________________________________________________
+## Requirements
+
+On windows:
+* C++ runtime [`VC_redist.x64.exe`](https://aka.ms/vs/17/release/vc_redist.x64.exe).
+* Parsing errors invoke [Notepad++](https://notepad-plus-plus.org)
+
+On linux:
+* Parsing errors invoke [mousepad](https://docs.xfce.org/apps/mousepad/start)
 
 
 _________________________________________________________________________
 ## Usage
-
-> [!NOTE]
-> Windows binary is dynamically linked to Microsoft c++ runtime,
-> so needs the installation of
-> [`VC_redist.x64.exe`](https://aka.ms/vs/17/release/vc_redist.x64.exe)
-> as prerequisite.
-
 
 ### Command line invocation
 
@@ -331,7 +333,7 @@ biased opinions of the author about the following topics:
 
 _________________________________________________________________________
 ## Build
-
+You need a `c++23` compliant toolchain.
 Check the operations in the python script:
 
 ```sh
@@ -379,7 +381,7 @@ $ make test
 
 ### Windows
 
-On Windows you need at least Microsoft Visual Studio 2022 (Community Edition).
+On Windows you need Microsoft Visual Studio 2022 (Community Edition).
 Once you have `msbuild` visible in path, you can launch the build from the command line:
 
 ```bat
