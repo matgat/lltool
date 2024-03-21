@@ -70,10 +70,10 @@ C++FT_02_LB=clang-tidy
 C++FT_02_CM=clang-tidy --header-filter=\\.hpp$ "%f" -- -std=c++2b -I%p/source -I%p/source/common
 C++FT_02_WD=%d
 C++FT_03_LB=_Build
-C++FT_03_CM=g++ -std=c++2b -fno-rtti -Isource/common -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wfatal-errors -O3 -flto=auto -lfmt -o "build/bin/lltool" "source/main.cpp"
+C++FT_03_CM=g++ -std=c++2b -fno-rtti -Isource/common -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wfatal-errors -O3 -flto=auto -o "build/bin/lltool" "source/main.cpp"
 C++FT_03_WD=%p
 C++FT_04_LB=Build with clang
-C++FT_04_CM=clang++ -std=c++2b -fno-rtti -Isource/common -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wfatal-errors -O3 -flto=auto -lfmt -o "build/bin/lltool" "source/main.cpp"
+C++FT_04_CM=clang++ -std=c++2b -fno-rtti -Isource/common -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wfatal-errors -O3 -flto=auto -o "build/bin/lltool" "source/main.cpp"
 C++FT_04_WD=%p
 
 [prjorg]

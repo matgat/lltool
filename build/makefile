@@ -15,7 +15,7 @@ CXXFLAGS += -march=native
 CXXFLAGS += -Wall -Wextra -Wpedantic -Wfatal-errors -Werror
 CXXFLAGS += -Wshadow -Wconversion -Wsign-conversion
 CXXFLAGS += -Wsign-promo -Wstrict-overflow=2 -Wcast-align -Wcast-qual -Wctor-dtor-privacy -Wdisabled-optimization -Wformat=2 -Wlogical-op -Wmissing-include-dirs -Wnoexcept -Wold-style-cast -Wredundant-decls -Wstrict-null-sentinel -Wundef
-CXXFLAGS += -I/usr/local/include -L/usr/local/lib -lfmt
+CXXFLAGS += -I/usr/local/include -L/usr/local/lib
 CXX_VER := $(shell $(CXX) -dumpversion)
 
 #MSVC = cl.exe
