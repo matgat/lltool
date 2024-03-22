@@ -303,6 +303,120 @@ The following limitations are introduced to maximize efficiency:
 
 
 
+_________________________________________________________________________
+## Automated build of a Sipro LogicLab PLC project
+
+Consider this directory structure:
+
+```
+sde┐
+   ├PROGS┐
+   │     ├defvar.h
+   │     ├<...other header files...>
+   │     └···
+   └PLC┐
+       ├Machine.pll
+       ├<...other pll files...>
+       └LogicLab┐
+                ├LogicLab.ppjs (main project file)
+                └generated-libs
+```
+
+Here's a *powershell* script that performs a complete build
+of the PLC using `lltool` to generate the libraries and
+update the project file, and then invoking the compiler,
+returning `0` if all steps completed successfully: 
+
+```powershell
+$libsoutdir = "PLC\LogicLab\generated-libs"
+$ppjs = "PLC\LogicLab\LogicLab.ppjs"
+$llc3 = "${env:ProgramFiles(x86)}\Sipro\Axel PC Tools\LogicLab3\LLC.exe"
+#$plcprj = "PLC\LogicLab\LogicLab-plclib.plcprj"
+#$llc5="${env:ProgramFiles(x86)}\Sipro\Siax PC Tools\LogicLab5\LLC.exe"
+
+function print
+{
+    param( [Parameter(Mandatory=$false)]
+           [System.ConsoleColor]$color = [System.ConsoleColor]::White,
+           [Parameter(Mandatory=$true)]
+           [string]$message )
+
+    Write-Host "$message" -ForegroundColor $color -NoNewline
+}
+
+function check_exit_code($who, $ret)
+{
+    if($ret -eq 0)
+       {
+        print Green "$who returned: $ret`n"
+       }
+    else
+       {
+        print Red "`n$who returned: $ret`n"
+        pause
+        exit $ret
+       }
+}
+
+# [Run in project directory]
+$scriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Definition
+Set-Location -Path "$scriptDirectory\.."
+#Write-Host (Get-Location)
+
+# [Generate libraries]
+& lltool convert PROG/*.h PLC/*.pll --options plclib-indent:3 --force --to "$libsoutdir"
+check_exit_code "convert" $LASTEXITCODE
+
+# [Update project]
+& lltool update "$ppjs"
+check_exit_code "update" $LASTEXITCODE
+
+# [Compile project]
+print White "`nBuilding PLC`n"
+$llc_args = "/r" # Rebuild the project without connecting
+
+$all_ok = $true
+& $llc3 "$ppjs" $llc_args | ForEach-Object {
+    # recognize "<num> warnings, <num> errors" in line $_
+    if($_ -match "(?i)(\d+)\s+warning[s]?\s*,?\s+(\d+)\s+error[s]?\b")
+       {
+        $warn_count = [int]$matches[1]
+        $err_count = [int]$matches[2]
+
+        # Check if there are any warnings or errors
+        if($warn_count -gt 0 -or $err_count -gt 0)
+           {
+            $all_ok = $false
+            print Red "[ko] "
+           }
+        else
+           {
+            print Green "[ok] "
+           }
+       }
+    print DarkGray ($_ + "`n")
+   }
+
+# Check if the compilation was clean
+if($all_ok)
+   {
+    print Green "`nCompilation clean`n"
+   }
+else
+   {
+    print Red "`nCompilation not clean!`n"
+    pause
+    exit 1
+   }
+
+check_exit_code "LLC" $LASTEXITCODE
+if($LASTEXITCODE -eq 0)
+   {
+    Start-Sleep -Seconds 3
+   }
+```
+
+
 
 _________________________________________________________________________
 ## Author's biased opinions
