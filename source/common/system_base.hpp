@@ -77,7 +77,7 @@ void add_to_path_expanding_vars(const std::initializer_list<std::string_view> fo
                          buf_siz,
                          nullptr );
 
-    return siz>0 ? std::string(buf, siz)
+    return siz>0 ? std::string(buf, siz) // std::format("[0x{:X}] {}", e, std::string_view(buf, siz));
                  : std::string("Unknown error ") + std::to_string(e);
 }
 
