@@ -76,7 +76,7 @@ def main():
 
     print(f"\n{BLUE}Building {CYAN}{projectname}{END}")
     if (build_ret:=launch(build_cmd))!=0:
-        closing_bad(f"Build error")
+        closing_bad("Build error")
         return build_ret
 
     if not os.path.isfile(exe):
