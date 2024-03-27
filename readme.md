@@ -306,7 +306,7 @@ The following limitations are introduced to maximize efficiency:
 _________________________________________________________________________
 ## Automated build of a Sipro LogicLab PLC project
 
-Consider this directory structure:
+Assuming this directory structure:
 
 ```
 sde┐
@@ -330,90 +330,132 @@ returning `0` if all steps completed successfully:
 ```powershell
 $libsoutdir = "PLC\LogicLab\generated-libs"
 $ppjs = "PLC\LogicLab\LogicLab.ppjs"
-$llc3 = "${env:ProgramFiles(x86)}\Sipro\Axel PC Tools\LogicLab3\LLC.exe"
 #$plcprj = "PLC\LogicLab\LogicLab-plclib.plcprj"
-#$llc5="${env:ProgramFiles(x86)}\Sipro\Siax PC Tools\LogicLab5\LLC.exe"
 
 function print
 {
-    param( [Parameter(Mandatory=$false)]
-           [System.ConsoleColor]$color = [System.ConsoleColor]::White,
-           [Parameter(Mandatory=$true)]
-           [string]$message )
+    param( [Parameter(Mandatory=$false)] [System.ConsoleColor]$color = [System.ConsoleColor]::White,
+           [Parameter(Mandatory=$true)] [string]$message )
 
-    Write-Host "$message" -ForegroundColor $color -NoNewline
+    Write-Host $message -ForegroundColor $color -NoNewline
 }
 
-function check_exit_code($who, $ret)
+function abort
 {
-    if($ret -eq 0)
+    param( [Parameter(Mandatory=$true)] [string]$message,
+           [Parameter(Mandatory=$false)] [int]$err_code = 2 )
+
+    print Red "`n$message`n"
+    pause
+    exit $err_code
+}
+
+function check_exit_code
+{
+    param( [Parameter(Mandatory=$true)] [string]$who,
+           [Parameter(Mandatory=$true)] [int]$ret_code )
+
+    if( $ret_code -eq 0 )
        {
-        print Green "$who returned: $ret`n"
+        print Green "$who [ok]`n"
        }
     else
        {
-        print Red "`n$who returned: $ret`n"
-        pause
-        exit $ret
+        abort "$who [err] ($ret_code)" $ret_code
        }
 }
 
+function get_plc_compiler_path
+{
+    $llc3 = "${env:ProgramFiles(x86)}\Sipro\Axel PC Tools\LogicLab3\LLC.exe"
+    $llc5 = "${env:ProgramFiles(x86)}\Sipro\Siax PC Tools\LogicLab5\LLC.exe"
+    if( Test-Path $llc3 )
+       {
+        return $llc3
+       }
+    elseif( Test-Path $llc5 )
+       {
+        return $llc5
+       }
+    else
+       {
+        abort "LogicLab not installed (LLC.exe not found)"
+       }
+}
+
+function compile_plc_project
+{
+    param( [Parameter(Mandatory=$true)] [string]$proj_path )
+
+    $proj_path = Resolve-Path $proj_path
+    if( -not (Test-Path $proj_path) )
+       {
+        abort "$proj_path does not exist"
+       }
+
+    # [Update project]
+    & lltool update `"$proj_path`"
+    check_exit_code "lltool update" $LASTEXITCODE
+
+    # [Compile project]
+    $llc = get_plc_compiler_path
+    $all_ok = $true
+    & $llc `"$proj_path`" /r | ForEach-Object {
+        # recognize "<num> warnings, <num> errors" in line $_
+        if( $_ -match "(?i)(\d+)\s+warning[s]?\s*,?\s+(\d+)\s+error[s]?\b" )
+           {
+            $warn_count = [int]$matches[1]
+            $err_count = [int]$matches[2]
+
+            # Check if there are any warnings or errors
+            if($warn_count -gt 0 -or $err_count -gt 0)
+               {
+                $all_ok = $false
+                print Red "[ko] "
+               }
+            else
+               {
+                print Green "[ok] "
+               }
+           }
+        print DarkGray ($_ + "`n")
+       }
+
+    check_exit_code "LLC" $LASTEXITCODE
+    if( -not $all_ok )
+       {
+        abort "Compilation not clean!"
+       }
+    return $LASTEXITCODE -eq 0 -and $all_ok
+}
+
+
 # [Run in project directory]
-$scriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Definition
-Set-Location -Path "$scriptDirectory\.."
-#Write-Host (Get-Location)
+Set-Location -Path "$PSScriptRoot\.."
+if( -not (Test-Path "PLC") )
+   {
+    Write-Host (Get-Location)
+    abort "No PLC folder, maybe running in the wrong directory?"
+   }
 
 # [Generate libraries]
-& lltool convert PROG/*.h PLC/*.pll --options plclib-indent:3 --force --to "$libsoutdir"
-check_exit_code "convert" $LASTEXITCODE
+& lltool convert PROG/*.h PLC/*.pll --options plclib-indent:3 --force --to $libsoutdir
+check_exit_code "lltool convert" $LASTEXITCODE
 
-# [Update project]
-& lltool update "$ppjs"
-check_exit_code "update" $LASTEXITCODE
-
-# [Compile project]
-print White "`nBuilding PLC`n"
-$llc_args = "/r" # Rebuild the project without connecting
-
-$all_ok = $true
-& $llc3 "$ppjs" $llc_args | ForEach-Object {
-    # recognize "<num> warnings, <num> errors" in line $_
-    if($_ -match "(?i)(\d+)\s+warning[s]?\s*,?\s+(\d+)\s+error[s]?\b")
-       {
-        $warn_count = [int]$matches[1]
-        $err_count = [int]$matches[2]
-
-        # Check if there are any warnings or errors
-        if($warn_count -gt 0 -or $err_count -gt 0)
-           {
-            $all_ok = $false
-            print Red "[ko] "
-           }
-        else
-           {
-            print Green "[ok] "
-           }
-       }
-    print DarkGray ($_ + "`n")
-   }
-
-# Check if the compilation was clean
-if($all_ok)
+$ppjs_compiled = compile_plc_project $ppjs
+if( -not $ppjs_compiled )
    {
-    print Green "`nCompilation clean`n"
+    abort "ppjs compilation error"
    }
-else
-   {
-    print Red "`nCompilation not clean!`n"
-    pause
-    exit 1
-   }
-
-check_exit_code "LLC" $LASTEXITCODE
-if($LASTEXITCODE -eq 0)
-   {
-    Start-Sleep -Seconds 3
-   }
+   
+#if( $plcprj )
+#   {
+#    $plcprj_compiled = compile_plc_project $plcprj
+#    if( -not $plcprj_compiled )
+#       {
+#        abort "plcprj compilation error"
+#       }
+#   }
 ```
 
 
