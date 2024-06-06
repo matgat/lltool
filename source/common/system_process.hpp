@@ -17,6 +17,7 @@
   #include <shellapi.h> // ShellExecuteExA, FindExecutableA
 #elif defined(POSIX)
   #include <unistd.h> // exec*, fork, ...
+  #include <sys/wait.h> // waitpid
 #endif
 
 
