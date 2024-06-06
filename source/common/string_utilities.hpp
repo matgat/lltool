@@ -81,7 +81,8 @@ namespace str //:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 //-----------------------------------------------------------------------
 [[nodiscard]] constexpr std::string_view trim_right(std::string_view sv)
 {
-    sv.remove_suffix(std::distance(sv.crbegin(), std::find_if_not(sv.crbegin(), sv.crend(), ascii::is_space<char>)));
+    const auto d = std::distance(sv.crbegin(), std::find_if_not(sv.crbegin(), sv.crend(), ascii::is_space<char>));
+    sv.remove_suffix( static_cast<std::size_t>(d) );
     return sv;
 }
 
