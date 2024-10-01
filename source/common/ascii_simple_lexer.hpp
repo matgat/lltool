@@ -22,46 +22,49 @@ class simple_lexer
     const string_view input;
  private:
     std::size_t m_pos;
-    Chr m_current;
+    Chr m_current_char;
 
  public:
     constexpr explicit simple_lexer(const string_view buf) noexcept
       : input(buf)
       , m_pos(0u)
-      , m_current( buf.empty() ? static_cast<Chr>('\0') : buf[0u] )
+      , m_current_char( buf.empty() ? static_cast<Chr>('\0') : buf[0u] )
        {}
 
     [[nodiscard]] constexpr std::size_t pos() const noexcept { return m_pos; }
-    [[nodiscard]] constexpr Chr current_char() const noexcept { return m_current; }
+    [[nodiscard]] constexpr Chr current_char() const noexcept { return m_current_char; }
     [[nodiscard]] constexpr bool got_data() const noexcept { return m_pos<input.size(); }
     [[maybe_unused]] constexpr bool get_next() noexcept
        {
         if( ++m_pos<input.size() ) [[likely]]
            {
-            m_current = input[m_pos];
+            m_current_char = input[m_pos];
             return true;
            }
-        m_current = static_cast<Chr>('\0');
+        m_current_char = static_cast<Chr>('\0');
         m_pos = input.size();
         return false;
        }
 
+    [[maybe_unused]] constexpr bool eat(const Chr ch) noexcept { if(got(ch)){get_next(); return true;} return false; }
+    [[nodiscard]] constexpr string_view remaining() const noexcept { return input.substr(m_pos); }
+
     template<std::predicate<const Chr> CharPredicate =decltype(ascii::is_always_false<Chr>)>
-    [[nodiscard]] constexpr bool got(CharPredicate is) const noexcept { return m_pos<input.size() and is(input[m_pos]); }
+    [[nodiscard]] constexpr bool got(CharPredicate is) const noexcept { return is(m_current_char); }
 
     template<std::predicate<const Chr> CharPredicate =decltype(ascii::is_always_false<Chr>)>
     constexpr void skip_while(CharPredicate is) noexcept
-       { while( got(is) and get_next() ); }
+       { while( is(m_current_char) and get_next() ); }
 
     template<std::predicate<const Chr> CharPredicate =decltype(ascii::is_always_false<Chr>)>
     constexpr void skip_until(CharPredicate is) noexcept
-       { while( not got(is) and get_next() ); }
+       { while( not is(m_current_char) and get_next() ); }
 
     template<std::predicate<const Chr> CharPredicate =decltype(ascii::is_always_false<Chr>)>
     [[nodiscard]] constexpr string_view get_while(CharPredicate is) noexcept
        {
         const std::size_t pos_start = pos();
-        while( got(is) and get_next() );
+        while( is(m_current_char) and get_next() );
         return {input.data()+pos_start, pos()-pos_start};
        }
 
@@ -69,19 +72,19 @@ class simple_lexer
     [[nodiscard]] constexpr string_view get_until(CharPredicate is) noexcept
        {
         const std::size_t pos_start = pos();
-        while( not got(is) and get_next() );
+        while( not is(m_current_char) and get_next() );
         return {input.data()+pos_start, pos()-pos_start};
        }
 
-    [[nodiscard]] constexpr bool got(const Chr ch) const noexcept { return m_current==ch; }
+    [[nodiscard]] constexpr bool got(const Chr ch) const noexcept { return m_current_char==ch; }
     [[nodiscard]] constexpr bool got_endline() const noexcept { return got('\n'); }
-    [[nodiscard]] constexpr bool got_space() const noexcept { return ascii::is_space(m_current); }
-    [[nodiscard]] constexpr bool got_blank() const noexcept { return ascii::is_blank(m_current); }
-    [[nodiscard]] constexpr bool got_digit() const noexcept { return ascii::is_digit(m_current); }
-    [[nodiscard]] constexpr bool got_alpha() const noexcept { return ascii::is_alpha(m_current); }
-    [[nodiscard]] constexpr bool got_alnum() const noexcept { return ascii::is_alnum(m_current); }
-    [[nodiscard]] constexpr bool got_punct() const noexcept { return ascii::is_punct(m_current); }
-    [[nodiscard]] constexpr bool got_ident() const noexcept { return ascii::is_ident(m_current); }
+    [[nodiscard]] constexpr bool got_space() const noexcept { return ascii::is_space(m_current_char); }
+    [[nodiscard]] constexpr bool got_blank() const noexcept { return ascii::is_blank(m_current_char); }
+    [[nodiscard]] constexpr bool got_digit() const noexcept { return ascii::is_digit(m_current_char); }
+    [[nodiscard]] constexpr bool got_alpha() const noexcept { return ascii::is_alpha(m_current_char); }
+    [[nodiscard]] constexpr bool got_alnum() const noexcept { return ascii::is_alnum(m_current_char); }
+    [[nodiscard]] constexpr bool got_punct() const noexcept { return ascii::is_punct(m_current_char); }
+    [[nodiscard]] constexpr bool got_ident() const noexcept { return ascii::is_ident(m_current_char); }
 
     [[nodiscard]] constexpr string_view get_alphas() noexcept { return get_while(ascii::is_alpha<Chr>); }
     [[nodiscard]] constexpr string_view get_alnums() noexcept { return get_while(ascii::is_alnum<Chr>); }
@@ -93,9 +96,6 @@ class simple_lexer
     constexpr void skip_nonalnums() noexcept { while( not got_alnum() and get_next() ); }
     constexpr void skip_nonalphas() noexcept { while( not got_alpha() and get_next() ); }
     constexpr void skip_nondigits() noexcept { while( not got_digit() and get_next() ); }
-
-    [[maybe_unused]] constexpr bool eat(const Chr ch) noexcept { if(got(ch)){get_next(); return true;} return false; }
-    [[nodiscard]] constexpr string_view remaining() const noexcept { return input.substr(m_pos); }
 };
 
 
