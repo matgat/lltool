@@ -261,9 +261,6 @@ class Directory
 /////////////////////////////////////////////////////////////////////////////
 class TemporaryDirectory final : public Directory
 {
- private:
-    fs::path m_dirpath;
-
  public:
     explicit TemporaryDirectory()
      : Directory( fs::temp_directory_path() / generate_unique_timestamp("~tmp_"sv) )
