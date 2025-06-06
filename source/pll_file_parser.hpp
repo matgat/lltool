@@ -398,6 +398,7 @@ class PllParser final : public plain::ParserBase<char>
            }
 
         const auto start = base::save_context();
+        std::size_t added_vars_count = 0u;
         while( true )
            {
             base::skip_blanks();
@@ -436,12 +437,18 @@ class PllParser final : public plain::ParserBase<char>
                     vgroups.emplace_back(); // Unnamed group
                    }
                 const plcb::Variable& var = vgroups.back().add_variable( collect_variable() );
+                ++added_vars_count;
 
                 if( value_needed and !var.has_value() )
                    {
                     throw base::create_parse_error( std::format("Value not specified for \"{}\"", var.name()) );
                    }
                }
+           }
+           
+        if( added_vars_count==0u )
+           {
+            throw base::create_parse_error("Empty VAR_GLOBAL block");
            }
        }
 
@@ -557,6 +564,10 @@ class PllParser final : public plain::ParserBase<char>
                             throw parser.create_parse_error( std::format("Value not specified for \"{}\"", var.name()) );
                            }
                        }
+                   }
+                if( vars.empty() )
+                   {
+                    throw parser.create_parse_error("Empty variable block");
                    }
                }
 
@@ -1191,7 +1202,10 @@ ut::test("ll::PllParser::collect_directive()") = []
     ut::expect( ut::that % dir.value()=="some string"sv );
 
     parser.skip_any_space();
-    ut::expect( ut::throws([&parser]{ [[maybe_unused]] auto bad = parser.collect_directive(); }) ) << "should complain for bad directive\n";
+    ut::expect( ut::throws([&parser]
+       {
+        [[maybe_unused]] auto bad = parser.collect_directive();
+       }) ) << "should complain for bad directive\n";
    };
 
 
@@ -1453,7 +1467,41 @@ ut::test("Duplicate variable") = []
         "\n"
         "END_FUNCTION_BLOCK\n"sv};
 
-    ut::expect( ut::throws([&parser]{ plcb::Pou fb; parser.collect_pou(fb, "FUNCTION_BLOCK"sv, "END_FUNCTION_BLOCK"sv); }) ) << "should complain for duplicate variable\n";
+    ut::expect( ut::throws([&parser]
+       {
+        plcb::Pou fb;
+        parser.collect_pou(fb, "FUNCTION_BLOCK"sv, "END_FUNCTION_BLOCK"sv);
+       }) ) << "should complain for duplicate variable\n";
+   };
+
+
+ut::test("Empty variable block") = []
+   {
+    ll::PllParser parser
+       {//"FUNCTION_BLOCK"
+        " fb\n"
+        "\n"
+        "{ DE:\"a function block\" }\n"
+        "\n"
+        "	VAR_INPUT\n"
+        "	END_VAR\n"
+        "\n"
+        "\n"
+        "	VAR_EXTERNAL\n"
+        "	var1 : BOOL; { DE:\"variable 1\" }\n"
+        "	var2 : BOOL; { DE:\"variable 2\" }\n"
+        "	END_VAR\n"
+        "\n"
+        "	{ CODE:ST }\n"
+        "    var2 := var1;\n"
+        "\n"
+        "END_FUNCTION_BLOCK\n"sv};
+
+    ut::expect( ut::throws([&parser]
+       {
+        plcb::Pou fb;
+        parser.collect_pou(fb, "FUNCTION_BLOCK"sv, "END_FUNCTION_BLOCK"sv);
+       }) ) << "should complain for empty variable block\n";
    };
 
 
@@ -1594,6 +1642,46 @@ ut::test("ll::PllParser::collect_types()") = []
     ut::expect( ut::that % subrng.descr() == "Tilting angle [deg]"sv );
    };
 
+ut::test("Empty VAR_GLOBAL block") = []
+   {
+    const std::string_view buf =
+        "\n"
+        "   VAR_GLOBAL\n"
+        "   END_VAR\n"
+        "\n"sv;
+
+    ut::expect( ut::throws([buf]
+       {
+        plcb::Library lib("test_lib");
+        issueslog_t issues;
+        ll::pll_parse(lib.name(), buf, lib, std::ref(issues));
+       }) ) << "should complain for empty VAR_GLOBAL block\n";
+   };
+
+
+ut::test("just constants lib") = []
+   {
+    const std::string_view buf =
+	"VAR_GLOBAL CONSTANT\n"
+	"{G:\"Constants\"}\n"
+	"GlassDensity : LREAL := 2600.0; { DE:\"[Kg/m³] Typical range is 2400÷2800 Kg/m³\" }\n"
+	"END_VAR\n"sv;
+
+    plcb::Library lib("just_constants_lib");
+
+    try{
+        issueslog_t issues;
+        ll::pll_parse(lib.name(), buf, lib, std::ref(issues));
+        ut::expect( ut::that % issues.num==0 ) << "no issues expected\n";
+       }
+    catch( parse::error& e )
+       {
+        ut::expect(false) << std::format("Exception: {} (line {})\n", e.what(), e.line());
+       }
+
+    ut::expect( ut::that % lib.global_constants().vars_count() == 1u );
+   };
+
 
 ut::test("ll::pll_parse(sample-lib)") = []
    {
@@ -1611,10 +1699,7 @@ ut::test("ll::pll_parse(sample-lib)") = []
 
     const plcb::Library sample_lib = plcb::make_sample_lib();
     //ut::expect( parsed_lib == sample_lib );
-    if( parsed_lib == sample_lib )
-       {
-       }
-    else
+    if( parsed_lib != sample_lib )
        {
         ut::expect(false) << "Library content mismatch\n";
        }

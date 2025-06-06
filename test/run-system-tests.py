@@ -49,7 +49,7 @@ def closing_bad(msg):
 def closing_ok(msg):
     print(f"\n{GREEN}{msg}{END}")
     if is_temp_console():
-        print(f'{GRAY}Closing...{END}')
+        print(f'{GRAY}Closing script...{END}')
         time.sleep(3)
 
 #----------------------------------------------------------------------------
